@@ -194,6 +194,10 @@ main { padding: 20px 22px; }
   display: flex; align-items: center; gap: 8px;
   font-family: var(--font-mono); font-size: 10.5px; color: var(--muted);
 }
+.etsy-link {
+  margin-left: auto; color: var(--accent); text-decoration: none;
+}
+.etsy-link:hover { text-decoration: underline; }
 .bg-dot {
   width: 11px; height: 11px; border-radius: 50%;
   border: 1px solid var(--muted); display: inline-block;

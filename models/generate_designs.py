@@ -67,10 +67,11 @@ PROMPT_TEMPLATE = """це абсолютно нова концепція і но
 згенеруй зображення"""
 # ==================================================
 
-HEADERS = {"User-Agent": ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                          "AppleWebKit/537.36 (KHTML, like Gecko) "
-                          "Chrome/126.0 Safari/537.36"),
-           "Referer": "https://www.etsy.com/"}
+# Honest identification, no spoofed browser User-Agent or fake Referer -
+# this fetches a public static image by its own URL (the same one already
+# shown to the user by their own browser), not a disguised page-scrape.
+HEADERS = {"User-Agent": "PODStudio/1.0 (personal design-research tool; "
+                        "fetches a public reference image by URL)"}
 MIN_REF_WIDTH = 600  # a reference narrower than this is treated as small and re-downloaded
 
 def _ssl_context():

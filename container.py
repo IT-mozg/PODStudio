@@ -167,6 +167,7 @@ def listings_payload(found: dict) -> list:
             "title": listing.title,
             "thumb": f"/refs/{lid}.jpg" if ref_exists
                      else ui_thumb(listing.remote_img),
+            "etsy_url": f"https://www.etsy.com/listing/{lid}",
             "generated": lid in history,
             "background": bg,
             "history": history.get(lid),

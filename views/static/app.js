@@ -110,11 +110,14 @@ function cardMarkup(l) {
     ? `<span class="bg-dot b-${l.background}" title="фон: ${l.background}"></span><span>${l.background}</span>`
     : "";
   const img = l.thumb ? `<img src="${esc(l.thumb)}" loading="lazy" alt="">` : "";
+  const etsyLink = l.etsy_url
+    ? `<a class="etsy-link" href="${esc(l.etsy_url)}" target="_blank" rel="noopener noreferrer">Etsy ↗</a>`
+    : "";
   return `<div class="card${sel}${done}" data-lid="${l.lid}" tabindex="0" role="checkbox" aria-checked="${!!sel}">
     <div class="card-thumb">${img}<span class="card-check"></span>${chip}</div>
     <div class="card-body">
       <p class="card-title">${esc(l.title)}</p>
-      <div class="card-meta"><span>#${l.lid}</span>${bg}</div>
+      <div class="card-meta"><span>#${l.lid}</span>${bg}${etsyLink}</div>
     </div></div>`;
 }
 
@@ -131,6 +134,8 @@ function wireCards(grid) {
     card.addEventListener("keydown", (e) => {
       if (e.key === " " || e.key === "Enter") { e.preventDefault(); toggle(); }
     });
+    const link = card.querySelector(".etsy-link");
+    if (link) link.addEventListener("click", (e) => e.stopPropagation());
   });
   updateRunbar();
 }
