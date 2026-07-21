@@ -5,11 +5,20 @@ ListingSource implementation backed by the official Etsy Open API v3
 or browser automation, only documented REST requests with an official
 developer key.
 
-STATUS: not yet verified against a real key (the API application has just
-been submitted). The response field mapping was written from the official
-docs, but once a key arrives it is worth running a smoke test
-(list_pages()/get_page() for a couple of queries) and fixing the mapping
-if the actual response shape differs.
+STATUS: verified against a real "Personal Access" key. Two things the docs
+don't make obvious, found by testing directly:
+
+  1. The x-api-key header must be "{keystring}:{shared_secret}", not just
+     the keystring alone - a bare keystring gets a 403
+     ("Shared secret is required in x-api-key header").
+  2. GET /listings/active (search) never embeds images, no matter what
+     `includes` value is passed. Images only come back from the *batch*
+     endpoint (GET /listings/batch?listing_ids=...&includes=Images), so
+     fetching a page of results is a two-step call: search for matching
+     listing_ids (in ranked order), then batch-fetch those specific ids
+     with images. This also keeps the request count down - one batch call
+     for a whole page instead of one image call per listing (relevant
+     given the 5 QPS / 5,000 requests-per-day personal-access limit).
 
 To enable this source instead of the manual page import, in container.py
 replace:
@@ -18,7 +27,8 @@ replace:
 
 with:
 
-    listing_source = EtsyApiListingSource(api_key=..., keywords="funny cat shirt")
+    listing_source = EtsyApiListingSource(
+        api_key=..., shared_secret=..., keywords="funny cat shirt")
 
 The rest of the code (controllers, generation, history) does not know and
 should not need to know that the source changed - that is the whole point
@@ -30,6 +40,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from . import generate_designs as _gd
 from .listing_source import Listing, ListingPage, ListingSource
 
 API_BASE = "https://openapi.etsy.com/v3/application"
@@ -48,10 +59,10 @@ class EtsyApiListingSource(ListingSource):
     HtmlPageListingSource - but the external interface is the same, so
     the UI and the rest of the app do not need to know the difference."""
 
-    def __init__(self, api_key: str, keywords: str, page_size: int = 25):
-        if not api_key:
-            raise ValueError("An Etsy Open API key (x-api-key) is required")
-        self.api_key = api_key
+    def __init__(self, api_key: str, shared_secret: str, keywords: str, page_size: int = 25):
+        if not api_key or not shared_secret:
+            raise ValueError("Both the Etsy API keystring and shared secret are required")
+        self._auth_header = f"{api_key}:{shared_secret}"
         self.keywords = keywords
         self.page_size = page_size
         self._page_cache: dict[int, dict[str, Listing]] = {}
@@ -89,28 +100,43 @@ class EtsyApiListingSource(ListingSource):
 
     # ---------------- internal ----------------
 
-    def _fetch(self, offset: int) -> tuple[dict[str, Listing], int]:
-        params = urllib.parse.urlencode({
-            "keywords": self.keywords,
-            "limit": self.page_size,
-            "offset": offset,
-        })
-        url = f"{API_BASE}/listings/active?{params}"
-        req = urllib.request.Request(url, headers={"x-api-key": self.api_key})
+    def _get(self, url: str) -> dict:
+        req = urllib.request.Request(url, headers={"x-api-key": self._auth_header})
         try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
+            with urllib.request.urlopen(req, timeout=TIMEOUT, context=_gd.SSL_CTX) as resp:
+                return json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
             body = e.read().decode("utf-8", errors="replace")
             raise EtsyApiError(f"Etsy API {e.code}: {body[:300]}") from e
         except urllib.error.URLError as e:
             raise EtsyApiError(f"Could not reach the Etsy API: {e}") from e
 
-        total = data.get("count", 0)
+    def _fetch(self, offset: int) -> tuple[dict[str, Listing], int]:
+        search_params = urllib.parse.urlencode({
+            "keywords": self.keywords,
+            "limit": self.page_size,
+            "offset": offset,
+        })
+        search_data = self._get(f"{API_BASE}/listings/active?{search_params}")
+        total = search_data.get("count", 0)
+        ids = [str(r["listing_id"]) for r in search_data.get("results", [])
+               if r.get("listing_id")]
+        if not ids:
+            return {}, total
+
+        # step 2: one batch call to get titles + images for exactly these ids,
+        # keeping the ranked order from the search step
+        batch_params = urllib.parse.urlencode({
+            "listing_ids": ",".join(ids),
+            "includes": "Images",
+        })
+        batch_data = self._get(f"{API_BASE}/listings/batch?{batch_params}")
+        by_id = {str(r["listing_id"]): r for r in batch_data.get("results", [])}
+
         listings: dict[str, Listing] = {}
-        for row in data.get("results", []):
-            lid = str(row.get("listing_id", ""))
-            if not lid:
+        for lid in ids:
+            row = by_id.get(lid)
+            if not row:
                 continue
             images = row.get("images") or []
             remote_img = images[0].get("url_570xN", "") if images else ""
