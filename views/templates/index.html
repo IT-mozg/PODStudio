@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>POD Studio</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="wordmark">POD&nbsp;STUDIO</span>
+    <span class="brand-sub">конвеєр дизайнів · Etsy → принт</span>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="listings">Лістинги</button>
+    <button class="tab" data-tab="results">Результати <span id="resultsBadge" class="badge hidden">0</span></button>
+    <button class="tab" data-tab="history">Історія</button>
+  </nav>
+  <button class="icon-btn" id="settingsBtn" title="Налаштування" aria-label="Налаштування">⚙</button>
+</header>
+
+<!-- control panel -->
+<section class="controls" id="controlsBar">
+  <div class="drop" id="dropZone">
+    <input type="file" id="fileInput" accept=".html,.htm" multiple hidden>
+    <span class="drop-title">Перетягни сюди збережені сторінки Etsy</span>
+    <span class="drop-sub">.html · пошук / магазин / обране · Chrome: Cmd+S → «Веб-сторінка повністю» · <span id="pagesCount">0</span> стор. у папці</span>
+  </div>
+  <div class="settings-row">
+    <label class="field">
+      <span class="field-label">Модель</span>
+      <select id="modelSel">
+        <option value="gpt-image-2">gpt-image-2 · топ якість</option>
+        <option value="gpt-image-1.5">gpt-image-1.5</option>
+        <option value="gpt-image-1-mini">gpt-image-1-mini · тести</option>
+      </select>
+    </label>
+    <label class="field">
+      <span class="field-label">Якість</span>
+      <select id="qualitySel">
+        <option value="high">high</option>
+        <option value="medium">medium</option>
+        <option value="low">low · тести</option>
+      </select>
+    </label>
+    <div class="select-tools">
+      <button class="ghost-btn" id="selectNew">Вибрати всі нові</button>
+      <button class="ghost-btn" id="selectNone">Зняти вибір</button>
+    </div>
+  </div>
+</section>
+
+<main>
+  <!-- LISTINGS -->
+  <section class="view active" id="view-listings">
+    <div class="empty" id="listingsEmpty">
+      <p class="empty-title">Поки що порожньо</p>
+      <p>Збережи сторінку Etsy (пошук, магазин, обране) і перетягни її сюди — картки лістингів з'являться тут.</p>
+    </div>
+    <div class="page-label hidden" id="pageLabel"></div>
+    <div class="grid" id="listingsGrid"></div>
+    <div class="pagination hidden" id="pagesPagination">
+      <button class="ghost-btn" id="pagPrev">← Попередня сторінка</button>
+      <span class="pag-numbers" id="pagNumbers"></span>
+      <button class="ghost-btn" id="pagNext">Наступна сторінка →</button>
+    </div>
+  </section>
+
+  <!-- RESULTS -->
+  <section class="view" id="view-results">
+    <div class="results-head">
+      <h2 class="view-title">Результати цієї сесії</h2>
+      <button class="ghost-btn" id="openFolder">Відкрити папку output</button>
+    </div>
+    <div class="empty" id="resultsEmpty">
+      <p class="empty-title">Ще нічого не згенеровано</p>
+      <p>Вибери лістинги і натисни «Генерувати» — пари «референс → результат» з'являться тут.</p>
+    </div>
+    <div class="pairs" id="resultsList"></div>
+  </section>
+
+  <!-- HISTORY -->
+  <section class="view" id="view-history">
+    <h2 class="view-title">Все, що вже генерувалось</h2>
+    <div class="empty" id="historyEmpty">
+      <p class="empty-title">Історія порожня</p>
+      <p>Після першої генерації тут буде список лістингів, які вже опрацьовані — вони не генеруються повторно.</p>
+    </div>
+    <div class="history-list" id="historyList"></div>
+  </section>
+</main>
+
+<!-- bottom launch bar -->
+<footer class="runbar" id="runbar">
+  <div class="run-info">
+    <span class="run-count"><b id="selCount">0</b> вибрано</span>
+    <span class="stamp" id="costStamp">≈ $0.00</span>
+    <span class="stamp stamp-muted hidden" id="budgetStamp"></span>
+  </div>
+  <div class="run-progress hidden" id="progressWrap">
+    <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+    <span class="progress-text" id="progressText"></span>
+    <button class="ghost-btn danger" id="stopBtn">Стоп</button>
+  </div>
+  <button class="primary-btn" id="generateBtn" disabled>Генерувати</button>
+</footer>
+
+<!-- regeneration modal -->
+<div class="modal-back hidden" id="regenModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="regenTitle">Перегенерувати</h3>
+      <button class="icon-btn" data-close aria-label="Закрити">✕</button>
+    </div>
+    <div class="source-toggle" role="radiogroup">
+      <label><input type="radio" name="regenSource" value="ref" checked>
+        <img class="source-thumb" id="regenRefThumb" alt="референс">
+        <span><b>Від референсу конкурента</b><br><small>чиста нова спроба — якщо результат не сподобався взагалі</small></span></label>
+      <label><input type="radio" name="regenSource" value="result">
+        <img class="source-thumb" id="regenResultThumb" alt="мій результат">
+        <span><b>Від мого результату</b><br><small>доробка майже готового — «збережи все, виправ ось це»</small></span></label>
+    </div>
+    <div class="settings-row">
+      <label class="field">
+        <span class="field-label">Модель</span>
+        <select id="regenModel">
+          <option value="gpt-image-2">gpt-image-2 · топ якість</option>
+          <option value="gpt-image-1.5">gpt-image-1.5</option>
+          <option value="gpt-image-1-mini">gpt-image-1-mini · тести</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label">Якість</span>
+        <select id="regenQuality">
+          <option value="high">high</option>
+          <option value="medium">medium</option>
+          <option value="low">low · тести</option>
+        </select>
+      </label>
+    </div>
+    <label class="field-label" for="regenPrompt">Промпт для цієї генерації</label>
+    <textarea id="regenPrompt" rows="11" spellcheck="false"></textarea>
+    <div class="modal-actions">
+      <button class="ghost-btn" id="regenReset">Скинути до стандартного</button>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="stamp" id="regenCost">≈ $0.00</span>
+        <button class="primary-btn" id="regenGo">Перегенерувати</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- settings -->
+<div class="modal-back hidden" id="settingsModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Налаштування</h3>
+      <button class="icon-btn" data-close aria-label="Закрити">✕</button>
+    </div>
+    <label class="field-label" for="apiKeyInput">API-ключ OpenAI <span class="muted" id="keyState"></span></label>
+    <input type="password" id="apiKeyInput" placeholder="sk-proj-..." autocomplete="off">
+    <label class="field-label" for="tplInput">Базовий шаблон промпта <span class="muted">({theme} і {background} підставляються самі)</span></label>
+    <textarea id="tplInput" rows="12" spellcheck="false"></textarea>
+    <label class="field-label" for="budgetInput">Баланс OpenAI, $ <span class="muted">(встав актуальну цифру з platform.openai.com → Settings → Billing — застосунок сам вираховуватиме витрати з цього моменту)</span></label>
+    <input type="number" id="budgetInput" placeholder="напр. 6.95" min="0" step="0.01">
+    <div class="modal-actions">
+      <button class="ghost-btn" id="tplReset">Скинути шаблон</button>
+      <button class="primary-btn" id="settingsSave">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<!-- generate confirmation modal -->
+<div class="modal-back hidden" id="generateModal">
+  <div class="modal modal-wide">
+    <div class="modal-head">
+      <h3>Генерація <span id="genModalCount"></span></h3>
+      <button class="icon-btn" data-close aria-label="Закрити">✕</button>
+    </div>
+    <div class="gen-modal-list" id="genModalList"></div>
+    <div class="modal-actions">
+      <span class="stamp" id="genModalCost">≈ $0.00</span>
+      <button class="primary-btn" id="genModalGo">Генерувати</button>
+    </div>
+  </div>
+</div>
+
+<!-- image preview -->
+<div class="modal-back hidden" id="imageModal">
+  <button class="icon-btn img-modal-close" data-close aria-label="Закрити">✕</button>
+  <img id="imageModalImg" src="" alt="">
+</div>
+
+<div class="toast hidden" id="toast"></div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>
