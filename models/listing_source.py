@@ -21,11 +21,20 @@ from pathlib import Path
 
 @dataclass
 class Listing:
-    """A single Etsy item - regardless of where it came from."""
+    """A single Etsy item - regardless of where it came from.
+
+    num_favorers/views/created_timestamp are optional engagement stats -
+    populated by sources that actually have them (EtsyApiListingSource),
+    left at their defaults by sources that don't (HtmlPageListingSource).
+    They power the "Популярне"/"Гаряче" badges - see is_popular/is_hot
+    below."""
     lid: str
     title: str
     local_img: str = ""
     remote_img: str = ""
+    num_favorers: int = 0
+    views: int = 0
+    created_timestamp: int = 0  # unix seconds, original creation date
 
 
 @dataclass
@@ -62,6 +71,17 @@ class ListingSource(ABC):
         (e.g. one batch API call) without walking every page."""
         wanted = set(lids)
         return {lid: listing for lid, listing in self.get_all().items() if lid in wanted}
+
+    def is_popular(self, listing: Listing) -> bool:
+        """Whether this listing deserves a "Популярне" badge. Default: no
+        engagement data available, so always False - override where the
+        source actually has real stats (see EtsyApiListingSource)."""
+        return False
+
+    def is_hot(self, listing: Listing) -> bool:
+        """Whether this listing deserves a "Гаряче" (trending) badge.
+        Same idea as is_popular - default False."""
+        return False
 
     def add_source(self, **kwargs) -> int:
         """Add a new page to the source (e.g. an uploaded file).

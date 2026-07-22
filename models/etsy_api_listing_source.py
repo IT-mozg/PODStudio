@@ -35,10 +35,18 @@ Credentials are passed as callables (api_key_provider/shared_secret_provider),
 not plain strings, so they can be read fresh from settings on every request -
 the same pattern OpenAIDesignGenerator uses for the OpenAI key. That way
 saving new Etsy credentials in Settings takes effect immediately, no restart.
+
+"Популярне"/"Гаряче" badges (is_popular/is_hot): Etsy's API exposes no
+bestseller/popularity signal at all (confirmed live - no such field, no
+such sort, no such filter). What it does give per listing is num_favorers,
+views (both lifetime totals, not "today") and the creation date. See
+_compute_calibration() below for exactly how those are turned into badges.
 """
 
 import html
 import json
+import math
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -50,6 +58,7 @@ from .listing_source import Listing, ListingPage, ListingSource
 API_BASE = "https://openapi.etsy.com/v3/application"
 TIMEOUT = 15
 MAX_PAGES = 40  # a sane browsing depth cap - nobody needs to page to result #35,000
+BADGE_PERCENTILE = 0.15  # top ~15% of the calibration sample earns a badge
 
 
 class EtsyApiError(RuntimeError):
@@ -76,6 +85,7 @@ class EtsyApiListingSource(ListingSource):
         self._has_searched = False
         self._page_cache: dict[int, dict[str, Listing]] = {}
         self._total_count: int | None = None
+        self._calibration: dict | None = None
         if keywords:
             self.search(keywords)
 
@@ -87,6 +97,7 @@ class EtsyApiListingSource(ListingSource):
         self._has_searched = bool(self.keywords)
         self._page_cache = {}
         self._total_count = None
+        self._calibration = None
 
     # ---------------- ListingSource ----------------
 
@@ -132,6 +143,16 @@ class EtsyApiListingSource(ListingSource):
     # no sense for an API-backed source, the base ListingSource.add_source()
     # already raises NotImplementedError.
 
+    def is_popular(self, listing: Listing) -> bool:
+        if not self._calibration:
+            return False
+        return math.log1p(listing.num_favorers) >= self._calibration["pop_threshold"]
+
+    def is_hot(self, listing: Listing) -> bool:
+        if not self._calibration:
+            return False
+        return self._composite_score(listing, self._calibration) >= self._calibration["hot_threshold"]
+
     # ---------------- internal ----------------
 
     def _get(self, url: str) -> dict:
@@ -174,6 +195,9 @@ class EtsyApiListingSource(ListingSource):
                 lid=lid,
                 title=html.unescape(row.get("title", "")),
                 remote_img=remote_img,
+                num_favorers=row.get("num_favorers") or 0,
+                views=row.get("views") or 0,
+                created_timestamp=row.get("original_creation_timestamp") or 0,
             )
         return listings
 
@@ -199,4 +223,65 @@ class EtsyApiListingSource(ListingSource):
         # keeping the ranked order from the search step
         by_id = self._batch_fetch(ids)
         listings = {lid: by_id[lid] for lid in ids if lid in by_id}
+
+        # Badge calibration is computed once per search, from whichever page
+        # is fetched first (in practice always page 0, since the UI always
+        # loads page 1 before paging further) - then reused as-is for every
+        # other page of the same query, so a listing's badge does not flip
+        # depending on which page happened to load it.
+        if self._calibration is None and listings:
+            self._calibration = self._compute_calibration(listings)
+
         return listings, total
+
+    @staticmethod
+    def _velocity(listing: Listing, now: float) -> float:
+        """Views per day since creation - a proxy for "trending" since Etsy
+        gives no rolling/daily view counts, only lifetime totals."""
+        age_days = max(1.0, (now - listing.created_timestamp) / 86400) \
+            if listing.created_timestamp else 1.0
+        return listing.views / age_days
+
+    @staticmethod
+    def _conversion(listing: Listing) -> float:
+        """Favorites per view - a proxy for how much an item resonates with
+        the people who actually see it, independent of its raw view count."""
+        return listing.num_favorers / listing.views if listing.views else 0.0
+
+    def _composite_score(self, listing: Listing, calibration: dict) -> float:
+        vel_max = calibration["vel_max"] or 1.0
+        conv_max = calibration["conv_max"] or 1.0
+        vel_norm = min(1.0, self._velocity(listing, calibration["now"]) / vel_max)
+        conv_norm = min(1.0, self._conversion(listing) / conv_max)
+        return 0.6 * vel_norm + 0.4 * conv_norm
+
+    def _compute_calibration(self, listings: dict[str, Listing]) -> dict:
+        """Turns one page's worth of raw stats into thresholds for the
+        badges, calibrated to this specific search's own results (a niche
+        query and a broad query have wildly different favorite/view scales,
+        so a fixed global threshold would misfire on one of them).
+
+        "Популярне": top ~15% by log(num_favorers+1) - log-scaled because
+        favorites are extremely right-skewed (a few viral listings would
+        otherwise blow out a linear scale).
+
+        "Гаряче": top ~15% by a 0.6/0.4 blend of normalized velocity
+        (views/day) and normalized conversion (favorites/view) - velocity
+        catches items getting a lot of fresh traffic, conversion catches
+        items that convert that traffic disproportionately well; blending
+        the two avoids "Гаряче" being pure "highest view count"."""
+        now = time.time()
+        values = list(listings.values())
+
+        pop_scores = sorted((math.log1p(l.num_favorers) for l in values), reverse=True)
+        vel_max = max((self._velocity(l, now) for l in values), default=0.0) or 1.0
+        conv_max = max((self._conversion(l) for l in values), default=0.0) or 1.0
+
+        calibration = {"now": now, "vel_max": vel_max, "conv_max": conv_max}
+        hot_scores = sorted(
+            (self._composite_score(l, calibration) for l in values), reverse=True)
+
+        rank = max(0, min(len(values) - 1, int(len(values) * BADGE_PERCENTILE)))
+        calibration["pop_threshold"] = pop_scores[rank] if pop_scores else float("inf")
+        calibration["hot_threshold"] = hot_scores[rank] if hot_scores else float("inf")
+        return calibration
