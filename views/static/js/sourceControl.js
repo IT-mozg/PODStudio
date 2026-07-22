@@ -7,7 +7,7 @@
 "use strict";
 
 import { $, state, api, toast } from "./core.js";
-import { loadPageFiles } from "./listings.js";
+import { loadPageFiles, setListingsBusy } from "./listings.js";
 
 const PANEL_BY_SOURCE = { etsy_search: "panel-etsy_search", saved_pages: "panel-saved_pages" };
 
@@ -21,13 +21,18 @@ function applyActiveSource(id) {
 
 async function switchSource(id) {
   if (id === state.activeSource) return;
+  // Locked here already (not just once loadPageFiles gets to it below) so
+  // the tabs can't be clicked again while the /api/sources switch itself is
+  // still in flight - that gap was exactly how a fast back-and-forth click
+  // used to start two overlapping loads racing each other.
+  setListingsBusy(true);
   try {
     await api("/api/sources", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
-  } catch (e) { toast(e.message, true); return; }
+  } catch (e) { toast(e.message, true); setListingsBusy(false); return; }
   applyActiveSource(id);
   state.selected.clear();
   await loadPageFiles(0);

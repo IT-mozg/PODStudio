@@ -97,6 +97,21 @@ body {
 .source-panel { flex: 1 1 340px; display: flex; }
 .source-panel.hidden { display: none; }
 
+/* while listings are (re)loading - e.g. mid source-switch - lock the
+   controls that could start another overlapping load, so a fast
+   tab-tab-tab click sequence can't race two loads against each other. */
+body.listings-busy .source-switch,
+body.listings-busy .source-panel {
+  pointer-events: none;
+  opacity: .55;
+}
+.listings-loading {
+  display: flex; align-items: center; justify-content: center; gap: 9px;
+  padding: 46px 0; color: var(--muted);
+  font-family: var(--font-mono); font-size: 12.5px;
+}
+.grid.busy { opacity: .35; pointer-events: none; }
+
 .search-bar {
   flex: 1;
   display: flex; gap: 10px;
