@@ -162,14 +162,8 @@ function cardMarkup(l) {
   const etsyLink = l.etsy_url
     ? `<a class="etsy-link" href="${esc(l.etsy_url)}" target="_blank" rel="noopener noreferrer">Etsy ↗</a>`
     : "";
-  const badges = (l.hot || l.popular)
-    ? `<div class="pop-badges">
-         ${l.hot ? '<span class="pop-badge hot">🔥 Гаряче</span>' : ""}
-         ${l.popular ? '<span class="pop-badge popular">★ Популярне</span>' : ""}
-       </div>`
-    : "";
   return `<div class="card${sel}${done}" data-lid="${l.lid}" tabindex="0" role="checkbox" aria-checked="${!!sel}">
-    <div class="card-thumb">${img}<span class="card-check"></span>${chip}${badges}</div>
+    <div class="card-thumb">${img}<span class="card-check"></span>${chip}</div>
     <div class="card-body">
       <p class="card-title">${esc(l.title)}</p>
       <div class="card-meta"><span>#${l.lid}</span>${bg}${etsyLink}</div>
@@ -197,14 +191,10 @@ function wireCards(grid) {
 
 function renderListings() {
   const grid = $("listingsGrid");
-  const shown = $("popularOnly").checked
-    ? state.listings.filter((l) => l.hot || l.popular)
-    : state.listings;
   $("listingsEmpty").classList.toggle("hidden", state.listings.length > 0);
-  grid.innerHTML = shown.map(cardMarkup).join("");
+  grid.innerHTML = state.listings.map(cardMarkup).join("");
   wireCards(grid);
 }
-$("popularOnly").addEventListener("change", renderListings);
 
 $("selectNew").addEventListener("click", () => {
   state.listings.forEach((l) => { if (!l.generated) state.selected.add(l.lid); });

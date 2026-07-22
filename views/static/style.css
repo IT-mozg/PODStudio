@@ -111,12 +111,6 @@ select:focus, input:focus, textarea:focus, button:focus-visible {
   outline: 2px solid var(--accent); outline-offset: 1px;
 }
 .select-tools { display: flex; gap: 8px; padding-bottom: 1px; }
-.filter-toggle {
-  display: flex; align-items: center; gap: 7px;
-  font-family: var(--font-sans); font-size: 13px; color: var(--paper);
-  cursor: pointer; padding-bottom: 1px;
-}
-.filter-toggle input { accent-color: var(--accent); width: 15px; height: 15px; cursor: pointer; }
 
 /* ---------- buttons ---------- */
 .ghost-btn {
@@ -197,18 +191,6 @@ main { padding: 20px 22px; }
   background: rgba(27, 23, 18, .78); color: var(--paper);
 }
 .chip.gen { color: var(--ok); }
-.pop-badges {
-  position: absolute; bottom: 8px; left: 8px;
-  display: flex; flex-direction: column; gap: 4px; align-items: flex-start;
-}
-.pop-badge {
-  font-family: var(--font-mono); font-size: 10px;
-  text-transform: uppercase; letter-spacing: .05em;
-  padding: 3px 7px; border-radius: 5px;
-  background: rgba(27, 23, 18, .78);
-}
-.pop-badge.hot { color: var(--accent); }
-.pop-badge.popular { color: var(--paper); }
 .card-body { padding: 9px 11px 11px; }
 .card-title {
   font-size: 12.5px; line-height: 1.35; margin: 0 0 7px;

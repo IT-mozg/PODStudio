@@ -41,6 +41,15 @@ bestseller/popularity signal at all (confirmed live - no such field, no
 such sort, no such filter). What it does give per listing is num_favorers,
 views (both lifetime totals, not "today") and the creation date. See
 _compute_calibration() below for exactly how those are turned into badges.
+
+ON HOLD (not wired into the UI): pure percentile calibration turned out to
+badge listings with tiny absolute engagement (e.g. 4 favorites over 28
+months) whenever the rest of that search's results were even weaker -
+needs absolute floors (min favorites, min views) added on top of the
+percentile check before it's trustworthy. The calibration/is_popular/
+is_hot code is left in place (still runs on every search, just unused) so
+it's ready to pick back up - container.listings_payload() simply does not
+read is_popular()/is_hot() anymore.
 """
 
 import html

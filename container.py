@@ -187,7 +187,5 @@ def listings_payload(found: dict) -> list:
             "background": bg,
             "history": history.get(lid),
             "prompt": saved_prompt or build_prompt(listing.title, bg),
-            "popular": listing_source.is_popular(listing),
-            "hot": listing_source.is_hot(listing),
         })
     return out
