@@ -30,22 +30,6 @@
     <button class="primary-btn" id="searchBtn">Шукати</button>
   </div>
   <div class="settings-row">
-    <label class="field">
-      <span class="field-label">Модель</span>
-      <select id="modelSel">
-        <option value="gpt-image-2">gpt-image-2 · топ якість</option>
-        <option value="gpt-image-1.5">gpt-image-1.5</option>
-        <option value="gpt-image-1-mini">gpt-image-1-mini · тести</option>
-      </select>
-    </label>
-    <label class="field">
-      <span class="field-label">Якість</span>
-      <select id="qualitySel">
-        <option value="high">high</option>
-        <option value="medium">medium</option>
-        <option value="low">low · тести</option>
-      </select>
-    </label>
     <div class="select-tools">
       <button class="ghost-btn" id="selectNew">Вибрати всі нові</button>
       <button class="ghost-btn" id="selectNone">Зняти вибір</button>
@@ -166,6 +150,24 @@
     <input type="password" id="etsyKeyInput" placeholder="напр. sxp60ugqu2if2lpz73isvq70" autocomplete="off">
     <label class="field-label" for="etsySecretInput">Etsy Shared Secret <span class="muted" id="etsySecretState"></span></label>
     <input type="password" id="etsySecretInput" placeholder="напр. pw5schbsfk" autocomplete="off">
+    <div class="settings-row">
+      <label class="field">
+        <span class="field-label">Модель</span>
+        <select id="modelSel">
+          <option value="gpt-image-2">gpt-image-2 · топ якість</option>
+          <option value="gpt-image-1.5">gpt-image-1.5</option>
+          <option value="gpt-image-1-mini">gpt-image-1-mini · тести</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label">Якість</span>
+        <select id="qualitySel">
+          <option value="high">high</option>
+          <option value="medium">medium</option>
+          <option value="low">low · тести</option>
+        </select>
+      </label>
+    </div>
     <label class="field-label" for="tplInput">Базовий шаблон промпта <span class="muted">({theme} і {background} підставляються самі)</span></label>
     <textarea id="tplInput" rows="12" spellcheck="false"></textarea>
     <label class="field-label" for="budgetInput">Баланс OpenAI, $ <span class="muted">(встав актуальну цифру з platform.openai.com → Settings → Billing — застосунок сам вираховуватиме витрати з цього моменту)</span></label>

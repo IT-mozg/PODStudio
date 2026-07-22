@@ -22,6 +22,14 @@ don't make obvious, found by testing directly:
   3. Titles come back with literal HTML entities baked in (e.g. "DM&#39;s
      Plans" instead of "DM's Plans"), so they need html.unescape() before
      display - Etsy's API does not do this for you.
+  4. Without an explicit sort_on, results are NOT ranked by relevance -
+     confirmed live: unsorted results mixed in barely-related items (even
+     digital SVG/PNG downloads for a plain "funny cat shirt" search).
+     sort_on=score is what actually orders by match quality, and it is
+     always sent now. There is no favorites/popularity sort or filter at
+     all (min_favorites and is_best_seller/explicit - the query params the
+     Etsy *website* uses - are silently ignored by this API); min_price/
+     max_price (in whole dollars) do work, confirmed live.
 
 Credentials are passed as callables (api_key_provider/shared_secret_provider),
 not plain strings, so they can be read fresh from settings on every request -
@@ -174,6 +182,11 @@ class EtsyApiListingSource(ListingSource):
             "keywords": self.keywords,
             "limit": self.page_size,
             "offset": offset,
+            # Without an explicit sort, Etsy does NOT rank by relevance -
+            # results include barely-related items (even digital downloads
+            # for a physical-product search). sort_on=score is what actually
+            # orders by how well a listing matches the query.
+            "sort_on": "score",
         })
         search_data = self._get(f"{API_BASE}/listings/active?{search_params}")
         total = search_data.get("count", 0)
