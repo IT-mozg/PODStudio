@@ -84,17 +84,16 @@ body {
   padding: 16px 22px; border-bottom: 1px solid var(--line);
   flex-wrap: wrap;
 }
-.drop {
+.search-bar {
   flex: 1 1 340px;
-  border: 1.5px dashed var(--line);
-  border-radius: 10px;
-  padding: 14px 18px;
-  display: flex; flex-direction: column; gap: 3px; justify-content: center;
-  cursor: pointer; transition: border-color .15s, background .15s;
+  display: flex; gap: 10px;
 }
-.drop:hover, .drop.over { border-color: var(--accent); background: rgba(224, 169, 62, .05); }
-.drop-title { font-weight: 600; }
-.drop-sub { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+.search-bar input[type="text"] {
+  flex: 1; background: var(--panel); color: var(--paper);
+  border: 1px solid var(--line); border-radius: 8px;
+  font-family: var(--font-sans); font-size: 14px; padding: 0 13px;
+}
+.search-bar input[type="text"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
 
 .settings-row { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; }
 .field { display: flex; flex-direction: column; gap: 5px; }

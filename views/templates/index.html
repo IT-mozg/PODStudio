@@ -25,10 +25,9 @@
 
 <!-- control panel -->
 <section class="controls" id="controlsBar">
-  <div class="drop" id="dropZone">
-    <input type="file" id="fileInput" accept=".html,.htm" multiple hidden>
-    <span class="drop-title">Перетягни сюди збережені сторінки Etsy</span>
-    <span class="drop-sub">.html · пошук / магазин / обране · Chrome: Cmd+S → «Веб-сторінка повністю» · <span id="pagesCount">0</span> стор. у папці</span>
+  <div class="search-bar">
+    <input type="text" id="searchQuery" placeholder="Пошук на Etsy, напр.: funny cat shirt" autocomplete="off">
+    <button class="primary-btn" id="searchBtn">Шукати</button>
   </div>
   <div class="settings-row">
     <label class="field">
@@ -59,7 +58,7 @@
   <section class="view active" id="view-listings">
     <div class="empty" id="listingsEmpty">
       <p class="empty-title">Поки що порожньо</p>
-      <p>Збережи сторінку Etsy (пошук, магазин, обране) і перетягни її сюди — картки лістингів з'являться тут.</p>
+      <p>Введи пошуковий запит вгорі і натисни «Шукати» — лістинги з Etsy з'являться тут.</p>
     </div>
     <div class="page-label hidden" id="pageLabel"></div>
     <div class="grid" id="listingsGrid"></div>
@@ -163,6 +162,10 @@
     </div>
     <label class="field-label" for="apiKeyInput">API-ключ OpenAI <span class="muted" id="keyState"></span></label>
     <input type="password" id="apiKeyInput" placeholder="sk-proj-..." autocomplete="off">
+    <label class="field-label" for="etsyKeyInput">Etsy API Keystring <span class="muted" id="etsyKeyState"></span></label>
+    <input type="password" id="etsyKeyInput" placeholder="напр. sxp60ugqu2if2lpz73isvq70" autocomplete="off">
+    <label class="field-label" for="etsySecretInput">Etsy Shared Secret <span class="muted" id="etsySecretState"></span></label>
+    <input type="password" id="etsySecretInput" placeholder="напр. pw5schbsfk" autocomplete="off">
     <label class="field-label" for="tplInput">Базовий шаблон промпта <span class="muted">({theme} і {background} підставляються самі)</span></label>
     <textarea id="tplInput" rows="12" spellcheck="false"></textarea>
     <label class="field-label" for="budgetInput">Баланс OpenAI, $ <span class="muted">(встав актуальну цифру з platform.openai.com → Settings → Billing — застосунок сам вираховуватиме витрати з цього моменту)</span></label>

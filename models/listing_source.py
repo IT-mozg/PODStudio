@@ -53,6 +53,16 @@ class ListingSource(ABC):
     def get_all(self) -> dict[str, Listing]:
         """All listings from all pages, merged (first occurrence wins)."""
 
+    def get_by_ids(self, lids: list[str]) -> dict[str, Listing]:
+        """Listings for specific ids, regardless of which page they're on.
+
+        Default implementation just filters get_all() - fine for a source
+        with a handful of cheap-to-enumerate pages (HtmlPageListingSource).
+        Override this when a source can fetch specific ids more cheaply
+        (e.g. one batch API call) without walking every page."""
+        wanted = set(lids)
+        return {lid: listing for lid, listing in self.get_all().items() if lid in wanted}
+
     def add_source(self, **kwargs) -> int:
         """Add a new page to the source (e.g. an uploaded file).
 

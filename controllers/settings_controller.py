@@ -19,12 +19,16 @@ def api_budget():
     return jsonify(container.balance_status())
 
 
+def _mask(key: str) -> str:
+    return (key[:7] + "…" + key[-4:]) if len(key) > 14 else ("є" if key else "")
+
+
 @settings_bp.get("/settings")
 def api_settings():
     cfg = container.load_config()
-    key = container.get_api_key()
-    masked = (key[:7] + "…" + key[-4:]) if len(key) > 14 else ("є" if key else "")
-    return jsonify({"api_key_masked": masked,
+    return jsonify({"api_key_masked": _mask(container.get_api_key()),
+                    "etsy_api_key_masked": _mask(container.get_etsy_api_key()),
+                    "etsy_shared_secret_set": bool(container.get_etsy_shared_secret()),
                     "prompt_template": cfg.get("prompt_template",
                                                engine.PROMPT_TEMPLATE),
                     "default_template": engine.PROMPT_TEMPLATE,
@@ -38,6 +42,10 @@ def api_settings_save():
     def mutate(cfg):
         if data.get("api_key"):
             cfg["api_key"] = data["api_key"].strip()
+        if data.get("etsy_api_key"):
+            cfg["etsy_api_key"] = data["etsy_api_key"].strip()
+        if data.get("etsy_shared_secret"):
+            cfg["etsy_shared_secret"] = data["etsy_shared_secret"].strip()
         if "prompt_template" in data:
             tpl = data["prompt_template"].strip()
             if tpl and tpl != engine.PROMPT_TEMPLATE:

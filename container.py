@@ -14,9 +14,12 @@ from pathlib import Path
 
 from models import generate_designs as engine
 from models.design_generator import OpenAIDesignGenerator
+from models.etsy_api_listing_source import EtsyApiListingSource
 from models.generation_queue import GenerationQueue, ReferenceResolver
 from models.history_store import HistoryStore
-from models.listing_source import HtmlPageListingSource
+# HtmlPageListingSource (manual "save the page, drag it in" import) is kept
+# in models/listing_source.py and models/generate_designs.py untouched, in
+# case we ever want to switch back - just not wired in below anymore.
 
 BASE = Path(__file__).parent.resolve()
 os.chdir(BASE)  # keep pages/refs/output/history next to the project root
@@ -69,6 +72,14 @@ def get_api_key() -> str:
             or engine.API_KEY)
 
 
+def get_etsy_api_key() -> str:
+    return os.getenv("ETSY_API_KEY", "") or load_config().get("etsy_api_key", "")
+
+
+def get_etsy_shared_secret() -> str:
+    return os.getenv("ETSY_SHARED_SECRET", "") or load_config().get("etsy_shared_secret", "")
+
+
 def base_template() -> str:
     return load_config().get("prompt_template", engine.PROMPT_TEMPLATE)
 
@@ -107,7 +118,11 @@ def balance_status() -> dict:
 # html files and the generator is OpenAI. To swap in the Etsy API or a
 # different AI provider, only these lines need to change.
 
-listing_source = HtmlPageListingSource(engine.PAGES_DIR, parser=engine.parse_page)
+listing_source = EtsyApiListingSource(
+    api_key_provider=get_etsy_api_key,
+    shared_secret_provider=get_etsy_shared_secret,
+    page_size=78,
+)
 design_generator = OpenAIDesignGenerator(api_key_provider=get_api_key)
 
 history_store = HistoryStore(engine.HISTORY_FILE)

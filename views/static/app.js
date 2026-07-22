@@ -52,12 +52,41 @@ document.querySelectorAll(".tab").forEach((btn) => {
   });
 });
 
-/* ---------------- listings (locally imported pages) ---------------- */
+/* ---------------- search ---------------- */
+
+async function runSearch() {
+  const query = $("searchQuery").value.trim();
+  if (!query) { toast("Введи пошуковий запит", true); return; }
+  $("searchBtn").disabled = true;
+  try {
+    await api("/api/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ query }),
+    });
+    await loadPageFiles(0);
+  } catch (e) {
+    toast(e.message, true);
+  } finally {
+    $("searchBtn").disabled = false;
+  }
+}
+$("searchBtn").addEventListener("click", runSearch);
+$("searchQuery").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") { e.preventDefault(); runSearch(); }
+});
+
+/* ---------------- listings (pages of the current search) ---------------- */
 
 async function loadPageFiles(jumpTo) {
-  const data = await api("/api/pages");
+  let data;
+  try {
+    data = await api("/api/pages");
+  } catch (e) {
+    toast(e.message, true);
+    return;
+  }
   state.pageFiles = data.files;
-  $("pagesCount").textContent = state.pageFiles.length;
   if (typeof jumpTo === "number") {
     state.pageIndex = jumpTo;
   } else if (state.pageIndex >= state.pageFiles.length) {
@@ -69,12 +98,14 @@ async function loadPageFiles(jumpTo) {
 async function loadListingsPage() {
   const file = state.pageFiles[state.pageIndex];
   const url = file ? `/api/listings?file=${encodeURIComponent(file.name)}` : "/api/listings";
-  const data = await api(url);
-  state.listings = file ? data.listings : [];
-  state.cost = data.cost;
-  // drop selections for lids that no longer exist in any file (rare case -
-  // a file was removed from disk by hand); we don't touch the selection
-  // just because we're on this same page
+  try {
+    const data = await api(url);
+    state.listings = file ? data.listings : [];
+    state.cost = data.cost;
+  } catch (e) {
+    toast(e.message, true);
+    state.listings = [];
+  }
   renderListings();
   renderPagination();
 }
@@ -86,12 +117,12 @@ function renderPagination() {
   const file = state.pageFiles[state.pageIndex];
   if (file) {
     $("pageLabel").textContent =
-      `Сторінка ${state.pageIndex + 1} з ${n} — ${file.name.replace(/\.html?$/i, "")} (${file.count})`;
+      `Сторінка ${state.pageIndex + 1} з ${n} — ${file.label || file.name} (${file.count})`;
   }
   $("pagPrev").disabled = state.pageIndex <= 0;
   $("pagNext").disabled = state.pageIndex >= n - 1;
   $("pagNumbers").innerHTML = state.pageFiles.map((f, i) =>
-    `<button class="ghost-btn pag-num${i === state.pageIndex ? " active" : ""}" data-idx="${i}" title="${esc(f.name)}">${i + 1}</button>`
+    `<button class="ghost-btn pag-num${i === state.pageIndex ? " active" : ""}" data-idx="${i}" title="${esc(f.label || f.name)}">${i + 1}</button>`
   ).join("");
   $("pagNumbers").querySelectorAll("[data-idx]").forEach((b) =>
     b.addEventListener("click", () => { state.pageIndex = Number(b.dataset.idx); loadListingsPage(); }));
@@ -501,35 +532,16 @@ async function loadHistory() {
   });
 }
 
-/* ---------------- uploading pages ---------------- */
-
-const drop = $("dropZone");
-drop.addEventListener("click", () => $("fileInput").click());
-$("fileInput").addEventListener("change", () => uploadFiles($("fileInput").files));
-["dragenter", "dragover"].forEach((ev) =>
-  drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add("over"); }));
-["dragleave", "drop"].forEach((ev) =>
-  drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
-drop.addEventListener("drop", (e) => uploadFiles(e.dataTransfer.files));
-
-async function uploadFiles(files) {
-  const fd = new FormData();
-  [...files].forEach((f) => fd.append("files", f));
-  try {
-    const res = await api("/api/upload", { method: "POST", body: fd });
-    toast(`Додано сторінок: ${res.saved}`);
-    const data = await api("/api/pages");
-    loadPageFiles(Math.max(0, data.files.length - 1));
-  } catch (e) { toast(e.message, true); }
-  $("fileInput").value = "";
-}
-
 /* ---------------- settings ---------------- */
 
 $("settingsBtn").addEventListener("click", async () => {
   const s = await api("/api/settings");
   $("keyState").textContent = s.api_key_masked ? `(збережено: ${s.api_key_masked})` : "(ще не додано)";
   $("apiKeyInput").value = "";
+  $("etsyKeyState").textContent = s.etsy_api_key_masked ? `(збережено: ${s.etsy_api_key_masked})` : "(ще не додано)";
+  $("etsyKeyInput").value = "";
+  $("etsySecretState").textContent = s.etsy_shared_secret_set ? "(збережено)" : "(ще не додано)";
+  $("etsySecretInput").value = "";
   $("tplInput").value = s.prompt_template;
   $("tplInput").dataset.default = s.default_template;
   $("budgetInput").value = s.balance == null ? "" : s.balance;
@@ -545,6 +557,8 @@ $("settingsSave").addEventListener("click", async () => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         api_key: $("apiKeyInput").value.trim(),
+        etsy_api_key: $("etsyKeyInput").value.trim(),
+        etsy_shared_secret: $("etsySecretInput").value.trim(),
         prompt_template: $("tplInput").value,
         balance: $("budgetInput").value.trim(),
       }),
