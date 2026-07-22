@@ -140,7 +140,15 @@ select:focus, input:focus, textarea:focus, button:focus-visible {
   gap: 10px; margin-top: 18px; flex-wrap: wrap;
 }
 .pag-numbers { display: flex; gap: 6px; flex-wrap: wrap; }
-.pag-num.active { background: var(--accent); color: var(--ink); border-color: var(--accent); font-weight: 600; }
+.pag-num {
+  width: 34px; height: 34px; padding: 0;
+  border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+.pag-num.active {
+  border: 2px solid var(--accent); color: var(--paper);
+  background: var(--panel); font-weight: 700;
+}
 .ghost-btn:disabled { opacity: .35; cursor: not-allowed; }
 
 /* ---------- listings grid ---------- */

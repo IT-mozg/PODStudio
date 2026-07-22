@@ -90,7 +90,7 @@ class EtsyApiListingSource(ListingSource):
         n_pages = min(max(1, -(-self._total_count // self.page_size)), MAX_PAGES)  # ceil, capped
         return [
             ListingPage(id=str(i),
-                        label=f'"{self.keywords}" - {i + 1}',
+                        label=f'«{self.keywords}» - {i + 1}',
                         count=len(self._page_cache.get(i, ())) or self.page_size)
             for i in range(n_pages)
         ]

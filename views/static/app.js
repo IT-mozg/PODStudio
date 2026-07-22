@@ -36,7 +36,9 @@ async function api(url, opts) {
 function esc(s) {
   const d = document.createElement("div");
   d.textContent = s || "";
-  return d.innerHTML;
+  // textContent -> innerHTML escapes &/</> but not quotes, and this helper
+  // is also used inside "..."-quoted HTML attributes (title, src, href)
+  return d.innerHTML.replace(/"/g, "&quot;");
 }
 
 /* ---------------- tabs ---------------- */
@@ -110,6 +112,21 @@ async function loadListingsPage() {
   renderPagination();
 }
 
+// Etsy-style windowed pagination: a fixed-size band of page numbers
+// centered on the current page (e.g. 3 4 [5] 6 7), not every page at once.
+function pageWindow(current, total, radius = 2) {
+  const size = radius * 2 + 1;
+  let start = Math.max(0, current - radius);
+  let end = Math.min(total - 1, current + radius);
+  if (end - start + 1 < size) {
+    if (start === 0) end = Math.min(total - 1, start + size - 1);
+    else if (end === total - 1) start = Math.max(0, end - size + 1);
+  }
+  const nums = [];
+  for (let i = start; i <= end; i++) nums.push(i);
+  return nums;
+}
+
 function renderPagination() {
   const n = state.pageFiles.length;
   $("pagesPagination").classList.toggle("hidden", n <= 1);
@@ -121,9 +138,10 @@ function renderPagination() {
   }
   $("pagPrev").disabled = state.pageIndex <= 0;
   $("pagNext").disabled = state.pageIndex >= n - 1;
-  $("pagNumbers").innerHTML = state.pageFiles.map((f, i) =>
-    `<button class="ghost-btn pag-num${i === state.pageIndex ? " active" : ""}" data-idx="${i}" title="${esc(f.label || f.name)}">${i + 1}</button>`
-  ).join("");
+  $("pagNumbers").innerHTML = pageWindow(state.pageIndex, n, 2).map((i) => {
+    const f = state.pageFiles[i];
+    return `<button class="ghost-btn pag-num${i === state.pageIndex ? " active" : ""}" data-idx="${i}" title="${esc(f.label || f.name)}">${i + 1}</button>`;
+  }).join("");
   $("pagNumbers").querySelectorAll("[data-idx]").forEach((b) =>
     b.addEventListener("click", () => { state.pageIndex = Number(b.dataset.idx); loadListingsPage(); }));
 }
