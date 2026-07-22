@@ -34,10 +34,14 @@ python3 app.py
 ## Звідки беруться лістинги
 
 Джерело даних - окрема абстракція (`models/listing_source.py`,
-`ListingSource`), тож спосіб отримання лістингів можна замінити, не
-чіпаючи решту коду (контролери, чергу генерації, історію).
+`ListingSource`), тож спосіб отримання лістингів можна замінити чи додати,
+не чіпаючи решту коду (контролери, чергу генерації, історію). Застосунок
+підтримує **два джерела одночасно** і перемикається між ними прямо в UI
+(вкладки "Пошук на Etsy" / "Збережені сторінки" над стрічкою пошуку) -
+дивись `models/listing_source_registry.py` (`CompositeListingSource`)
+нижче.
 
-### Активне: офіційний Etsy Open API v3
+### Пошук на Etsy: офіційний Etsy Open API v3
 
 `models/etsy_api_listing_source.py` (`EtsyApiListingSource`) - живий пошук
 через документований `https://openapi.etsy.com/v3/application`, без
@@ -55,37 +59,34 @@ python3 app.py
 (`EtsyApiListingSource.MAX_PAGES`) - без цього для популярних запитів
 довелось би малювати десятки тисяч кнопок пагінації.
 
-### В резерві: ручний імпорт збережених сторінок
+Офіційний API не дає оцінок продажів/виручки конкурента (Etsy принципово
+не ділиться цим навіть через API) - тільки те, що й так публічно видно на
+сторінці лістингу (назва, ціна, теги, картинки, магазин).
 
-`HtmlPageListingSource` (той самий файл `models/listing_source.py`) парсить
+### Збережені сторінки: ручний імпорт
+
+`HtmlPageListingSource` (у `models/listing_source.py`) парсить
 `.html`-файли з `pages/`, які користувач сам зберігає через браузер
-(Chrome: `Cmd+S` → «Веб-сторінка повністю»). Код і бекенд-роут
-(`/api/upload`) лишаються повністю робочими - просто UI зараз не показує
-для цього drop-зону. Щоб повернутися до цього джерела, у `container.py`
-заміни:
-
-```python
-listing_source = EtsyApiListingSource(
-    api_key_provider=get_etsy_api_key,
-    shared_secret_provider=get_etsy_shared_secret,
-    page_size=78,
-)
-```
-
-на:
-
-```python
-listing_source = HtmlPageListingSource(engine.PAGES_DIR, parser=engine.parse_page)
-```
+(Chrome: `Cmd+S` → «Веб-сторінка повністю») і перетягує у drop-зону на
+вкладці "Збережені сторінки". Корисно, якщо треба переглянути щось, чого
+живий пошук не покаже (наприклад чужий магазин цілком, або "обране"), або
+якщо API тимчасово недоступний.
 
 Цей варіант свідомо існував до отримання API-ключа: пряме звернення до
 `etsy.com/search` (без справжнього браузера) миттєво впирається в
 DataDome-захист Etsy, а живий автоматизований браузер (Playwright) виявився
 надто нестабільним (капчі, рейт-ліміти) і був прибраний з кодової бази.
 
-Офіційний API не дає оцінок продажів/виручки конкурента (Etsy принципово
-не ділиться цим навіть через API) - тільки те, що й так публічно видно на
-сторінці лістингу (назва, ціна, теги, картинки, магазин).
+### CompositeListingSource - перемикач джерел
+
+`models/listing_source_registry.py` тримає обидва джерела і делегує кожен
+виклик активному - контролери й черга генерації працюють з одним
+`container.listing_source` і не знають, яке джерело зараз активне.
+`GET/POST /api/sources` перемикає активне джерело; `search()` (тільки в
+Etsy-джерела) повертає зрозумілу помилку, якщо викликати його поки активне
+"Збережені сторінки". Додати третє джерело (інший маркетплейс, CSV-імпорт,
+...) - написати ще один клас `ListingSource` і зареєструвати його в
+`container.py`, без змін контролерів.
 
 ## Архітектура: MVC
 
@@ -94,7 +95,8 @@ app.py               entry point - creates the Flask app, registers controllers
 container.py          composition root - wires concrete Model implementations together
 models/               domain logic and data
   listing_source.py          ListingSource, HtmlPageListingSource, Listing/ListingPage
-  etsy_api_listing_source.py EtsyApiListingSource - active source, see above
+  etsy_api_listing_source.py EtsyApiListingSource - live Etsy search, see above
+  listing_source_registry.py CompositeListingSource - switches between the two
   design_generator.py        DesignGenerator, OpenAIDesignGenerator
   generation_queue.py        GenerationQueue - queueing, retries, per-lid dedup
   history_store.py           HistoryStore - history.json persistence
@@ -103,13 +105,25 @@ models/               domain logic and data
 controllers/          Flask blueprints - HTTP requests in, calls into models,
                        a view (JSON or a template) out
   pages_controller.py         "/" and static file directories (refs/, output/)
-  listings_controller.py      browsing imported listing pages
+  listings_controller.py      source switching, searching, browsing listing pages
   generation_controller.py    the generation queue and prompt drafts
   history_controller.py       the generation history list
   settings_controller.py      settings, balance tracking, misc actions
 views/                templates and static assets
   templates/index.html
-  static/app.js, static/style.css
+  static/style.css
+  static/js/                 ES modules (native <script type="module">, no
+                             build step) - one concern per file, imported by
+                             main.js:
+    core.js                    $, state, toast(), api(), esc() - shared by all
+    imageModal.js               fullscreen image preview (results/history/regen)
+    listings.js                 pagination, card rendering, selection
+    sourceControl.js            source-switch tabs, search bar, drop-zone/upload
+    regen.js                     regeneration modal
+    generate.js                  cost calc, generate modal, job polling, results
+    history.js                   history tab
+    settings.js                  settings modal
+    main.js                      tabs, modal-close wiring, bootstrap
 ```
 
 Кожен `Model` — окрема абстракція (інтерфейс + конкретна реалізація), тож

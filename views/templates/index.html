@@ -25,10 +25,26 @@
 
 <!-- control panel -->
 <section class="controls" id="controlsBar">
-  <div class="search-bar">
-    <input type="text" id="searchQuery" placeholder="Пошук на Etsy, напр.: funny cat shirt" autocomplete="off">
-    <button class="primary-btn" id="searchBtn">Шукати</button>
+  <div class="source-switch" role="tablist">
+    <button class="source-tab active" data-source="etsy_search">Пошук на Etsy</button>
+    <button class="source-tab" data-source="saved_pages">Збережені сторінки</button>
   </div>
+
+  <div class="source-panel" id="panel-etsy_search">
+    <div class="search-bar">
+      <input type="text" id="searchQuery" placeholder="Пошук на Etsy, напр.: funny cat shirt" autocomplete="off">
+      <button class="primary-btn" id="searchBtn">Шукати</button>
+    </div>
+  </div>
+
+  <div class="source-panel hidden" id="panel-saved_pages">
+    <div class="drop" id="dropZone">
+      <input type="file" id="fileInput" accept=".html,.htm" multiple hidden>
+      <span class="drop-title">Перетягни сюди збережені сторінки Etsy</span>
+      <span class="drop-sub">.html · пошук / магазин / обране · Chrome: Cmd+S → «Веб-сторінка повністю» · <span id="pagesCount">0</span> стор. у папці</span>
+    </div>
+  </div>
+
   <div class="settings-row">
     <div class="select-tools">
       <button class="ghost-btn" id="selectNew">Вибрати всі нові</button>
@@ -202,6 +218,6 @@
 
 <div class="toast hidden" id="toast"></div>
 
-<script src="/static/app.js"></script>
+<script type="module" src="/static/js/main.js"></script>
 </body>
 </html>

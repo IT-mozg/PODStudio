@@ -17,9 +17,8 @@ from models.design_generator import OpenAIDesignGenerator
 from models.etsy_api_listing_source import EtsyApiListingSource
 from models.generation_queue import GenerationQueue, ReferenceResolver
 from models.history_store import HistoryStore
-# HtmlPageListingSource (manual "save the page, drag it in" import) is kept
-# in models/listing_source.py and models/generate_designs.py untouched, in
-# case we ever want to switch back - just not wired in below anymore.
+from models.listing_source import HtmlPageListingSource
+from models.listing_source_registry import CompositeListingSource
 
 BASE = Path(__file__).parent.resolve()
 os.chdir(BASE)  # keep pages/refs/output/history next to the project root
@@ -114,14 +113,23 @@ def balance_status() -> dict:
 
 
 # ---------------- dependency wiring (composition root) ----------------
-# This is the only place the program "knows" that the listing source is
-# html files and the generator is OpenAI. To swap in the Etsy API or a
-# different AI provider, only these lines need to change.
+# This is the only place the program "knows" the concrete listing sources
+# and the AI provider. listing_source is a CompositeListingSource wrapping
+# both - controllers and the generation queue only ever talk to that one
+# object (see models/listing_source_registry.py), so adding a third source
+# or swapping the AI provider never touches controller code.
 
-listing_source = EtsyApiListingSource(
+etsy_search_source = EtsyApiListingSource(
     api_key_provider=get_etsy_api_key,
     shared_secret_provider=get_etsy_shared_secret,
     page_size=78,
+)
+saved_pages_source = HtmlPageListingSource(engine.PAGES_DIR, engine.parse_page)
+
+listing_source = CompositeListingSource(
+    sources={"etsy_search": etsy_search_source, "saved_pages": saved_pages_source},
+    labels={"etsy_search": "Пошук на Etsy", "saved_pages": "Збережені сторінки"},
+    default="etsy_search",
 )
 design_generator = OpenAIDesignGenerator(api_key_provider=get_api_key)
 
