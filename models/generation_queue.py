@@ -146,7 +146,13 @@ class GenerationQueue:
         source = item.get("source", "ref")
         if source == "result" and item.get("prev_file") and Path(item["prev_file"]).exists():
             return item["prev_file"]
-        listings = self._listing_source.get_all()
+        # get_by_ids([lid]), not get_all() - this runs once per queued item,
+        # each in its own worker thread; get_all() here used to mean N
+        # selected listings fanned out into N concurrent full-catalog
+        # fetches. get_by_ids() checks the page cache first, so this is a
+        # zero-network-call lookup whenever the listing was already shown
+        # on a browsed page (the common case).
+        listings = self._listing_source.get_by_ids([lid])
         listing = listings.get(lid)
         info = {"title": listing.title if listing else item["title"],
                 "local_img": listing.local_img if listing else "",

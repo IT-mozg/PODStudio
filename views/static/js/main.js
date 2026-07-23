@@ -10,6 +10,7 @@ import { initSourceControl } from "./sourceControl.js";
 import { initGenerate, loadBudget, startPolling } from "./generate.js";
 import { initSettings } from "./settings.js";
 import { loadHistory } from "./history.js";
+import { initEditing, loadEditImages } from "./editing.js";
 
 /* ---------------- tabs ---------------- */
 
@@ -20,7 +21,10 @@ document.querySelectorAll(".tab").forEach((btn) => {
     btn.classList.add("active");
     $("view-" + btn.dataset.tab).classList.add("active");
     $("controlsBar").style.display = btn.dataset.tab === "listings" ? "" : "none";
+    $("runbar").classList.toggle("hidden", btn.dataset.tab === "editing");
+    $("editRunbar").classList.toggle("hidden", btn.dataset.tab !== "editing");
     if (btn.dataset.tab === "history") loadHistory();
+    if (btn.dataset.tab === "editing") loadEditImages();
   });
 });
 
@@ -37,6 +41,7 @@ initListings();
 initSourceControl();
 initGenerate();
 initSettings();
+initEditing();
 
 loadPageFiles().then(() => {
   // if a job is already running (e.g. the page was reloaded), pick up progress

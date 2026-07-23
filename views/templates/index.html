@@ -19,6 +19,7 @@
     <button class="tab active" data-tab="listings">Лістинги</button>
     <button class="tab" data-tab="results">Результати <span id="resultsBadge" class="badge hidden">0</span></button>
     <button class="tab" data-tab="history">Історія</button>
+    <button class="tab" data-tab="editing">Редагування</button>
   </nav>
   <button class="icon-btn" id="settingsBtn" title="Налаштування" aria-label="Налаштування">⚙</button>
 </header>
@@ -92,6 +93,23 @@
     </div>
     <div class="history-list" id="historyList"></div>
   </section>
+
+  <!-- EDITING -->
+  <section class="view" id="view-editing">
+    <div class="results-head">
+      <h2 class="view-title">Редагування — halftone-маска</h2>
+      <button class="ghost-btn" id="editSettingsBtn">⚙ Налаштування</button>
+    </div>
+    <label class="edit-selectall">
+      <input type="checkbox" id="editSelectAllCheck">
+      <span id="editSelectAllLabel">Вибрати всі</span>
+    </label>
+    <div class="empty" id="editingEmpty">
+      <p class="empty-title">У output/ поки що нема зображень</p>
+      <p>Спершу згенеруй дизайни на вкладці «Лістинги» — готові файли з'являться тут для редагування.</p>
+    </div>
+    <div class="edit-list" id="editingGrid"></div>
+  </section>
 </main>
 
 <!-- bottom launch bar -->
@@ -107,6 +125,49 @@
     <button class="ghost-btn danger" id="stopBtn">Стоп</button>
   </div>
   <button class="primary-btn" id="generateBtn" disabled>Генерувати</button>
+</footer>
+
+<footer class="runbar hidden" id="editRunbar">
+  <div class="run-info">
+    <span class="run-count"><b id="editSelCount">0</b> вибрано</span>
+  </div>
+  <div class="edit-toolbar" id="editToolbar">
+    <button class="icon-btn" id="editApplyUpscale" data-type="upscale" disabled
+            title="Апскейл — збільшити роздільність" aria-label="Апскейл">
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6"></path>
+      </svg>
+    </button>
+    <span class="edit-toolbar-sep"></span>
+    <button class="icon-btn" id="editApplySketchWhite" data-type="sketch_white" disabled
+            title="Скетч на білому фоні — halftone-маска, invert" aria-label="Скетч на білому">
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="4.4"></circle>
+        <path d="M12 2.5v2.6M12 18.9v2.6M4.6 4.6l1.8 1.8M17.6 17.6l1.8 1.8M2.5 12h2.6M18.9 12h2.6M4.6 19.4l1.8-1.8M17.6 6.4l1.8-1.8"></path>
+      </svg>
+    </button>
+    <button class="icon-btn" id="editApplySketchBlack" data-type="sketch_black" disabled
+            title="Скетч на чорному фоні — halftone-маска" aria-label="Скетч на чорному">
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 13.4A8.2 8.2 0 1 1 10.6 4a6.6 6.6 0 0 0 9.4 9.4Z"></path>
+      </svg>
+    </button>
+    <button class="icon-btn" id="editApplyIllustration" data-type="illustration" disabled
+            title="Кольорова ілюстрація — Select Subject + маска" aria-label="Кольорова ілюстрація">
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3.5" y="4.5" width="17" height="15" rx="2.5"></rect>
+        <circle cx="8.5" cy="9.5" r="1.7"></circle>
+        <path d="m4.5 17 4.8-5 3.4 3.6 2.8-3 4 4.9"></path>
+      </svg>
+    </button>
+    <span class="edit-toolbar-sep"></span>
+    <button class="icon-btn" id="editDeselect" disabled
+            title="Зняти вибір" aria-label="Зняти вибір">
+      <svg viewBox="0 0 24 24" width="19" height="19" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 6l12 12M18 6L6 18"></path>
+      </svg>
+    </button>
+  </div>
 </footer>
 
 <!-- regeneration modal -->
@@ -192,6 +253,153 @@
     <div class="modal-actions">
       <button class="ghost-btn" id="tplReset">Скинути шаблон</button>
       <button class="primary-btn" id="settingsSave">Зберегти</button>
+    </div>
+  </div>
+</div>
+
+<!-- editing settings -->
+<div class="modal-back hidden" id="editSettingsModal">
+  <div class="modal modal-wide">
+    <div class="modal-head">
+      <h3>Налаштування редагування</h3>
+      <button class="icon-btn" data-close aria-label="Закрити">✕</button>
+    </div>
+
+    <p class="section-label">Апскейл</p>
+    <div class="settings-row">
+      <label class="field">
+        <span class="field-label">Модель</span>
+        <select id="editUpscaleModel"></select>
+      </label>
+      <label class="field">
+        <span class="field-label">Множник</span>
+        <select id="editUpscaleScale">
+          <option value="2">2x</option>
+          <option value="3">3x</option>
+          <option value="4">4x</option>
+        </select>
+      </label>
+    </div>
+    <p class="muted upscale-note">Двигун — realesrgan-ncnn-vulkan (те саме, що під капотом в Upscayl). Бінарник і модель (~10-30 МБ) качаються один раз при першому запуску.</p>
+
+    <p class="section-label">Тип дизайну</p>
+    <div class="settings-row">
+      <label class="field checkbox-field">
+        <input type="checkbox" id="editAutoDetect">
+        <span class="field-label">Автовизначення за кольором</span>
+      </label>
+      <label class="field">
+        <span class="field-label">Примусовий тип <span class="muted">(якщо не «авто»)</span></span>
+        <select id="editForceType">
+          <option value="">авто</option>
+          <option value="sketch_white">скетч на білому</option>
+          <option value="sketch_black">скетч на чорному</option>
+          <option value="illustration">кольорова ілюстрація</option>
+        </select>
+      </label>
+    </div>
+    <div class="settings-row">
+      <label class="field">
+        <span class="field-label">Поріг насиченості, % <span class="muted">(нижче — монохромний)</span></span>
+        <input type="number" id="editSatThreshold" min="0" max="100" step="1">
+      </label>
+      <label class="field">
+        <span class="field-label">Яскравість «білий фон» вище</span>
+        <input type="number" id="editWhiteLum" min="0" max="255" step="1">
+      </label>
+      <label class="field">
+        <span class="field-label">Яскравість «чорний фон» нижче</span>
+        <input type="number" id="editBlackLum" min="0" max="255" step="1">
+      </label>
+    </div>
+
+    <p class="section-label">Halftone-маска (для скетчів)</p>
+    <div class="settings-row">
+      <label class="field">
+        <span class="field-label">Метод</span>
+        <select id="editBitmapMethod">
+          <option value="halftone">halftone · крапки</option>
+          <option value="diffusion">diffusion · зерно</option>
+        </select>
+      </label>
+      <label class="field">
+        <span class="field-label">Частота, ліній/дюйм</span>
+        <input type="number" id="editHalftoneFrequency" min="10" max="100" step="1">
+      </label>
+      <label class="field">
+        <span class="field-label">Кут, °</span>
+        <input type="number" id="editHalftoneAngle" min="0" max="90" step="1">
+      </label>
+      <label class="field">
+        <span class="field-label">Форма</span>
+        <select id="editHalftoneShape">
+          <option value="round">round</option>
+          <option value="diamond">diamond</option>
+          <option value="ellipse">ellipse</option>
+          <option value="line">line</option>
+          <option value="square">square</option>
+          <option value="cross">cross</option>
+        </select>
+      </label>
+    </div>
+
+    <p class="section-label">Levels перед Bitmap</p>
+    <div class="settings-row">
+      <label class="field">
+        <span class="field-label">Чорна точка</span>
+        <input type="number" id="editLevelsBlack" min="0" max="253" step="1">
+      </label>
+      <label class="field">
+        <span class="field-label">Біла точка</span>
+        <input type="number" id="editLevelsWhite" min="2" max="255" step="1">
+      </label>
+      <label class="field">
+        <span class="field-label">Гамма</span>
+        <input type="number" id="editLevelsGamma" min="0.1" max="9.99" step="0.05">
+      </label>
+    </div>
+
+    <p class="section-label">Освітлення дизайну</p>
+    <div class="settings-row">
+      <label class="field checkbox-field">
+        <input type="checkbox" id="editBrightenDesign">
+        <span class="field-label">Освітлювати (щоб не був темним на футболці)</span>
+      </label>
+    </div>
+    <div class="settings-row">
+      <label class="field">
+        <span class="field-label">Яскравість</span>
+        <input type="number" id="editBrightness" min="-100" max="100" step="1">
+      </label>
+      <label class="field">
+        <span class="field-label">Контраст</span>
+        <input type="number" id="editContrast" min="-100" max="100" step="1">
+      </label>
+      <label class="field">
+        <span class="field-label">Підйом тіней (гамма)</span>
+        <input type="number" id="editShadowLift" min="0.1" max="9.99" step="0.05">
+      </label>
+      <label class="field">
+        <span class="field-label">Вигорілий чорний, %</span>
+        <input type="number" id="editFadeBlack" min="0" max="100" step="1">
+      </label>
+      <label class="field">
+        <span class="field-label">Насиченість, %</span>
+        <input type="number" id="editSaturation" min="0" max="100" step="1">
+      </label>
+    </div>
+
+    <p class="section-label">Експорт</p>
+    <div class="settings-row">
+      <label class="field">
+        <span class="field-label">DPI</span>
+        <input type="number" id="editTargetDpi" min="72" max="1200" step="1">
+      </label>
+    </div>
+
+    <div class="modal-actions">
+      <span class="muted">Тут лише налаштування — сама обробка підключиться наступним кроком.</span>
+      <button class="primary-btn" id="editSettingsSave">Зберегти</button>
     </div>
   </div>
 </div>

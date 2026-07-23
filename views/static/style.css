@@ -316,6 +316,83 @@ main { padding: 20px 22px; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ---------- editing ---------- */
+.edit-selectall {
+  display: flex; align-items: center; gap: 9px;
+  font-size: 13.5px; cursor: pointer; width: fit-content;
+  margin-bottom: 14px;
+}
+.edit-selectall input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+.edit-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+  gap: 12px;
+}
+.edit-row {
+  display: flex; gap: 14px; align-items: center;
+  background: var(--panel); border: 1.5px solid var(--line);
+  border-radius: 11px; padding: 10px 14px;
+  cursor: pointer; transition: border-color .12s;
+}
+.edit-row:hover { border-color: var(--muted); }
+.edit-row.selected { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.edit-thumb {
+  width: 64px; height: 64px; border-radius: 8px; object-fit: cover;
+  background: var(--panel-2); flex-shrink: 0;
+}
+.edit-info { min-width: 0; }
+.edit-title {
+  font-size: 13.5px; font-weight: 600; margin: 0 0 7px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.edit-badges { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.edit-badge {
+  font-family: var(--font-mono); font-size: 10px; text-transform: uppercase;
+  letter-spacing: .04em; padding: 2px 7px; border-radius: 5px;
+  background: var(--panel-2); color: var(--muted);
+}
+.edit-badge.ext { color: var(--paper); }
+.edit-badge.size { color: var(--accent); }
+.edit-dims {
+  font-family: var(--font-mono); font-size: 10.5px; color: var(--muted);
+}
+
+.edit-toolbar { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.edit-toolbar-sep { width: 1px; height: 22px; background: var(--line); margin: 0 4px; }
+.edit-toolbar .icon-btn:disabled { opacity: .35; cursor: not-allowed; }
+.edit-toolbar .icon-btn[data-type].active { color: var(--accent); border-color: var(--accent); }
+
+.edit-compare {
+  grid-column: 1 / -1;
+  display: flex; align-items: center; justify-content: center; gap: 22px;
+  background: var(--panel); border: 1.5px solid var(--accent);
+  border-radius: 11px; padding: 16px; position: relative;
+  animation: editCompareIn .22s ease;
+}
+@keyframes editCompareIn { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.compare-col { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.compare-label {
+  font-family: var(--font-mono); font-size: 10px; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--muted);
+}
+.compare-col img {
+  width: 160px; height: 160px; object-fit: contain; border-radius: 8px;
+  background: var(--panel-2);
+}
+.compare-checker {
+  width: 160px; height: 160px; border-radius: 8px; overflow: hidden;
+  background-color: #24211a;
+  background-image:
+    linear-gradient(45deg, #3a352b 25%, transparent 25%), linear-gradient(-45deg, #3a352b 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #3a352b 75%), linear-gradient(-45deg, transparent 75%, #3a352b 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+}
+.compare-checker img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.compare-arrow { color: var(--accent); font-size: 22px; }
+.compare-close { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; }
+
 /* ---------- history ---------- */
 .history-list { display: flex; flex-direction: column; gap: 8px; }
 .hrow {
@@ -361,8 +438,17 @@ main { padding: 20px 22px; }
 .modal-head .icon-btn { margin: 0; }
 .modal textarea { width: 100%; resize: vertical; line-height: 1.5; }
 .modal input { width: 100%; }
-.modal-actions { display: flex; justify-content: space-between; gap: 10px; }
+.modal input[type="checkbox"] { width: auto; accent-color: var(--accent); }
+.modal-actions { display: flex; justify-content: space-between; align-items: center; gap: 10px; }
 .muted { color: var(--muted); font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+.section-label {
+  font-size: 11px; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--accent); margin: 6px 0 -4px;
+}
+.checkbox-field { flex-direction: row !important; align-items: center; gap: 8px !important; }
+.checkbox-field .field-label { margin: 0; }
+.upscale-note { font-size: 11.5px; margin: -4px 0 0; }
 
 .source-toggle { display: flex; flex-direction: column; gap: 8px; }
 .source-toggle label {

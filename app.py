@@ -27,6 +27,7 @@ import webbrowser
 from flask import Flask
 
 import container  # noqa: F401  (composition root - importing it wires everything up)
+from controllers.editing_controller import editing_bp
 from controllers.generation_controller import generation_bp
 from controllers.history_controller import history_bp
 from controllers.listings_controller import listings_bp
@@ -39,7 +40,7 @@ app = Flask(__name__,
            template_folder=str(container.BASE / "views" / "templates"),
            static_folder=str(container.BASE / "views" / "static"))
 
-for _bp in (pages_bp, listings_bp, generation_bp, history_bp, settings_bp):
+for _bp in (pages_bp, listings_bp, generation_bp, history_bp, settings_bp, editing_bp):
     app.register_blueprint(_bp)
 
 

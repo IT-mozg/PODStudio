@@ -23,7 +23,10 @@ def api_generate():
     if not container.get_api_key():
         return jsonify({"error": "Немає API-ключа. Додай його в налаштуваннях "
                                  "(іконка шестерні вгорі)."}), 400
-    listings = container.listing_source.get_all()
+    # get_by_ids(), not get_all() - we only need these specific listings
+    # (already shown on-screen, almost certainly cached), not a full
+    # re-fetch/walk of the whole search result set.
+    listings = container.listing_source.get_by_ids([e.get("lid") for e in entries])
     items = []
     for e in entries:
         lid = e.get("lid")
@@ -45,7 +48,7 @@ def api_generate():
 def api_regenerate():
     data = request.get_json(force=True)
     lid = data.get("lid", "")
-    listings = container.listing_source.get_all()
+    listings = container.listing_source.get_by_ids([lid])
     history = container.history_store.load()
     listing = listings.get(lid)
     title = (listing.title if listing else None) or (history.get(lid) or {}).get("title")
@@ -79,7 +82,7 @@ def api_stop():
 
 @generation_bp.get("/prompt/<lid>")
 def api_prompt(lid):
-    listings = container.listing_source.get_all()
+    listings = container.listing_source.get_by_ids([lid])
     history = container.history_store.load()
     listing = listings.get(lid)
     title = (listing.title if listing else None) or (history.get(lid) or {}).get("title") or ""

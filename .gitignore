@@ -31,6 +31,11 @@ output/
 # коду), про всяк випадок ігноруємо, якщо колись з'явиться знову.
 browser_profile/
 
+# vendor/ - realesrgan-ncnn-vulkan binary + model weights, downloaded on
+# first use of the upscale editing action (see models/upscale.py). Large
+# binaries, platform-specific - not something to commit.
+vendor/
+
 # --- службове ---
 __pycache__/
 *.pyc

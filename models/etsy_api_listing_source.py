@@ -55,6 +55,7 @@ read is_popular()/is_hot() anymore.
 import html
 import json
 import math
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -68,6 +69,11 @@ API_BASE = "https://openapi.etsy.com/v3/application"
 TIMEOUT = 15
 MAX_PAGES = 40  # a sane browsing depth cap - nobody needs to page to result #35,000
 BADGE_PERCENTILE = 0.15  # top ~15% of the calibration sample earns a badge
+RATE_LIMIT_RETRIES = 3  # the personal-access key is capped at 5 requests/second -
+                        # a burst of UI actions (paging, generate, listing-info)
+                        # can trip that within the same second; a short retry
+                        # clears it without the user having to notice and retry
+                        # by hand (429 only - anything else fails immediately)
 
 
 class EtsyApiError(RuntimeError):
@@ -93,8 +99,24 @@ class EtsyApiListingSource(ListingSource):
         self.keywords = ""
         self._has_searched = False
         self._page_cache: dict[int, dict[str, Listing]] = {}
+        # get_by_ids() results for ids that don't belong to any page fetched
+        # so far (e.g. a listing from history/regenerate that isn't on the
+        # currently browsed page) - without this, get_by_ids() would have
+        # nowhere to remember them, and every repeat/concurrent lookup of
+        # the same "extra" id would re-hit the network.
+        self._id_cache: dict[str, Listing] = {}
         self._total_count: int | None = None
         self._calibration: dict | None = None
+        # Guards _page_cache/_total_count/_calibration AND is held across
+        # the network call in get_page()/get_by_ids() - not just around the
+        # dict mutation. That serializes every Etsy request this instance
+        # makes: with a 5 req/sec cap on the personal-access key, a page
+        # load fanning out into N worker threads (e.g. one per selected
+        # listing in GenerationQueue) used to fire N concurrent requests
+        # for data that was often the exact same page; now the first one
+        # fetches and caches it, the rest see the cache and never touch
+        # the network at all.
+        self._lock = threading.RLock()
         if keywords:
             self.search(keywords)
 
@@ -102,35 +124,39 @@ class EtsyApiListingSource(ListingSource):
 
     def search(self, keywords: str) -> None:
         """Point this source at a new query - invalidates cached pages."""
-        self.keywords = keywords.strip()
-        self._has_searched = bool(self.keywords)
-        self._page_cache = {}
-        self._total_count = None
-        self._calibration = None
+        with self._lock:
+            self.keywords = keywords.strip()
+            self._has_searched = bool(self.keywords)
+            self._page_cache = {}
+            self._id_cache = {}
+            self._total_count = None
+            self._calibration = None
 
     # ---------------- ListingSource ----------------
 
     def list_pages(self) -> list[ListingPage]:
         if not self._has_searched:
             return []
-        if self._total_count is None:
-            self._page_cache[0], self._total_count = self._fetch(offset=0)
-        n_pages = min(max(1, -(-self._total_count // self.page_size)), MAX_PAGES)  # ceil, capped
-        return [
-            ListingPage(id=str(i),
-                        label=f'«{self.keywords}» - {i + 1}',
-                        count=len(self._page_cache.get(i, ())) or self.page_size)
-            for i in range(n_pages)
-        ]
+        with self._lock:
+            if self._total_count is None:
+                self._page_cache[0], self._total_count = self._fetch(offset=0)
+            n_pages = min(max(1, -(-self._total_count // self.page_size)), MAX_PAGES)  # ceil, capped
+            return [
+                ListingPage(id=str(i),
+                            label=f'«{self.keywords}» - {i + 1}',
+                            count=len(self._page_cache.get(i, ())) or self.page_size)
+                for i in range(n_pages)
+            ]
 
     def get_page(self, page_id: str) -> dict[str, Listing]:
         if not self._has_searched:
             return {}
         idx = int(page_id)
-        if idx not in self._page_cache:
-            self._page_cache[idx], self._total_count = self._fetch(
-                offset=idx * self.page_size)
-        return self._page_cache[idx]
+        with self._lock:
+            if idx not in self._page_cache:
+                self._page_cache[idx], self._total_count = self._fetch(
+                    offset=idx * self.page_size)
+            return self._page_cache[idx]
 
     def get_all(self) -> dict[str, Listing]:
         merged: dict[str, Listing] = {}
@@ -139,14 +165,33 @@ class EtsyApiListingSource(ListingSource):
         return merged
 
     def get_by_ids(self, lids: list[str]) -> dict[str, Listing]:
-        """One batch API call for exactly these ids - does not walk pages.
-        Etsy's batch endpoint caps out around 100 ids per call, so large
-        requests are chunked."""
+        """Resolves exactly these ids, preferring whatever is already
+        cached (_page_cache from browsing, _id_cache from an earlier
+        get_by_ids) - a listing looked up twice, or by several concurrent
+        callers at once (e.g. one GenerationQueue worker thread per
+        selected listing), costs at most one Etsy request in total, not
+        one per lookup. Only what's genuinely missing is batch-fetched -
+        in one call, not one per id. Etsy's batch endpoint caps out around
+        100 ids per call, so large requests are chunked. The whole
+        cache-check-then-fetch step happens under the lock, so a second
+        caller blocked on the same missing id sees the first caller's
+        result in _id_cache instead of firing its own duplicate request."""
         ids = [str(x) for x in dict.fromkeys(lids) if x]  # dedupe, keep order
-        listings: dict[str, Listing] = {}
-        for i in range(0, len(ids), 100):
-            listings.update(self._batch_fetch(ids[i:i + 100]))
-        return listings
+        if not ids:
+            return {}
+        with self._lock:
+            by_cache: dict[str, Listing] = dict(self._id_cache)
+            for page in self._page_cache.values():
+                by_cache.update(page)
+            found = {i: by_cache[i] for i in ids if i in by_cache}
+            missing = [i for i in ids if i not in by_cache]
+            if not missing:
+                return found
+            fetched: dict[str, Listing] = {}
+            for i in range(0, len(missing), 100):
+                fetched.update(self._batch_fetch(missing[i:i + 100]))
+            self._id_cache.update(fetched)
+            return {**found, **fetched}
 
     # add_source is intentionally not overridden - "uploading a file" makes
     # no sense for an API-backed source, the base ListingSource.add_source()
@@ -173,14 +218,18 @@ class EtsyApiListingSource(ListingSource):
                 "(іконка шестерні вгорі).")
         auth_header = f"{api_key}:{shared_secret}"
         req = urllib.request.Request(url, headers={"x-api-key": auth_header})
-        try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT, context=_gd.SSL_CTX) as resp:
-                return json.loads(resp.read().decode("utf-8"))
-        except urllib.error.HTTPError as e:
-            body = e.read().decode("utf-8", errors="replace")
-            raise EtsyApiError(f"Etsy API {e.code}: {body[:300]}") from e
-        except urllib.error.URLError as e:
-            raise EtsyApiError(f"Could not reach the Etsy API: {e}") from e
+        for attempt in range(1, RATE_LIMIT_RETRIES + 1):
+            try:
+                with urllib.request.urlopen(req, timeout=TIMEOUT, context=_gd.SSL_CTX) as resp:
+                    return json.loads(resp.read().decode("utf-8"))
+            except urllib.error.HTTPError as e:
+                body = e.read().decode("utf-8", errors="replace")
+                if e.code == 429 and attempt < RATE_LIMIT_RETRIES:
+                    time.sleep(attempt)  # 1s, then 2s
+                    continue
+                raise EtsyApiError(f"Etsy API {e.code}: {body[:300]}") from e
+            except urllib.error.URLError as e:
+                raise EtsyApiError(f"Could not reach the Etsy API: {e}") from e
 
     def _batch_fetch(self, ids: list[str]) -> dict[str, Listing]:
         """A single call to the batch endpoint (max ~100 ids), with images."""
