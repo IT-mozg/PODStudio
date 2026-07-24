@@ -1,0 +1,60 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+}
+
+.top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(124, 108, 255, 0.12);
+  color: var(--accent);
+}
+
+.delta {
+  font-size: 11px;
+  font-weight: 700;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.delta.up {
+  color: #4ade80;
+}
+
+.delta.warn {
+  color: #fbbf24;
+}
+
+.delta.neutral {
+  color: var(--text-2);
+}
+
+.value {
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 3px;
+}
+
+.label {
+  font-size: 12px;
+  color: var(--text-2);
+}

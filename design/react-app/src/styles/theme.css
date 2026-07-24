@@ -1,0 +1,53 @@
+/* Global theme: CSS variables + reset. Imported once in main.tsx.
+   Everything else (layout, pages, shared components) uses CSS Modules
+   scoped to its own file — this is the only global stylesheet. */
+
+:root {
+  --bg-0: #0b0d12;
+  --bg-1: #12151c;
+  --bg-2: #181c26;
+  --panel: #1a1e28;
+  --panel-glass: rgba(255, 255, 255, 0.03);
+  --border: rgba(255, 255, 255, 0.07);
+  --border-strong: rgba(255, 255, 255, 0.12);
+  --text-0: #f2f3f6;
+  --text-1: #a6acb9;
+  --text-2: #6b7280;
+  --accent: #7c6cff;
+  --accent-2: #5b4bdb;
+  --accent-glow: rgba(124, 108, 255, 0.35);
+  --radius: 14px;
+  --radius-sm: 10px;
+
+  /* Reserved for the registration-mark logo only — a deliberate second
+     and third "ink" color, not part of the UI accent system. */
+  --ink-warm: #ef7c4a;
+  --ink-cyan: #5ad1e0;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  font-family: "Inter", system-ui, sans-serif;
+  background:
+    radial-gradient(1200px 600px at 15% -10%, rgba(124, 108, 255, 0.1), transparent 60%),
+    radial-gradient(900px 500px at 100% 0%, rgba(91, 75, 219, 0.08), transparent 55%),
+    var(--bg-0);
+  color: var(--text-0);
+}
+
+button,
+input {
+  font-family: inherit;
+  color: inherit;
+}

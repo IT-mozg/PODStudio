@@ -1,0 +1,48 @@
+.track {
+  position: relative;
+  height: 26px;
+  min-width: 74px;
+  border-radius: 8px;
+  background: var(--bg-0);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  padding: 0 10px;
+}
+
+.fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-radius: 8px;
+  transition: width 0.45s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fill {
+    transition: none;
+  }
+}
+
+.fill.positive {
+  background: linear-gradient(90deg, #16a34a, #4ade80);
+}
+
+.fill.negative {
+  background: linear-gradient(90deg, #b91c1c, #f87171);
+}
+
+.fill.warning {
+  background: linear-gradient(90deg, #b45309, #fbbf24);
+}
+
+.label {
+  position: relative;
+  z-index: 1;
+  font-size: 12px;
+  font-weight: 700;
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--text-0);
+  white-space: nowrap;
+}
