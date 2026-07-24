@@ -9,13 +9,19 @@ import type { Shop, ShopFilter } from "./types";
 export interface ShopsRepository {
   search(query: string, filter: ShopFilter): Promise<Shop[]>;
   toggleTracked(shopId: string): Promise<void>;
+  getById(shopId: string): Promise<Shop | null>;
 }
 
+/* Sales/revenue kept internally consistent (revenue ÷ sales lands
+   around a plausible $18-28 POD price) — the shop detail view derives
+   average price straight from these two fields, so an unrealistic
+   ratio here (e.g. millions of "sales" against a six-figure revenue)
+   would silently produce a nonsense $0.30 average price downstream. */
 const MOCK_SHOPS: Shop[] = [
-  { id: "ct", initials: "CT", name: "CatTeesShop", listings: 128, ageMonths: 34, niche: "funny cat", sales: "3 803 985", revenue: "$1.2M", rating: 4.83, reviews: "221.6k", growth: "+34%", tracked: true },
-  { id: "vg", initials: "VG", name: "VintageGlowPrints", listings: 312, ageMonths: 61, niche: "retro / vintage", sales: "167 370", revenue: "$420k", rating: 4.87, reviews: "42.5k", growth: "+21%", tracked: false },
-  { id: "kk", initials: "KK", name: "KrispKiwiStudio", listings: 94, ageMonths: 28, niche: "dog mom", sales: "76 109", revenue: "$190k", rating: 4.81, reviews: "22.4k", growth: "+18%", tracked: false },
-  { id: "os", initials: "OS", name: "OldSchoolCulture", listings: 201, ageMonths: 45, niche: "minimalist", sales: "820 896", revenue: "$2.1M", rating: 4.87, reviews: "119.4k", growth: "+11%", tracked: false },
+  { id: "ct", initials: "CT", name: "CatTeesShop", listings: 128, ageMonths: 34, niche: "funny cat", sales: "60 214", revenue: "$1.2M", rating: 4.83, reviews: "221.6k", growth: "+34%", tracked: true },
+  { id: "vg", initials: "VG", name: "VintageGlowPrints", listings: 312, ageMonths: 61, niche: "retro / vintage", sales: "15 230", revenue: "$420k", rating: 4.87, reviews: "42.5k", growth: "+21%", tracked: false },
+  { id: "kk", initials: "KK", name: "KrispKiwiStudio", listings: 94, ageMonths: 28, niche: "dog mom", sales: "7 640", revenue: "$190k", rating: 4.81, reviews: "22.4k", growth: "+18%", tracked: false },
+  { id: "os", initials: "OS", name: "OldSchoolCulture", listings: 201, ageMonths: 45, niche: "minimalist", sales: "91 320", revenue: "$2.1M", rating: 4.87, reviews: "119.4k", growth: "+11%", tracked: false },
 ];
 
 /** In-memory mock — mutates its own copy so the star toggle persists
@@ -36,6 +42,11 @@ class MockShopsRepository implements ShopsRepository {
   async toggleTracked(shopId: string): Promise<void> {
     const shop = this.shops.find((s) => s.id === shopId);
     if (shop) shop.tracked = !shop.tracked;
+  }
+
+  async getById(shopId: string): Promise<Shop | null> {
+    const shop = this.shops.find((s) => s.id === shopId);
+    return shop ? { ...shop } : null;
   }
 }
 

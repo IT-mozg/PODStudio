@@ -1,27 +1,21 @@
+import { useLocation, useNavigate } from "react-router-dom";
 import { GridSquaresIcon, SearchIcon, SettingsGearIcon } from "../shared/icons";
 import { Logo } from "../shared/components/Logo";
-import type { NavItem, PageId, SidebarMode } from "../shared/types";
-import { navByMode } from "./navConfig";
+import type { NavItem, SidebarMode } from "../shared/types";
+import { navByMode, modeForPath } from "./navConfig";
 import styles from "./Sidebar.module.css";
 
-interface SidebarProps {
-  mode: SidebarMode;
-  activePage: PageId;
-  onModeChange: (mode: SidebarMode) => void;
-  onSelectPage: (page: PageId) => void;
-}
-
-function NavList({ items, activePage, onSelectPage }: { items: NavItem[]; activePage: PageId; onSelectPage: (p: PageId) => void }) {
+function NavList({ items, pathname, onNavigate }: { items: NavItem[]; pathname: string; onNavigate: (path: string) => void }) {
   return (
     <ul className={styles.navList}>
       {items.map((item) => {
         const Icon = item.icon;
-        const isActive = item.id === activePage;
+        const isActive = pathname === item.path || pathname.startsWith(item.path + "/");
         return (
           <li
             key={item.id}
             className={isActive ? `${styles.navItem} ${styles.navItemActive}` : styles.navItem}
-            onClick={() => onSelectPage(item.id)}
+            onClick={() => onNavigate(item.path)}
           >
             <Icon size={17} />
             {item.label}
@@ -33,12 +27,32 @@ function NavList({ items, activePage, onSelectPage }: { items: NavItem[]; active
   );
 }
 
-/** Sidebar owns only presentation + selection callbacks — it has no
- *  idea what a "page" renders (Single Responsibility / Dependency
- *  Inversion: it depends on the NavItem[] abstraction, not on any
- *  specific page component). */
-export function Sidebar({ mode, activePage, onModeChange, onSelectPage }: SidebarProps) {
+/** Sidebar reads navigation state straight from the URL (via the
+ *  router) instead of being handed activePage/mode as props — one
+ *  less place for "what page am I on" to get out of sync with what's
+ *  actually rendered. Same idea as a SwiftUI view reading the
+ *  NavigationPath from its environment instead of a passed-in binding. */
+export function Sidebar() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const mode: SidebarMode = modeForPath(location.pathname);
   const sectionLabel = mode === "research" ? "Аналітика" : "Керування";
+
+  function switchMode(nextMode: SidebarMode) {
+    navigate(navByMode[nextMode][0].path);
+  }
+
+  /** The calculator opens as a modal over whatever page is currently
+   *  shown, so it needs the current location stashed as router state
+   *  (the "background location" pattern) — everything else is a plain
+   *  page navigation. */
+  function handleNavigate(path: string) {
+    if (path === "/calculator") {
+      navigate(path, { state: { backgroundLocation: location } });
+      return;
+    }
+    navigate(path);
+  }
 
   return (
     <aside className={styles.sidebar}>
@@ -57,14 +71,14 @@ export function Sidebar({ mode, activePage, onModeChange, onSelectPage }: Sideba
       <div className={styles.modeSwitch}>
         <button
           className={mode === "research" ? `${styles.modeBtn} ${styles.modeBtnActive}` : styles.modeBtn}
-          onClick={() => onModeChange("research")}
+          onClick={() => switchMode("research")}
         >
           <SearchIcon size={15} />
           Дослідження
         </button>
         <button
           className={mode === "manage" ? `${styles.modeBtn} ${styles.modeBtnActive}` : styles.modeBtn}
-          onClick={() => onModeChange("manage")}
+          onClick={() => switchMode("manage")}
         >
           <GridSquaresIcon size={15} />
           Керування
@@ -73,7 +87,7 @@ export function Sidebar({ mode, activePage, onModeChange, onSelectPage }: Sideba
 
       <div className={styles.navScroll}>
         <div className={styles.sectionLabel}>{sectionLabel}</div>
-        <NavList items={navByMode[mode]} activePage={activePage} onSelectPage={onSelectPage} />
+        <NavList items={navByMode[mode]} pathname={location.pathname} onNavigate={handleNavigate} />
       </div>
 
       <div className={styles.footer}>

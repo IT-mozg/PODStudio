@@ -7,6 +7,7 @@ import type { Listing, ListingFilter } from "./types";
 export interface ListingsRepository {
   search(query: string, filter: ListingFilter): Promise<Listing[]>;
   toggleTracked(listingId: string): Promise<void>;
+  getById(listingId: string): Promise<Listing | null>;
 }
 
 const MOCK_LISTINGS: Listing[] = [
@@ -32,6 +33,11 @@ class MockListingsRepository implements ListingsRepository {
   async toggleTracked(listingId: string): Promise<void> {
     const listing = this.listings.find((l) => l.id === listingId);
     if (listing) listing.tracked = !listing.tracked;
+  }
+
+  async getById(listingId: string): Promise<Listing | null> {
+    const listing = this.listings.find((l) => l.id === listingId);
+    return listing ? { ...listing } : null;
   }
 }
 

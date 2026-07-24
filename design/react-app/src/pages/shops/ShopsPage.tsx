@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../../shared/components/PageHeader";
 import { SegTabs } from "../../shared/components/SegTabs";
 import { SearchBar } from "../../shared/components/SearchBar";
@@ -26,6 +27,7 @@ interface ShopsPageProps {
 }
 
 export function ShopsPage({ repository = mockShopsRepository }: ShopsPageProps) {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<ShopsTab>("search");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ShopFilter>("top");
@@ -67,7 +69,7 @@ export function ShopsPage({ repository = mockShopsRepository }: ShopsPageProps) 
 
           <ResultsToolbar label="Проаналізовано магазинів" value="4 790 675" />
           <div className={styles.tableWrap}>
-            <ShopsTable shops={shops} onToggleTracked={handleToggleTracked} />
+            <ShopsTable shops={shops} onToggleTracked={handleToggleTracked} onSelectShop={(s) => navigate(`/shops/${s.id}`)} />
           </div>
         </>
       )}
@@ -76,7 +78,7 @@ export function ShopsPage({ repository = mockShopsRepository }: ShopsPageProps) 
         <>
           <ResultsToolbar label="У відстежуваних" value={`${trackedShops.length} магазин(и)`} />
           <div className={styles.tableWrap}>
-            <ShopsTable shops={trackedShops} onToggleTracked={handleToggleTracked} />
+            <ShopsTable shops={trackedShops} onToggleTracked={handleToggleTracked} onSelectShop={(s) => navigate(`/shops/${s.id}`)} />
           </div>
         </>
       )}

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../../shared/components/PageHeader";
 import { SegTabs } from "../../shared/components/SegTabs";
 import { SearchBar } from "../../shared/components/SearchBar";
@@ -26,6 +27,7 @@ interface ListingsPageProps {
 }
 
 export function ListingsPage({ repository = mockListingsRepository }: ListingsPageProps) {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<ListingsTab>("search");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ListingFilter>("top");
@@ -67,7 +69,7 @@ export function ListingsPage({ repository = mockListingsRepository }: ListingsPa
 
           <ResultsToolbar label="Проаналізовано лістингів" value="58 200 000" />
           <div className={styles.tableWrap}>
-            <ListingsTable listings={listings} onToggleTracked={handleToggleTracked} />
+            <ListingsTable listings={listings} onToggleTracked={handleToggleTracked} onSelectListing={(l) => navigate(`/listings/${l.id}`)} />
           </div>
         </>
       )}
@@ -76,7 +78,7 @@ export function ListingsPage({ repository = mockListingsRepository }: ListingsPa
         <>
           <ResultsToolbar label="У відстежуваних" value={`${trackedListings.length} лістинг(и)`} />
           <div className={styles.tableWrap}>
-            <ListingsTable listings={trackedListings} onToggleTracked={handleToggleTracked} />
+            <ListingsTable listings={trackedListings} onToggleTracked={handleToggleTracked} onSelectListing={(l) => navigate(`/listings/${l.id}`)} />
           </div>
         </>
       )}

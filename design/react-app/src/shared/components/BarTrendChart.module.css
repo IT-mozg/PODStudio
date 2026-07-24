@@ -1,0 +1,106 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+}
+
+.yAxis {
+  width: 46px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  text-align: right;
+  font-size: 10.5px;
+  color: var(--text-2);
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.plot {
+  flex: 1;
+  position: relative;
+}
+
+.gridline {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--border);
+}
+
+.bars {
+  position: relative;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.col {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+
+.bar {
+  position: relative;
+  width: 100%;
+  border-radius: 4px 4px 2px 2px;
+  background: linear-gradient(180deg, var(--accent), var(--accent-2));
+  min-height: 3px;
+  transition: height 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+  cursor: default;
+}
+
+.bar.current {
+  background: linear-gradient(180deg, #fbbf24, #d97706);
+}
+
+.tooltip {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translate(-50%, 4px);
+  margin-bottom: 8px;
+  background: var(--bg-0);
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  padding: 5px 9px;
+  font-size: 11px;
+  font-weight: 700;
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--text-0);
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.12s ease, transform 0.12s ease;
+  z-index: 2;
+}
+
+.bar:hover .tooltip {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.labels {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+  padding-left: 56px;
+}
+
+.label {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  font-size: 9.5px;
+  color: var(--text-2);
+  font-family: "IBM Plex Mono", monospace;
+}

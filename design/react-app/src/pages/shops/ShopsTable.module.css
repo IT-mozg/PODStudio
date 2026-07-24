@@ -32,6 +32,7 @@
 
 .table tbody tr {
   transition: background 0.15s ease;
+  cursor: pointer;
 }
 
 .table tbody tr:hover {

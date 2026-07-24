@@ -20,7 +20,7 @@
 }
 
 .table td {
-  padding: 12px 16px;
+  padding: 10px 16px;
   border-bottom: 1px solid var(--border);
   font-size: 13px;
   vertical-align: middle;
@@ -32,73 +32,15 @@
 
 .table tbody tr {
   transition: background 0.15s ease;
-  cursor: pointer;
 }
 
 .table tbody tr:hover {
   background: var(--panel-glass);
 }
 
-.listingCell {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  max-width: 340px;
-}
-
-.thumb {
-  width: 40px;
-  height: 40px;
-  border-radius: 9px;
-  flex-shrink: 0;
-}
-
-.listingTitle {
+.tagText {
   font-weight: 600;
   color: var(--text-0);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.shopLink {
-  color: var(--text-1);
-  font-weight: 500;
-}
-
-.tagRow {
-  display: flex;
-  gap: 5px;
-  flex-wrap: wrap;
-  max-width: 160px;
-}
-
-.tag {
-  font-size: 10.5px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: rgba(124, 108, 255, 0.12);
-  color: var(--accent);
-  white-space: nowrap;
-}
-
-.tagMore {
-  font-size: 10.5px;
-  color: var(--text-2);
-  padding: 3px 4px;
-}
-
-.num {
-  font-family: "IBM Plex Mono", monospace;
-  font-weight: 600;
-  color: var(--text-0);
-}
-
-.numSub {
-  font-size: 10.5px;
-  color: var(--text-2);
-  font-family: "IBM Plex Mono", monospace;
 }
 
 .actions {

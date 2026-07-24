@@ -23,5 +23,8 @@ export interface NavItem {
   id: PageId;
   label: string;
   icon: ComponentType<{ size?: number }>;
+  /** Route this nav item links to — the single source of truth for
+   *  "what's active" (derived from the URL, not a separate state flag). */
+  path: string;
   badge?: string;
 }

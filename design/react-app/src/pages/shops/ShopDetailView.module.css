@@ -1,0 +1,294 @@
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.backBtn {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-top: 2px;
+  transition: all 0.15s ease;
+}
+
+.backBtn:hover {
+  color: var(--text-0);
+  border-color: var(--border-strong);
+}
+
+.avatarLg {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  font-size: 18px;
+}
+
+.headBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.headTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.name {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.metaItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.metaItem svg {
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+}
+
+.ratingStars {
+  color: #fbbf24;
+  font-weight: 700;
+}
+
+.nicheTag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 9px;
+  border-radius: 7px;
+  background: rgba(124, 108, 255, 0.12);
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+.trackBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 15px;
+  border-radius: 10px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-1);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+}
+
+.trackBtn:hover {
+  border-color: var(--border-strong);
+  color: var(--text-0);
+}
+
+.trackBtn.active {
+  color: #fbbf24;
+  border-color: rgba(251, 191, 36, 0.4);
+  background: rgba(251, 191, 36, 0.1);
+}
+
+.trackBtn.active svg {
+  fill: #fbbf24;
+}
+
+/* ---- layout ---- */
+.twoCol {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr;
+  gap: 14px;
+  align-items: start;
+}
+
+@media (max-width: 760px) {
+  .twoCol {
+    grid-template-columns: 1fr;
+  }
+}
+
+.chartCard {
+  padding: 20px 20px 8px;
+}
+
+.priceCard {
+  padding: 18px 18px 14px;
+}
+
+.priceStatsRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.priceStatsRow b {
+  display: block;
+  color: var(--text-0);
+  font-size: 14px;
+  font-family: "IBM Plex Mono", monospace;
+  margin-top: 2px;
+}
+
+.ratingCard {
+  padding: 18px;
+  margin-top: 14px;
+}
+
+.ratingHead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.ratingBig {
+  font-size: 26px;
+  font-weight: 800;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.ratingCount {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+/* ---- listings list ---- */
+.listingRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.listingRow:hover {
+  background: var(--panel-glass);
+}
+
+.listingThumb {
+  width: 42px;
+  height: 42px;
+  border-radius: 9px;
+  flex-shrink: 0;
+}
+
+.listingBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.listingTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-0);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.listingMeta {
+  font-size: 11px;
+  color: var(--text-2);
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.listingNums {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.listingRevenue {
+  font-size: 13px;
+  font-weight: 700;
+  font-family: "IBM Plex Mono", monospace;
+  color: var(--text-0);
+}
+
+.listingSub {
+  font-size: 10.5px;
+  color: var(--text-2);
+  font-family: "IBM Plex Mono", monospace;
+}
+
+/* ---- reviews ---- */
+.reviewGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 760px) {
+  .reviewGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.reviewCard {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.reviewTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.reviewStars {
+  color: #fbbf24;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.reviewDate {
+  font-size: 11px;
+  color: var(--text-2);
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.reviewText {
+  font-size: 13px;
+  color: var(--text-1);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.reviewRef {
+  font-size: 10.5px;
+  color: var(--text-2);
+  font-family: "IBM Plex Mono", monospace;
+}

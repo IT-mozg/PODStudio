@@ -5,6 +5,7 @@ import styles from "./ListingsTable.module.css";
 interface ListingsTableProps {
   listings: Listing[];
   onToggleTracked: (listingId: string) => void;
+  onSelectListing: (listing: Listing) => void;
 }
 
 const MAX_VISIBLE_TAGS = 2;
@@ -12,7 +13,7 @@ const MAX_VISIBLE_TAGS = 2;
 /** Same shape as ShopsTable, but the leading cell is a product thumbnail
  *  + title (a listing, not a shop), and rows carry tags instead of a
  *  single niche — the two real differences the source is about. */
-export function ListingsTable({ listings, onToggleTracked }: ListingsTableProps) {
+export function ListingsTable({ listings, onToggleTracked, onSelectListing }: ListingsTableProps) {
   return (
     <table className={styles.table}>
       <thead>
@@ -28,7 +29,7 @@ export function ListingsTable({ listings, onToggleTracked }: ListingsTableProps)
       </thead>
       <tbody>
         {listings.map((listing) => (
-          <tr key={listing.id}>
+          <tr key={listing.id} onClick={() => onSelectListing(listing)}>
             <td>
               <div className={styles.listingCell}>
                 <div className={styles.thumb} style={{ background: `linear-gradient(135deg, ${listing.thumbGradient[0]}, ${listing.thumbGradient[1]})` }} />
@@ -65,7 +66,10 @@ export function ListingsTable({ listings, onToggleTracked }: ListingsTableProps)
                 <div
                   className={listing.tracked ? `${styles.starBtn} ${styles.starBtnActive}` : styles.starBtn}
                   title={listing.tracked ? "У відстежуваних" : "Додати у відстежувані"}
-                  onClick={() => onToggleTracked(listing.id)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleTracked(listing.id);
+                  }}
                 >
                   <StarIcon size={14} />
                 </div>

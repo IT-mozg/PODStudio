@@ -7,12 +7,13 @@ import styles from "./ShopsTable.module.css";
 interface ShopsTableProps {
   shops: Shop[];
   onToggleTracked: (shopId: string) => void;
+  onSelectShop: (shop: Shop) => void;
 }
 
 /** Pure presentation — rows come from `shops`, the star click is
  *  reported upward via `onToggleTracked` (no direct repository
  *  access here, so this component doesn't care where data comes from). */
-export function ShopsTable({ shops, onToggleTracked }: ShopsTableProps) {
+export function ShopsTable({ shops, onToggleTracked, onSelectShop }: ShopsTableProps) {
   return (
     <>
       <table className={styles.table}>
@@ -29,7 +30,7 @@ export function ShopsTable({ shops, onToggleTracked }: ShopsTableProps) {
         </thead>
         <tbody>
           {shops.map((shop) => (
-            <tr key={shop.id}>
+            <tr key={shop.id} onClick={() => onSelectShop(shop)}>
               <td>
                 <div className={styles.shopCell}>
                   <ShopAvatar initials={shop.initials} />
@@ -62,7 +63,10 @@ export function ShopsTable({ shops, onToggleTracked }: ShopsTableProps) {
                   <div
                     className={shop.tracked ? `${styles.starBtn} ${styles.starBtnActive}` : styles.starBtn}
                     title={shop.tracked ? "У відстежуваних" : "Додати у відстежувані"}
-                    onClick={() => onToggleTracked(shop.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleTracked(shop.id);
+                    }}
                   >
                     <StarIcon size={14} />
                   </div>
