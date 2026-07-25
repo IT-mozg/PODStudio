@@ -11,15 +11,17 @@ export interface ShopStatusEntry {
 
 interface ShopStatusListProps {
   shops: ShopStatusEntry[];
+  onSelect: (shopId: string) => void;
 }
 
-/** Used by the dashboard's "Мої магазини" widget and the shops page's
- *  "Відстежувані" tab — same shape, different data source. */
-export function ShopStatusList({ shops }: ShopStatusListProps) {
+/** Used by the dashboard's "Мої магазини" widget — each entry's `id`
+ *  is a real shopsRepository id, so a row is always a valid
+ *  /shops/:id link. */
+export function ShopStatusList({ shops, onSelect }: ShopStatusListProps) {
   return (
     <div className={styles.list}>
       {shops.map((shop) => (
-        <div className={styles.row} key={shop.id}>
+        <div className={styles.row} key={shop.id} onClick={() => onSelect(shop.id)}>
           <ShopAvatar initials={shop.initials} />
           <div className={styles.body}>
             <div className={styles.name}>{shop.name}</div>

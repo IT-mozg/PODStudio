@@ -6,6 +6,7 @@
    a pure builder function, no React. */
 
 import { mulberry32, seedFromString } from "../../shared/prng";
+import { parseCount, parseMoneyShorthand, formatMoney } from "../../shared/money";
 import type { TrendPoint } from "../../shared/components/TrendChart";
 import type { BarDatum } from "../../shared/components/BarBreakdown";
 import type { RatingBreakdownDatum } from "../../shared/components/RatingBars";
@@ -44,26 +45,6 @@ export interface ShopDetail {
   listings: Listing[];
   category: string;
   handmade: boolean;
-}
-
-function parseCount(s: string): number {
-  return Number(s.replace(/[^\d]/g, "")) || 0;
-}
-
-function parseMoneyShorthand(s: string): number {
-  const m = s.match(/\$?([\d.]+)\s*(k|m)?/i);
-  if (!m) return 0;
-  let n = parseFloat(m[1]);
-  const unit = m[2]?.toLowerCase();
-  if (unit === "k") n *= 1_000;
-  if (unit === "m") n *= 1_000_000;
-  return n;
-}
-
-function formatMoney(n: number): string {
-  if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
-  if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}k`;
-  return `$${n.toFixed(2)}`;
 }
 
 const MONTH_LABELS = ["Сер", "Вер", "Жов", "Лис", "Гру", "Січ", "Лют", "Бер", "Кві", "Тра", "Чер", "Лип"];
@@ -164,6 +145,7 @@ export function buildShopDetail(shop: Shop): ShopDetail {
     return {
       id: `${shop.id}-l${i}`,
       title: `${shop.niche} — ${listingSuffixes[i % listingSuffixes.length]}`,
+      shopId: shop.id,
       shopName: shop.name,
       views: views.toLocaleString("uk-UA"),
       sales: listingSales.toLocaleString("uk-UA"),

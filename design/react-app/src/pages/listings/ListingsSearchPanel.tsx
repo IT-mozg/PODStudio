@@ -18,6 +18,7 @@ interface ListingsSearchPanelProps {
   listings: Listing[];
   onToggleTracked: (listingId: string) => void;
   onSelectListing: (listing: Listing) => void;
+  onSelectShop: (shopId: string) => void;
 }
 
 /** Search + filter chips + results count + table — the exact block
@@ -37,6 +38,7 @@ export function ListingsSearchPanel({
   listings,
   onToggleTracked,
   onSelectListing,
+  onSelectShop,
 }: ListingsSearchPanelProps) {
   return (
     <>
@@ -45,7 +47,7 @@ export function ListingsSearchPanel({
 
       <ResultsToolbar label={resultsLabel} value={resultsValue} />
       <div className={searchStyles.tableWrap}>
-        <ListingsTable listings={listings} onToggleTracked={onToggleTracked} onSelectListing={onSelectListing} />
+        <ListingsTable listings={listings} onToggleTracked={onToggleTracked} onSelectListing={onSelectListing} onSelectShop={onSelectShop} />
       </div>
     </>
   );

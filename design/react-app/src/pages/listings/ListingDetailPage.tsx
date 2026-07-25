@@ -38,6 +38,7 @@ export function ListingDetailPage({ repository = mockListingsRepository }: Listi
       onBack={() => navigate(-1)}
       onToggleTracked={handleToggleTracked}
       onSelectListing={(id) => navigate(`/listings/${id}`)}
+      onSelectShop={(shopId) => navigate(`/shops/${shopId}`)}
     />
   );
 }

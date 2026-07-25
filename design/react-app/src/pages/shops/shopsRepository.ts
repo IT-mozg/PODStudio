@@ -22,6 +22,7 @@ const MOCK_SHOPS: Shop[] = [
   { id: "vg", initials: "VG", name: "VintageGlowPrints", listings: 312, ageMonths: 61, niche: "retro / vintage", sales: "15 230", revenue: "$420k", rating: 4.87, reviews: "42.5k", growth: "+21%", tracked: false },
   { id: "kk", initials: "KK", name: "KrispKiwiStudio", listings: 94, ageMonths: 28, niche: "dog mom", sales: "7 640", revenue: "$190k", rating: 4.81, reviews: "22.4k", growth: "+18%", tracked: false },
   { id: "os", initials: "OS", name: "OldSchoolCulture", listings: 201, ageMonths: 45, niche: "minimalist", sales: "91 320", revenue: "$2.1M", rating: 4.87, reviews: "119.4k", growth: "+11%", tracked: false },
+  { id: "mv", initials: "MV", name: "MugvoyageCo", listings: 76, ageMonths: 42, niche: "coffee / mugs", sales: "38 450", revenue: "$720k", rating: 4.79, reviews: "76.2k", growth: "+9%", tracked: false },
 ];
 
 /** In-memory mock — mutates its own copy so the star toggle persists

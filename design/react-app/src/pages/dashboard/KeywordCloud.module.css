@@ -15,6 +15,13 @@
   font-size: 12px;
   color: var(--text-1);
   font-weight: 500;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+
+.pill:hover {
+  color: var(--text-0);
+  border-color: var(--accent);
 }
 
 .up {

@@ -4,6 +4,7 @@
    shopDetail.ts: a pure builder function, no React. */
 
 import { mulberry32, seedFromString } from "../../shared/prng";
+import { formatMoney, avgUnitPrice } from "../../shared/money";
 import type { Listing } from "./types";
 
 export interface ListingDetailStats {
@@ -55,14 +56,6 @@ export interface ListingAttribute {
   value: string;
 }
 
-export interface SimilarListing {
-  id: string;
-  title: string;
-  price: string;
-  sales: string;
-  thumbGradient: [string, string];
-}
-
 export interface ListingDetail {
   stats: ListingDetailStats;
   photos: [string, string][];
@@ -71,21 +64,11 @@ export interface ListingDetail {
   descriptionSegments: DescriptionSegment[];
   score: ScoreBreakdown;
   attributes: ListingAttribute[];
-  similar: SimilarListing[];
-}
-
-function parseCount(s: string): number {
-  return Number(s.replace(/[^\d]/g, "")) || 0;
-}
-
-function parseMoneyShorthand(s: string): number {
-  const m = s.match(/\$?([\d.]+)\s*(k|m)?/i);
-  if (!m) return 0;
-  let n = parseFloat(m[1]);
-  const unit = m[2]?.toLowerCase();
-  if (unit === "k") n *= 1_000;
-  if (unit === "m") n *= 1_000_000;
-  return n;
+  /** Same Listing shape as everywhere else — clicking one of these
+   *  routes to a real /listings/:id detail page instead of a dead
+   *  end, resolved by listingsRepository the same way it resolves a
+   *  shop-scoped listing id. */
+  similar: Listing[];
 }
 
 const STOPWORDS = new Set(["a", "an", "the", "for", "and", "with", "of", "to", "on", "in", "your"]);
@@ -234,6 +217,18 @@ const SIMILAR_POOL = [
   "Vintage band tee bootleg style",
   "Custom name birthstone necklace",
 ];
+/** Real shops from shopsRepository, cycled through — so "similar
+ *  listing"'s shop mention is always a valid /shops/:id link too, not
+ *  an invented name with nothing behind it. A handful of mock
+ *  listings repeating across a few shops is an accepted simplification
+ *  for now (see [[react-app-deferred-work]]). */
+const SIMILAR_SHOPS = [
+  { shopId: "ct", shopName: "CatTeesShop" },
+  { shopId: "vg", shopName: "VintageGlowPrints" },
+  { shopId: "kk", shopName: "KrispKiwiStudio" },
+  { shopId: "os", shopName: "OldSchoolCulture" },
+  { shopId: "mv", shopName: "MugvoyageCo" },
+];
 const SIMILAR_GRADIENTS: [string, string][] = [
   ["#4ade80", "#22916a"],
   ["#f472b6", "#c2418e"],
@@ -242,20 +237,32 @@ const SIMILAR_GRADIENTS: [string, string][] = [
   ["#ef7c4a", "#b3552c"],
 ];
 
-function buildSimilar(listing: Listing, rand: () => number): SimilarListing[] {
-  const remaining = SIMILAR_POOL.filter((t) => t !== listing.title);
+/** Full Listing objects, not a slimmer display-only shape — so a
+ *  "similar listing" card routes to a real detail page instead of a
+ *  dead end (listingsRepository.getById resolves ids like "l1-sim0"
+ *  back through here). */
+function buildSimilar(listing: Listing, rand: () => number): Listing[] {
+  const remaining = SIMILAR_POOL.filter((title) => title !== listing.title);
   const picked: string[] = [];
   while (picked.length < 4 && remaining.length > 0) {
     picked.push(remaining.splice(Math.floor(rand() * remaining.length), 1)[0]);
   }
   return picked.map((title, i) => {
     const price = 12 + rand() * 24;
-    const sales = Math.round(200 + rand() * 15000);
+    const salesNum = Math.round(200 + rand() * 15000);
+    const views = Math.round(salesNum * (5 + rand() * 12));
+    const shop = SIMILAR_SHOPS[Math.floor(rand() * SIMILAR_SHOPS.length)];
     return {
       id: `${listing.id}-sim${i}`,
       title,
-      price: `$${price.toFixed(2)}`,
-      sales: sales.toLocaleString("uk-UA"),
+      shopId: shop.shopId,
+      shopName: shop.shopName,
+      views: views.toLocaleString("uk-UA"),
+      sales: salesNum.toLocaleString("uk-UA"),
+      revenue: formatMoney(salesNum * price),
+      ageMonths: 1 + Math.floor(rand() * 48),
+      tags: titleWords(title).slice(0, 2),
+      tracked: false,
       thumbGradient: SIMILAR_GRADIENTS[i % SIMILAR_GRADIENTS.length],
     };
   });
@@ -283,9 +290,7 @@ export function buildListingDetail(listing: Listing): ListingDetail {
   const attributes = buildAttributes(rand);
   const similar = buildSimilar(listing, rand);
 
-  const salesNum = parseCount(listing.sales);
-  const revenueNum = parseMoneyShorthand(listing.revenue);
-  const avgPrice = salesNum > 0 ? revenueNum / salesNum : 20;
+  const avgPrice = avgUnitPrice(listing.sales, listing.revenue);
 
   const stats: ListingDetailStats = {
     monthlyViews: Math.round(3000 + rand() * 15000).toLocaleString("uk-UA"),

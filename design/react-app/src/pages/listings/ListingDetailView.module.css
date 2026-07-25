@@ -28,6 +28,16 @@
   color: var(--text-0);
 }
 
+.shopLink {
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.shopLink:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
 .sep {
   margin: 0 6px;
   color: var(--text-2);

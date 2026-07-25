@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { PageHeader } from "../../shared/components/PageHeader";
 import { SegTabs } from "../../shared/components/SegTabs";
 import { SearchBar } from "../../shared/components/SearchBar";
@@ -51,8 +52,12 @@ interface KeywordsPageProps {
 }
 
 export function KeywordsPage({ repository = mockKeywordsRepository }: KeywordsPageProps) {
+  const [searchParams] = useSearchParams();
   const [tab, setTab] = useState<KeywordsTab>("search");
-  const [query, setQuery] = useState("funny cat shirt");
+  // Arriving from a "Ключові слова, що ростуть" chip on the dashboard
+  // (/keywords?q=...) starts the search prefilled instead of showing
+  // the default term — read once at mount, same as any other route.
+  const [query, setQuery] = useState(() => searchParams.get("q") ?? "funny cat shirt");
   const [filter, setFilter] = useState<KeywordFilter>("top");
   const [result, setResult] = useState<KeywordSearchResult | null>(null);
   const [trackedKeywords, setTrackedKeywords] = useState<Keyword[]>([]);

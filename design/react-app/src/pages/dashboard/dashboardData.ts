@@ -39,11 +39,14 @@ export interface TrendItemData {
   color: [string, string];
 }
 
+/** `id` is a real listingsRepository id (l1-l4) — trending cards link
+ *  straight to the real /listings/:id detail page, no separate
+ *  dashboard-only dataset to keep in sync with it. */
 export const trends: TrendItemData[] = [
-  { id: "t1", rank: 1, name: "Funny cat vintage tee", meta: "т-шоп · 1 240 продажів/міс", growth: "+34%", color: ["#ff9a5a", "#e0653f"] },
-  { id: "t2", rank: 2, name: "Retro surf van sunset", meta: "дизайн · 860 продажів/міс", growth: "+21%", color: ["#7c6cff", "#5b4bdb"] },
-  { id: "t3", rank: 3, name: "Dog mom era typography", meta: "дизайн · 610 продажів/міс", growth: "+18%", color: ["#4ade80", "#22916a"] },
-  { id: "t4", rank: 4, name: "Minimalist mountain line art", meta: "дизайн · 490 продажів/міс", growth: "+11%", color: ["#f472b6", "#c2418e"] },
+  { id: "l1", rank: 1, name: "Funny cat vintage tee", meta: "т-шоп · 1 240 продажів/міс", growth: "+34%", color: ["#ff9a5a", "#e0653f"] },
+  { id: "l2", rank: 2, name: "Retro surf van sunset", meta: "дизайн · 860 продажів/міс", growth: "+21%", color: ["#7c6cff", "#5b4bdb"] },
+  { id: "l3", rank: 3, name: "Dog mom era typography", meta: "дизайн · 610 продажів/міс", growth: "+18%", color: ["#4ade80", "#22916a"] },
+  { id: "l4", rank: 4, name: "Minimalist mountain line art", meta: "дизайн · 490 продажів/міс", growth: "+11%", color: ["#f472b6", "#c2418e"] },
 ];
 
 export interface KeywordData {
@@ -62,9 +65,11 @@ export const keywords: KeywordData[] = [
   { id: "k7", text: "plant mom", growth: "+8%" },
 ];
 
+/** `id` is a real shopsRepository id (ct/vg/kk/os) — clicking a row
+ *  links straight to the real /shops/:id detail page. */
 export const myShops: ShopStatusEntry[] = [
-  { id: "s1", initials: "CT", name: "CatTeesShop", meta: "128 лістингів · 34 продажі/тиж", status: "ok" },
-  { id: "s2", initials: "DM", name: "DogMomCo", meta: "76 лістингів · 19 продажів/тиж", status: "ok" },
-  { id: "s3", initials: "RS", name: "RetroSurfStore", meta: "2 лістинги втратили позицію", status: "alert" },
-  { id: "s4", initials: "MW", name: "MinimalWallArt", meta: "54 лістинги · 11 продажів/тиж", status: "ok" },
+  { id: "ct", initials: "CT", name: "CatTeesShop", meta: "128 лістингів · 34 продажі/тиж", status: "ok" },
+  { id: "vg", initials: "VG", name: "VintageGlowPrints", meta: "312 лістингів · 19 продажів/тиж", status: "ok" },
+  { id: "kk", initials: "KK", name: "KrispKiwiStudio", meta: "2 лістинги втратили позицію", status: "alert" },
+  { id: "os", initials: "OS", name: "OldSchoolCulture", meta: "201 лістинг · 11 продажів/тиж", status: "ok" },
 ];

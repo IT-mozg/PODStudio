@@ -22,9 +22,10 @@ interface ListingDetailViewProps {
   onBack: () => void;
   onToggleTracked: (listingId: string) => void;
   onSelectListing: (listingId: string) => void;
+  onSelectShop: (shopId: string) => void;
 }
 
-export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectListing }: ListingDetailViewProps) {
+export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectListing, onSelectShop }: ListingDetailViewProps) {
   const detail = useMemo(() => buildListingDetail(listing), [listing]);
 
   const stats: StatDatum[] = [
@@ -52,7 +53,7 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
         <div>
           <h1 className={styles.title}>{listing.title}</h1>
           <div className={styles.shopLine}>
-            <b>{listing.shopName}</b>
+            <b className={styles.shopLink} onClick={() => onSelectShop(listing.shopId)}>{listing.shopName}</b>
             <span className={styles.sep}>·</span>
             {listing.ageMonths} міс. на Etsy
             <span className={styles.sep}>·</span>

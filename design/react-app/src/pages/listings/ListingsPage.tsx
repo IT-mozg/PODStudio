@@ -39,6 +39,7 @@ export function ListingsPage({ repository = mockListingsRepository }: ListingsPa
   );
 
   const handleSelectListing = useCallback((listing: Listing) => navigate(`/listings/${listing.id}`), [navigate]);
+  const handleSelectShop = useCallback((shopId: string) => navigate(`/shops/${shopId}`), [navigate]);
 
   const trackedListings = useMemo(() => listings.filter((l) => l.tracked), [listings]);
 
@@ -68,6 +69,7 @@ export function ListingsPage({ repository = mockListingsRepository }: ListingsPa
           listings={listings}
           onToggleTracked={handleToggleTracked}
           onSelectListing={handleSelectListing}
+          onSelectShop={handleSelectShop}
         />
       )}
 
@@ -75,7 +77,12 @@ export function ListingsPage({ repository = mockListingsRepository }: ListingsPa
         <>
           <ResultsToolbar label="У відстежуваних" value={`${trackedListings.length} лістинг(и)`} />
           <div className={styles.tableWrap}>
-            <ListingsTable listings={trackedListings} onToggleTracked={handleToggleTracked} onSelectListing={handleSelectListing} />
+            <ListingsTable
+              listings={trackedListings}
+              onToggleTracked={handleToggleTracked}
+              onSelectListing={handleSelectListing}
+              onSelectShop={handleSelectShop}
+            />
           </div>
         </>
       )}

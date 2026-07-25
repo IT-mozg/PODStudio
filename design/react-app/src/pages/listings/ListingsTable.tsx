@@ -8,6 +8,7 @@ interface ListingsTableProps {
   listings: Listing[];
   onToggleTracked: (listingId: string) => void;
   onSelectListing: (listing: Listing) => void;
+  onSelectShop: (shopId: string) => void;
 }
 
 const MAX_VISIBLE_TAGS = 2;
@@ -17,7 +18,7 @@ const MAX_VISIBLE_TAGS = 2;
  *  single niche — the two real differences the source is about.
  *  Memoized: pair with useCallback'd handlers in the caller so an
  *  unrelated re-render upstream doesn't repaint the whole table. */
-export const ListingsTable = memo(function ListingsTable({ listings, onToggleTracked, onSelectListing }: ListingsTableProps) {
+export const ListingsTable = memo(function ListingsTable({ listings, onToggleTracked, onSelectListing, onSelectShop }: ListingsTableProps) {
   return (
     <table className={styles.table}>
       <thead>
@@ -44,7 +45,15 @@ export const ListingsTable = memo(function ListingsTable({ listings, onToggleTra
               </div>
             </td>
             <td>
-              <span className={styles.shopLink}>{listing.shopName}</span>
+              <span
+                className={styles.shopLink}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelectShop(listing.shopId);
+                }}
+              >
+                {listing.shopName}
+              </span>
             </td>
             <td>
               <div className={styles.num}>{listing.views}</div>

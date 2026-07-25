@@ -48,6 +48,7 @@ export function ShopDetailView({ shop, onBack, onToggleTracked }: ShopDetailView
   }, []);
 
   const handleSelectListing = useCallback((listing: Listing) => navigate(`/listings/${listing.id}`), [navigate]);
+  const handleSelectShop = useCallback((shopId: string) => navigate(`/shops/${shopId}`), [navigate]);
 
   // No repository backs a shop's own listings yet (they're generated
   // alongside the rest of buildShopDetail), so the star toggle is
@@ -168,6 +169,7 @@ export function ShopDetailView({ shop, onBack, onToggleTracked }: ShopDetailView
                 listings={topListings}
                 onToggleTracked={handleToggleListingTracked}
                 onSelectListing={handleSelectListing}
+                onSelectShop={handleSelectShop}
               />
             </div>
           </TwoColumnLayout>
@@ -186,6 +188,7 @@ export function ShopDetailView({ shop, onBack, onToggleTracked }: ShopDetailView
           listings={filteredListings}
           onToggleTracked={handleToggleListingTracked}
           onSelectListing={handleSelectListing}
+          onSelectShop={handleSelectShop}
         />
       )}
 
