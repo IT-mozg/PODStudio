@@ -4,13 +4,13 @@
 folder.
 
 Two frontends are served side by side while the new React design
-(design/react-app) is still missing the "Керування" screens the old
-one covers (generation, editing, history):
-  - "/"     the new React app — design/react-app/dist, built with
-            `npm run build`. It's client-side routed (React Router),
-            so any path this controller doesn't otherwise recognize
-            falls back to the same index.html and the router picks
-            the right screen once it loads.
+(design/) is still missing the "Керування" screens the old one covers
+(generation, editing, history):
+  - "/"     the new React app — design/dist, built with `npm run
+            build`. It's client-side routed (React Router), so any
+            path this controller doesn't otherwise recognize falls
+            back to the same index.html and the router picks the
+            right screen once it loads.
   - "/old"  the previous hand-written interface (views/templates,
             views/static) — untouched, still the only place actual
             generation/editing/history work happens today.
@@ -22,7 +22,7 @@ from models import generate_designs as engine
 
 pages_bp = Blueprint("pages", __name__)
 
-REACT_DIST = container.BASE / "design" / "react-app" / "dist"
+REACT_DIST = container.BASE / "design" / "dist"
 
 # Path segments already owned by something other than the React SPA —
 # the fallback route below must 404 on these instead of silently
