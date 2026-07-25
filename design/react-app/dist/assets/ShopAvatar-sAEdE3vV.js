@@ -1,1 +1,0 @@
-import{x as e}from"./index-s1eVYZ2Y.js";var t={avatar:`_avatar_1nahl_1`,small:`_small_1nahl_16`},n=e();function r({initials:e,small:r}){return(0,n.jsx)(`div`,{className:r?`${t.avatar} ${t.small}`:t.avatar,children:e})}export{r as t};
