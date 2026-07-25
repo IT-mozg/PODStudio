@@ -1,22 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../../shared/components/PageHeader";
 import { SegTabs } from "../../shared/components/SegTabs";
-import { SearchBar } from "../../shared/components/SearchBar";
-import { FilterChips, type FilterOption } from "../../shared/components/FilterChips";
 import { ResultsToolbar } from "../../shared/components/ResultsToolbar";
-import { AlertCircleIcon, DesignsIcon, StarIcon, TrendUpIcon } from "../../shared/icons";
+import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { mockListingsRepository, type ListingsRepository } from "./listingsRepository";
 import type { Listing, ListingFilter } from "./types";
+import { ListingsSearchPanel } from "./ListingsSearchPanel";
 import { ListingsTable } from "./ListingsTable";
 import styles from "../../shared/components/SearchToolbar.module.css";
-
-const FILTERS: FilterOption<ListingFilter>[] = [
-  { id: "top", label: "Топ продажів", icon: StarIcon },
-  { id: "new", label: "Нові", icon: DesignsIcon },
-  { id: "trending", label: "В тренді", icon: TrendUpIcon },
-  { id: "outliers", label: "Викиди", icon: AlertCircleIcon },
-];
 
 type ListingsTab = "search" | "tracked";
 
@@ -32,15 +24,21 @@ export function ListingsPage({ repository = mockListingsRepository }: ListingsPa
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ListingFilter>("top");
   const [listings, setListings] = useState<Listing[]>([]);
+  const debouncedQuery = useDebouncedValue(query);
 
   useEffect(() => {
-    repository.search(query, filter).then(setListings);
-  }, [repository, query, filter]);
+    repository.search(debouncedQuery, filter).then(setListings);
+  }, [repository, debouncedQuery, filter]);
 
-  async function handleToggleTracked(listingId: string) {
-    await repository.toggleTracked(listingId);
-    setListings(await repository.search(query, filter));
-  }
+  const handleToggleTracked = useCallback(
+    async (listingId: string) => {
+      await repository.toggleTracked(listingId);
+      setListings(await repository.search(query, filter));
+    },
+    [repository, query, filter]
+  );
+
+  const handleSelectListing = useCallback((listing: Listing) => navigate(`/listings/${listing.id}`), [navigate]);
 
   const trackedListings = useMemo(() => listings.filter((l) => l.tracked), [listings]);
 
@@ -58,27 +56,26 @@ export function ListingsPage({ repository = mockListingsRepository }: ListingsPa
       />
 
       {tab === "search" && (
-        <>
-          <SearchBar
-            value={query}
-            onChange={setQuery}
-            onSubmit={() => repository.search(query, filter).then(setListings)}
-            placeholder="Назва товару або ключове слово — напр. funny cat shirt"
-          />
-          <FilterChips options={FILTERS} active={filter} onSelect={setFilter} />
-
-          <ResultsToolbar label="Проаналізовано лістингів" value="58 200 000" />
-          <div className={styles.tableWrap}>
-            <ListingsTable listings={listings} onToggleTracked={handleToggleTracked} onSelectListing={(l) => navigate(`/listings/${l.id}`)} />
-          </div>
-        </>
+        <ListingsSearchPanel
+          query={query}
+          onQueryChange={setQuery}
+          onSearchSubmit={() => repository.search(query, filter).then(setListings)}
+          searchPlaceholder="Назва товару або ключове слово — напр. funny cat shirt"
+          filter={filter}
+          onFilterChange={setFilter}
+          resultsLabel="Проаналізовано лістингів"
+          resultsValue="58 200 000"
+          listings={listings}
+          onToggleTracked={handleToggleTracked}
+          onSelectListing={handleSelectListing}
+        />
       )}
 
       {tab === "tracked" && (
         <>
           <ResultsToolbar label="У відстежуваних" value={`${trackedListings.length} лістинг(и)`} />
           <div className={styles.tableWrap}>
-            <ListingsTable listings={trackedListings} onToggleTracked={handleToggleTracked} onSelectListing={(l) => navigate(`/listings/${l.id}`)} />
+            <ListingsTable listings={trackedListings} onToggleTracked={handleToggleTracked} onSelectListing={handleSelectListing} />
           </div>
         </>
       )}

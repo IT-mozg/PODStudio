@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../../shared/components/PageHeader";
 import { SegTabs } from "../../shared/components/SegTabs";
@@ -6,6 +6,7 @@ import { SearchBar } from "../../shared/components/SearchBar";
 import { FilterChips, type FilterOption } from "../../shared/components/FilterChips";
 import { ResultsToolbar } from "../../shared/components/ResultsToolbar";
 import { GridSquaresIcon, StarIcon, TrendUpIcon, DesignsIcon } from "../../shared/icons";
+import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { mockShopsRepository, type ShopsRepository } from "./shopsRepository";
 import type { Shop, ShopFilter } from "./types";
 import { ShopsTable } from "./ShopsTable";
@@ -32,15 +33,21 @@ export function ShopsPage({ repository = mockShopsRepository }: ShopsPageProps) 
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<ShopFilter>("top");
   const [shops, setShops] = useState<Shop[]>([]);
+  const debouncedQuery = useDebouncedValue(query);
 
   useEffect(() => {
-    repository.search(query, filter).then(setShops);
-  }, [repository, query, filter]);
+    repository.search(debouncedQuery, filter).then(setShops);
+  }, [repository, debouncedQuery, filter]);
 
-  async function handleToggleTracked(shopId: string) {
-    await repository.toggleTracked(shopId);
-    setShops(await repository.search(query, filter));
-  }
+  const handleToggleTracked = useCallback(
+    async (shopId: string) => {
+      await repository.toggleTracked(shopId);
+      setShops(await repository.search(query, filter));
+    },
+    [repository, query, filter]
+  );
+
+  const handleSelectShop = useCallback((shop: Shop) => navigate(`/shops/${shop.id}`), [navigate]);
 
   const trackedShops = useMemo(() => shops.filter((s) => s.tracked), [shops]);
 
@@ -69,7 +76,7 @@ export function ShopsPage({ repository = mockShopsRepository }: ShopsPageProps) 
 
           <ResultsToolbar label="Проаналізовано магазинів" value="4 790 675" />
           <div className={styles.tableWrap}>
-            <ShopsTable shops={shops} onToggleTracked={handleToggleTracked} onSelectShop={(s) => navigate(`/shops/${s.id}`)} />
+            <ShopsTable shops={shops} onToggleTracked={handleToggleTracked} onSelectShop={handleSelectShop} />
           </div>
         </>
       )}
@@ -78,7 +85,7 @@ export function ShopsPage({ repository = mockShopsRepository }: ShopsPageProps) 
         <>
           <ResultsToolbar label="У відстежуваних" value={`${trackedShops.length} магазин(и)`} />
           <div className={styles.tableWrap}>
-            <ShopsTable shops={trackedShops} onToggleTracked={handleToggleTracked} onSelectShop={(s) => navigate(`/shops/${s.id}`)} />
+            <ShopsTable shops={trackedShops} onToggleTracked={handleToggleTracked} onSelectShop={handleSelectShop} />
           </div>
         </>
       )}

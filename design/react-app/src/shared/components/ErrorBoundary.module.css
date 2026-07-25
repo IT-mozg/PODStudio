@@ -1,0 +1,38 @@
+.wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 320px;
+  text-align: center;
+}
+
+.title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.detail {
+  font-size: 12.5px;
+  color: var(--text-2);
+  font-family: "IBM Plex Mono", monospace;
+  max-width: 480px;
+}
+
+.retry {
+  margin-top: 10px;
+  padding: 8px 16px;
+  border-radius: 9px;
+  border: 1px solid var(--border-strong);
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  color: var(--text-1);
+  transition: all 0.15s ease;
+}
+
+.retry:hover {
+  color: var(--text-0);
+  border-color: var(--accent);
+}

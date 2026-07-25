@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { StarIcon } from "../../shared/icons";
+import { memo, useMemo, useState } from "react";
+import { StarToggleButton } from "../../shared/components/StarToggleButton";
 import { MetricBar } from "../../shared/components/MetricBar";
 import { Sparkline } from "../../shared/components/Sparkline";
 import type { ListingTag } from "./listingDetail";
@@ -18,7 +18,7 @@ function kdTone(kd: number): "positive" | "warning" | "negative" {
  *  — just scoped to one listing's tags instead of a search result.
  *  Saving is local to this page for now (no cross-listing tag
  *  repository yet), same as any other page-local UI state. */
-export function TagsAuditTable({ tags }: { tags: ListingTag[] }) {
+export const TagsAuditTable = memo(function TagsAuditTable({ tags }: { tags: ListingTag[] }) {
   const maxVolume = useMemo(() => Math.max(1, ...tags.map((t) => t.volume)), [tags]);
   const maxCompetition = useMemo(() => Math.max(1, ...tags.map((t) => t.competition)), [tags]);
   const [saved, setSaved] = useState<Set<string>>(new Set());
@@ -65,15 +65,12 @@ export function TagsAuditTable({ tags }: { tags: ListingTag[] }) {
                 <Sparkline values={row.sparkline} />
               </td>
               <td>
-                <div className={styles.actions}>
-                  <div
-                    className={isSaved ? `${styles.starBtn} ${styles.starBtnActive}` : styles.starBtn}
-                    title={isSaved ? "У збережених" : "Зберегти тег"}
-                    onClick={() => toggleSaved(row.tag)}
-                  >
-                    <StarIcon size={14} />
-                  </div>
-                </div>
+                <StarToggleButton
+                  active={isSaved}
+                  activeTitle="У збережених"
+                  inactiveTitle="Зберегти тег"
+                  onClick={() => toggleSaved(row.tag)}
+                />
               </td>
             </tr>
           );
@@ -81,4 +78,4 @@ export function TagsAuditTable({ tags }: { tags: ListingTag[] }) {
       </tbody>
     </table>
   );
-}
+});

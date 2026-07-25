@@ -73,16 +73,6 @@
   max-width: 160px;
 }
 
-.tag {
-  font-size: 10.5px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 6px;
-  background: rgba(124, 108, 255, 0.12);
-  color: var(--accent);
-  white-space: nowrap;
-}
-
 .tagMore {
   font-size: 10.5px;
   color: var(--text-2);
@@ -101,39 +91,3 @@
   font-family: "IBM Plex Mono", monospace;
 }
 
-.actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  justify-content: flex-end;
-}
-
-.starBtn {
-  width: 28px;
-  height: 28px;
-  border-radius: 8px;
-  border: 1px solid var(--border);
-  background: var(--bg-0);
-  color: var(--text-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: all 0.15s ease;
-}
-
-.starBtn:hover {
-  color: var(--text-0);
-  border-color: var(--border-strong);
-}
-
-.starBtnActive {
-  color: #fbbf24;
-  border-color: rgba(251, 191, 36, 0.4);
-  background: rgba(251, 191, 36, 0.1);
-}
-
-.starBtnActive svg {
-  fill: #fbbf24;
-}

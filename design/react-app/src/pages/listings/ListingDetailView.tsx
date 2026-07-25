@@ -1,8 +1,12 @@
 import { useMemo } from "react";
-import { ArrowLeftIcon, StarIcon, TrendUpIcon, SearchIcon, ImageIcon, ListingsIcon, CheckShieldIcon, GridSquaresIcon, LightningIcon } from "../../shared/icons";
+import { TrendUpIcon, SearchIcon, ImageIcon, ListingsIcon, CheckShieldIcon, GridSquaresIcon, LightningIcon } from "../../shared/icons";
 import { StatGrid, type StatDatum } from "../../shared/components/StatGrid";
 import { SectionHead } from "../../shared/components/SectionHead";
 import { PanelCard } from "../../shared/components/PanelCard";
+import { BackButton } from "../../shared/components/BackButton";
+import { FollowButton } from "../../shared/components/FollowButton";
+import { TwoColumnLayout } from "../../shared/components/TwoColumnLayout";
+import searchStyles from "../../shared/components/SearchToolbar.module.css";
 import type { Listing } from "./types";
 import { buildListingDetail } from "./listingDetail";
 import { PhotoSlider } from "./PhotoSlider";
@@ -38,9 +42,8 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
 
   return (
     <div>
-      <div className={styles.breadcrumbRow} onClick={onBack}>
-        <ArrowLeftIcon size={16} />
-        <span>Назад до списку</span>
+      <div className={styles.backRow}>
+        <BackButton onClick={onBack} />
       </div>
 
       <PhotoSlider photos={detail.photos} title={listing.title} />
@@ -59,12 +62,8 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
         <div className={styles.priceBlock}>
           <div className={styles.price}>{detail.stats.avgPrice}</div>
           <div className={styles.priceSub}>{listing.sales} продажів · {listing.revenue}</div>
-          <div
-            className={listing.tracked ? `${styles.trackBtn} ${styles.trackBtnActive}` : styles.trackBtn}
-            onClick={() => onToggleTracked(listing.id)}
-          >
-            <StarIcon size={13} />
-            {listing.tracked ? "У відстежуваних" : "Відстежувати"}
+          <div className={styles.followRow}>
+            <FollowButton tracked={listing.tracked} onClick={() => onToggleTracked(listing.id)} />
           </div>
         </div>
       </div>
@@ -75,35 +74,35 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
       <ListingScoreCard score={detail.score} />
 
       <SectionHead icon={SearchIcon} title="Теги та ключові слова" />
-      <div className={styles.tableWrap}>
+      <div className={searchStyles.tableWrap}>
         <TagsAuditTable tags={detail.tags} />
       </div>
 
-      <div className={styles.twoCol}>
-        <div>
-          <SectionHead icon={ListingsIcon} title="Опис — з позначеними проблемами" />
-          <PanelCard>
-            <FlaggedDescription segments={detail.descriptionSegments} />
-          </PanelCard>
+      <TwoColumnLayout
+        aside={
+          <>
+            <SectionHead icon={CheckShieldIcon} title="SEO — що перевірено" />
+            <PanelCard>
+              <SeoChecklist checks={detail.seoChecks} />
+            </PanelCard>
+          </>
+        }
+      >
+        <SectionHead icon={ListingsIcon} title="Опис — з позначеними проблемами" />
+        <PanelCard>
+          <FlaggedDescription segments={detail.descriptionSegments} />
+        </PanelCard>
 
-          <SectionHead icon={GridSquaresIcon} title="Атрибути та категорія" />
-          <div className={styles.attrGrid}>
-            {detail.attributes.map((attr) => (
-              <div className={styles.attr} key={attr.label}>
-                <div className={styles.attrLabel}>{attr.label}</div>
-                <div className={styles.attrValue}>{attr.value}</div>
-              </div>
-            ))}
-          </div>
+        <SectionHead icon={GridSquaresIcon} title="Атрибути та категорія" />
+        <div className={styles.attrGrid}>
+          {detail.attributes.map((attr) => (
+            <div className={styles.attr} key={attr.label}>
+              <div className={styles.attrLabel}>{attr.label}</div>
+              <div className={styles.attrValue}>{attr.value}</div>
+            </div>
+          ))}
         </div>
-
-        <div>
-          <SectionHead icon={CheckShieldIcon} title="SEO — що перевірено" />
-          <PanelCard>
-            <SeoChecklist checks={detail.seoChecks} />
-          </PanelCard>
-        </div>
-      </div>
+      </TwoColumnLayout>
 
       <SectionHead icon={ListingsIcon} title="Схожі лістинги" />
       <SimilarListingsCarousel items={detail.similar} onSelect={onSelectListing} />

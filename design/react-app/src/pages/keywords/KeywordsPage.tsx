@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "../../shared/components/PageHeader";
 import { SegTabs } from "../../shared/components/SegTabs";
 import { SearchBar } from "../../shared/components/SearchBar";
@@ -9,6 +9,7 @@ import { PanelCard } from "../../shared/components/PanelCard";
 import { StatGrid, type StatDatum } from "../../shared/components/StatGrid";
 import { TrendChart, type TrendPoint } from "../../shared/components/TrendChart";
 import { AlertCircleIcon, GridSquaresIcon, SearchIcon, StarIcon, TrendUpIcon } from "../../shared/icons";
+import { useDebouncedValue } from "../../shared/hooks/useDebouncedValue";
 import { mockKeywordsRepository, type KeywordsRepository } from "./keywordsRepository";
 import type { Keyword, KeywordFilter, KeywordSearchResult } from "./types";
 import { KeywordsTable } from "./KeywordsTable";
@@ -55,10 +56,11 @@ export function KeywordsPage({ repository = mockKeywordsRepository }: KeywordsPa
   const [filter, setFilter] = useState<KeywordFilter>("top");
   const [result, setResult] = useState<KeywordSearchResult | null>(null);
   const [trackedKeywords, setTrackedKeywords] = useState<Keyword[]>([]);
+  const debouncedQuery = useDebouncedValue(query);
 
   useEffect(() => {
-    repository.search(query, filter).then(setResult);
-  }, [repository, query, filter]);
+    repository.search(debouncedQuery, filter).then(setResult);
+  }, [repository, debouncedQuery, filter]);
 
   useEffect(() => {
     repository.getTracked().then(setTrackedKeywords);
@@ -68,11 +70,14 @@ export function KeywordsPage({ repository = mockKeywordsRepository }: KeywordsPa
     setResult(await repository.search(query, filter));
   }
 
-  async function handleToggleTracked(keywordId: string) {
-    await repository.toggleTracked(keywordId);
-    setResult(await repository.search(query, filter));
-    setTrackedKeywords(await repository.getTracked());
-  }
+  const handleToggleTracked = useCallback(
+    async (keywordId: string) => {
+      await repository.toggleTracked(keywordId);
+      setResult(await repository.search(query, filter));
+      setTrackedKeywords(await repository.getTracked());
+    },
+    [repository, query, filter]
+  );
 
   const headlineStats = useMemo(() => (result ? buildHeadlineStats(result.headline) : []), [result]);
 

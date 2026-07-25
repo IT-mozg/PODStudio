@@ -4,6 +4,7 @@ import { mockListingsRepository, type ListingsRepository } from "./listingsRepos
 import type { Listing } from "./types";
 import { ListingDetailView } from "./ListingDetailView";
 import { PlaceholderPage } from "../PlaceholderPage";
+import { LoadingState } from "../../shared/components/LoadingState";
 
 interface ListingDetailPageProps {
   repository?: ListingsRepository;
@@ -28,7 +29,7 @@ export function ListingDetailPage({ repository = mockListingsRepository }: Listi
     if (listingId) setListing(await repository.getById(listingId));
   }
 
-  if (listing === undefined) return null;
+  if (listing === undefined) return <LoadingState />;
   if (listing === null) return <PlaceholderPage pageLabel="Лістинг не знайдено" />;
 
   return (

@@ -9,6 +9,7 @@ import { mulberry32, seedFromString } from "../../shared/prng";
 import type { TrendPoint } from "../../shared/components/TrendChart";
 import type { BarDatum } from "../../shared/components/BarBreakdown";
 import type { RatingBreakdownDatum } from "../../shared/components/RatingBars";
+import type { Listing } from "../listings/types";
 import type { Shop } from "./types";
 
 export interface ShopDetailStats {
@@ -30,18 +31,6 @@ export interface ShopReview {
   listingRef: string;
 }
 
-export interface ShopListingSummary {
-  id: string;
-  title: string;
-  sales: string;
-  revenue: string;
-  price: string;
-  ageLabel: string;
-  rating: number;
-  reviewCount: string;
-  thumbGradient: [string, string];
-}
-
 export interface ShopDetail {
   stats: ShopDetailStats;
   revenueTrend: TrendPoint[];
@@ -49,7 +38,10 @@ export interface ShopDetail {
   priceBreakdown: BarDatum[];
   ratingBreakdown: RatingBreakdownDatum[];
   reviews: ShopReview[];
-  listings: ShopListingSummary[];
+  /** Same Listing shape as the Лістинги page, so the shop's own
+   *  listings render through the exact same ListingsTable — no
+   *  parallel row design to keep in sync. */
+  listings: Listing[];
   category: string;
   handmade: boolean;
 }
@@ -160,21 +152,25 @@ export function buildShopDetail(shop: Shop): ShopDetail {
     ["#5ad1e0", "#2f95a3"],
   ];
   const listingCount = Math.min(5, Math.max(3, shop.listings > 0 ? 5 : 3));
+  const listingSuffixes = ["design #1", "vintage style", "custom name", "bootleg tee", "graphic print"];
+  const listingTagWords = ["design", "vintage", "custom", "bootleg", "graphic"];
   let remainingSalesShare = 0.62;
-  const listings: ShopListingSummary[] = Array.from({ length: listingCount }, (_, i) => {
+  const listings: Listing[] = Array.from({ length: listingCount }, (_, i) => {
     const share = i === 0 ? remainingSalesShare * (0.4 + rand() * 0.2) : remainingSalesShare * (0.15 + rand() * 0.15);
     remainingSalesShare = Math.max(0.02, remainingSalesShare - share);
     const listingSales = Math.max(20, Math.round(totalSales * share));
     const price = avgPriceNum * (0.7 + rand() * 0.8);
+    const views = Math.round(listingSales * (5 + rand() * 12));
     return {
       id: `${shop.id}-l${i}`,
-      title: `${shop.niche} — ${["design #1", "vintage style", "custom name", "bootleg tee", "graphic print"][i % 5]}`,
+      title: `${shop.niche} — ${listingSuffixes[i % listingSuffixes.length]}`,
+      shopName: shop.name,
+      views: views.toLocaleString("uk-UA"),
       sales: listingSales.toLocaleString("uk-UA"),
       revenue: formatMoney(listingSales * price),
-      price: `$${price.toFixed(2)}`,
-      ageLabel: `${Math.max(1, Math.round(rand() * ageMonths))} міс.`,
-      rating: 4.6 + rand() * 0.4,
-      reviewCount: Math.round(listingSales * (0.2 + rand() * 0.3)).toLocaleString("uk-UA"),
+      ageMonths: Math.max(1, Math.round(rand() * ageMonths)),
+      tags: [shop.niche, listingTagWords[i % listingTagWords.length]],
+      tracked: false,
       thumbGradient: gradientPairs[i % gradientPairs.length],
     };
   });

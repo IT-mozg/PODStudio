@@ -4,6 +4,7 @@ import { mockShopsRepository, type ShopsRepository } from "./shopsRepository";
 import type { Shop } from "./types";
 import { ShopDetailView } from "./ShopDetailView";
 import { PlaceholderPage } from "../PlaceholderPage";
+import { LoadingState } from "../../shared/components/LoadingState";
 
 interface ShopDetailPageProps {
   repository?: ShopsRepository;
@@ -29,7 +30,7 @@ export function ShopDetailPage({ repository = mockShopsRepository }: ShopDetailP
     if (shopId) setShop(await repository.getById(shopId));
   }
 
-  if (shop === undefined) return null;
+  if (shop === undefined) return <LoadingState />;
   if (shop === null) return <PlaceholderPage pageLabel="Магазин не знайдено" />;
 
   return <ShopDetailView shop={shop} onBack={() => navigate(-1)} onToggleTracked={handleToggleTracked} />;

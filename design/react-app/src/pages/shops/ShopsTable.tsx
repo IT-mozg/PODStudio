@@ -1,6 +1,8 @@
-import { StarIcon } from "../../shared/icons";
+import { memo } from "react";
 import { GrowthBadge } from "../../shared/components/GrowthBadge";
 import { ShopAvatar } from "../../shared/components/ShopAvatar";
+import { StarToggleButton } from "../../shared/components/StarToggleButton";
+import { Pill } from "../../shared/components/Pill";
 import type { Shop } from "./types";
 import styles from "./ShopsTable.module.css";
 
@@ -12,8 +14,9 @@ interface ShopsTableProps {
 
 /** Pure presentation — rows come from `shops`, the star click is
  *  reported upward via `onToggleTracked` (no direct repository
- *  access here, so this component doesn't care where data comes from). */
-export function ShopsTable({ shops, onToggleTracked, onSelectShop }: ShopsTableProps) {
+ *  access here, so this component doesn't care where data comes from).
+ *  Memoized — pair with useCallback'd handlers in the caller. */
+export const ShopsTable = memo(function ShopsTable({ shops, onToggleTracked, onSelectShop }: ShopsTableProps) {
   return (
     <>
       <table className={styles.table}>
@@ -43,7 +46,7 @@ export function ShopsTable({ shops, onToggleTracked, onSelectShop }: ShopsTableP
                 </div>
               </td>
               <td>
-                <span className={styles.nicheTag}>{shop.niche}</span>
+                <Pill>{shop.niche}</Pill>
               </td>
               <td>
                 <div className={styles.num}>{shop.sales}</div>
@@ -59,18 +62,15 @@ export function ShopsTable({ shops, onToggleTracked, onSelectShop }: ShopsTableP
                 <GrowthBadge value={shop.growth} />
               </td>
               <td>
-                <div className={styles.actions}>
-                  <div
-                    className={shop.tracked ? `${styles.starBtn} ${styles.starBtnActive}` : styles.starBtn}
-                    title={shop.tracked ? "У відстежуваних" : "Додати у відстежувані"}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleTracked(shop.id);
-                    }}
-                  >
-                    <StarIcon size={14} />
-                  </div>
-                </div>
+                <StarToggleButton
+                  active={shop.tracked}
+                  activeTitle="У відстежуваних"
+                  inactiveTitle="Додати у відстежувані"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleTracked(shop.id);
+                  }}
+                />
               </td>
             </tr>
           ))}
@@ -78,4 +78,4 @@ export function ShopsTable({ shops, onToggleTracked, onSelectShop }: ShopsTableP
       </table>
     </>
   );
-}
+});

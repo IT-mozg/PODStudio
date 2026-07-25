@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { StarIcon } from "../../shared/icons";
+import { memo, useMemo } from "react";
+import { StarToggleButton } from "../../shared/components/StarToggleButton";
 import { MetricBar } from "../../shared/components/MetricBar";
 import { Sparkline } from "../../shared/components/Sparkline";
 import type { Keyword } from "./types";
@@ -23,7 +23,7 @@ function kdTone(kd: number): "positive" | "warning" | "negative" {
   return "negative";
 }
 
-export function KeywordsTable({ keywords, onToggleTracked }: KeywordsTableProps) {
+export const KeywordsTable = memo(function KeywordsTable({ keywords, onToggleTracked }: KeywordsTableProps) {
   const maxVolume = useMemo(() => Math.max(1, ...keywords.map((k) => parseNum(k.searchVolume))), [keywords]);
   const maxCompetition = useMemo(() => Math.max(1, ...keywords.map((k) => parseNum(k.competition))), [keywords]);
 
@@ -58,19 +58,16 @@ export function KeywordsTable({ keywords, onToggleTracked }: KeywordsTableProps)
               <Sparkline values={kw.sparkline} />
             </td>
             <td>
-              <div className={styles.actions}>
-                <div
-                  className={kw.tracked ? `${styles.starBtn} ${styles.starBtnActive}` : styles.starBtn}
-                  title={kw.tracked ? "У відстежуваних" : "Додати у відстежувані"}
-                  onClick={() => onToggleTracked(kw.id)}
-                >
-                  <StarIcon size={14} />
-                </div>
-              </div>
+              <StarToggleButton
+                active={kw.tracked}
+                activeTitle="У відстежуваних"
+                inactiveTitle="Додати у відстежувані"
+                onClick={() => onToggleTracked(kw.id)}
+              />
             </td>
           </tr>
         ))}
       </tbody>
     </table>
   );
-}
+});

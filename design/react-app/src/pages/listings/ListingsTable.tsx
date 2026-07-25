@@ -1,4 +1,6 @@
-import { StarIcon } from "../../shared/icons";
+import { memo } from "react";
+import { StarToggleButton } from "../../shared/components/StarToggleButton";
+import { Pill } from "../../shared/components/Pill";
 import type { Listing } from "./types";
 import styles from "./ListingsTable.module.css";
 
@@ -12,8 +14,10 @@ const MAX_VISIBLE_TAGS = 2;
 
 /** Same shape as ShopsTable, but the leading cell is a product thumbnail
  *  + title (a listing, not a shop), and rows carry tags instead of a
- *  single niche — the two real differences the source is about. */
-export function ListingsTable({ listings, onToggleTracked, onSelectListing }: ListingsTableProps) {
+ *  single niche — the two real differences the source is about.
+ *  Memoized: pair with useCallback'd handlers in the caller so an
+ *  unrelated re-render upstream doesn't repaint the whole table. */
+export const ListingsTable = memo(function ListingsTable({ listings, onToggleTracked, onSelectListing }: ListingsTableProps) {
   return (
     <table className={styles.table}>
       <thead>
@@ -54,7 +58,7 @@ export function ListingsTable({ listings, onToggleTracked, onSelectListing }: Li
             <td>
               <div className={styles.tagRow}>
                 {listing.tags.slice(0, MAX_VISIBLE_TAGS).map((tag) => (
-                  <span className={styles.tag} key={tag}>{tag}</span>
+                  <Pill size="sm" key={tag}>{tag}</Pill>
                 ))}
                 {listing.tags.length > MAX_VISIBLE_TAGS && (
                   <span className={styles.tagMore}>+{listing.tags.length - MAX_VISIBLE_TAGS}</span>
@@ -62,22 +66,19 @@ export function ListingsTable({ listings, onToggleTracked, onSelectListing }: Li
               </div>
             </td>
             <td>
-              <div className={styles.actions}>
-                <div
-                  className={listing.tracked ? `${styles.starBtn} ${styles.starBtnActive}` : styles.starBtn}
-                  title={listing.tracked ? "У відстежуваних" : "Додати у відстежувані"}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleTracked(listing.id);
-                  }}
-                >
-                  <StarIcon size={14} />
-                </div>
-              </div>
+              <StarToggleButton
+                active={listing.tracked}
+                activeTitle="У відстежуваних"
+                inactiveTitle="Додати у відстежувані"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleTracked(listing.id);
+                }}
+              />
             </td>
           </tr>
         ))}
       </tbody>
     </table>
   );
-}
+});

@@ -1,16 +1,5 @@
-.breadcrumbRow {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12.5px;
-  color: var(--text-2);
-  cursor: pointer;
+.backRow {
   margin-bottom: 16px;
-  transition: color 0.15s ease;
-}
-
-.breadcrumbRow:hover {
-  color: var(--text-0);
 }
 
 .headRow {
@@ -61,45 +50,10 @@
   margin-top: 2px;
 }
 
-.trackBtn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
+.followRow {
+  display: flex;
+  justify-content: flex-end;
   margin-top: 10px;
-  padding: 7px 12px;
-  border-radius: 9px;
-  border: 1px solid var(--border-strong);
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-  color: var(--text-1);
-  transition: all 0.15s ease;
-}
-
-.trackBtn:hover {
-  color: var(--text-0);
-}
-
-.trackBtnActive {
-  color: #fbbf24;
-  border-color: rgba(251, 191, 36, 0.4);
-  background: rgba(251, 191, 36, 0.1);
-}
-
-.trackBtnActive svg {
-  fill: #fbbf24;
-}
-
-.tableWrap {
-  overflow-x: auto;
-}
-
-.twoCol {
-  display: grid;
-  grid-template-columns: 1.7fr 1fr;
-  gap: 20px;
-  align-items: start;
-  margin-top: 8px;
 }
 
 .attrGrid {
@@ -130,11 +84,7 @@
   font-weight: 600;
 }
 
-@media (max-width: 980px) {
-  .twoCol {
-    grid-template-columns: 1fr;
-  }
-
+@media (max-width: 900px) {
   .attrGrid {
     grid-template-columns: repeat(2, 1fr);
   }
