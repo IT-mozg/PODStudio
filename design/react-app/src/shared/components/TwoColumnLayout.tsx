@@ -16,8 +16,8 @@ interface TwoColumnLayoutProps {
 export function TwoColumnLayout({ children, aside, ratio = "1.7fr 1fr" }: TwoColumnLayoutProps) {
   return (
     <div className={styles.twoCol} style={{ gridTemplateColumns: ratio }}>
-      <div>{children}</div>
-      <div>{aside}</div>
+      <div className={styles.col}>{children}</div>
+      <div className={styles.col}>{aside}</div>
     </div>
   );
 }

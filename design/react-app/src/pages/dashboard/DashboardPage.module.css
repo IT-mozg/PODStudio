@@ -4,3 +4,13 @@
   gap: 14px;
   align-items: start;
 }
+
+.col {
+  min-width: 0;
+}
+
+@media (max-width: 960px) {
+  .grid2 {
+    grid-template-columns: 1fr;
+  }
+}

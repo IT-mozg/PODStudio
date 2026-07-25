@@ -241,3 +241,11 @@ export function ArrowLeftIcon({ size = 16 }: IconProps) {
     </svg>
   );
 }
+
+export function MenuIcon({ size = 16 }: IconProps) {
+  return (
+    <svg {...base} width={size} height={size}>
+      <path d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  );
+}

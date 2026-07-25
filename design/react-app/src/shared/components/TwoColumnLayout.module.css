@@ -5,6 +5,16 @@
   margin-top: 8px;
 }
 
+/* Grid items default to min-width: auto, so content with its own
+   intrinsic minimum (e.g. BarBreakdown's fixed-label columns) can
+   force the track wider than its share of the grid and spill past the
+   viewport — the exact "grid blowout" bug already fixed once in the
+   Calculator. min-width: 0 lets the column actually shrink to its
+   track's width. */
+.col {
+  min-width: 0;
+}
+
 @media (max-width: 900px) {
   .twoCol {
     grid-template-columns: 1fr !important;

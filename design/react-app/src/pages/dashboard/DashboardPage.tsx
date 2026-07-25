@@ -28,7 +28,7 @@ export function DashboardPage() {
       <QueueGrid items={queueItems} />
 
       <div className={styles.grid2}>
-        <div>
+        <div className={styles.col}>
           <SectionHead icon={TrendUpIcon} title="Тренди зараз" linkText="Усі тренди →" />
           <TrendList items={trends} onSelect={(listingId) => navigate(`/listings/${listingId}`)} />
 
@@ -36,7 +36,7 @@ export function DashboardPage() {
           <KeywordCloud keywords={keywords} onSelect={(text) => navigate(`/keywords?q=${encodeURIComponent(text)}`)} />
         </div>
 
-        <div>
+        <div className={styles.col}>
           <SectionHead icon={ShopBagIcon} title="Мої магазини" linkText="Усі →" />
           <ShopStatusList shops={myShops} onSelect={(shopId) => navigate(`/shops/${shopId}`)} />
 

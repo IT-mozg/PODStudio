@@ -12,6 +12,19 @@
 
 .content {
   flex: 1;
+  min-width: 0;
   padding: 32px 40px 60px;
   overflow-y: auto;
+}
+
+@media (max-width: 960px) {
+  .content {
+    padding: 24px 24px 48px;
+  }
+}
+
+@media (max-width: 600px) {
+  .content {
+    padding: 16px 16px 40px;
+  }
 }
