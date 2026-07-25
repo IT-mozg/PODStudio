@@ -1,0 +1,10 @@
+.badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: #4ade80;
+  font-family: "IBM Plex Mono", monospace;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}

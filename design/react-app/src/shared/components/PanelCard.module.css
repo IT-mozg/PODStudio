@@ -1,0 +1,10 @@
+.panelCard {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px;
+}
+
+.padded {
+  padding: 16px;
+}

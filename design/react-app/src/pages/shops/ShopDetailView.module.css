@@ -1,0 +1,140 @@
+.header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.headBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.headTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.name {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.metaRow {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 6px;
+  font-size: 12.5px;
+  color: var(--text-2);
+}
+
+.ratingStars {
+  color: #fbbf24;
+  font-weight: 700;
+}
+
+/* ---- layout ---- */
+.chartCard {
+  padding: 20px 20px 8px;
+}
+
+.priceCard {
+  padding: 18px 18px 14px;
+}
+
+.priceStatsRow {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.priceStatsRow b {
+  display: block;
+  color: var(--text-0);
+  font-size: 14px;
+  font-family: "IBM Plex Mono", monospace;
+  margin-top: 2px;
+}
+
+.ratingCard {
+  padding: 18px;
+  margin-top: 14px;
+}
+
+.ratingHead {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.ratingBig {
+  font-size: 26px;
+  font-weight: 800;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.ratingCount {
+  font-size: 12px;
+  color: var(--text-2);
+}
+
+/* ---- reviews ---- */
+.reviewGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+@media (max-width: 760px) {
+  .reviewGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.reviewCard {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+.reviewTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.reviewStars {
+  color: #fbbf24;
+  font-size: 12px;
+  letter-spacing: 1px;
+}
+
+.reviewDate {
+  font-size: 11px;
+  color: var(--text-2);
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.reviewText {
+  font-size: 13px;
+  color: var(--text-1);
+  line-height: 1.5;
+  margin-bottom: 10px;
+}
+
+.reviewRef {
+  font-size: 10.5px;
+  color: var(--text-2);
+  font-family: "IBM Plex Mono", monospace;
+}
