@@ -10,12 +10,15 @@ Two separate things live side by side - don't confuse them:
    Etsy listings and generating original AI t-shirt designs from them
    (OpenAI `images.edit`), plus a post-processing pipeline (halftone,
    background removal, upscale) on the generated results.
-2. **`design/`**: a design/prototyping sandbox, not wired to the Flask
-   backend at all.
-   - `design/react-app/` - a React 19 + TypeScript + Vite mock UI (own
-     `package.json`, own dev server) used to explore a possible future
-     frontend, currently running entirely on mock repositories.
-   - `design/mockups/` - static HTML mockups.
+2. **`design/`**: a React 19 + TypeScript + Vite app (own `package.json`,
+   own dev server) that is the *intended future* frontend. Flask **does**
+   serve it - `controllers/pages_controller.py` puts its built `dist/` at
+   `/` and keeps the original hand-written interface at `/old` - but its
+   data layer is still **entirely mock repositories**: there is not a
+   single `fetch` to the Flask API anywhere in `design/src`. So the two
+   frontends run side by side, and `/old` (`views/templates`,
+   `views/static`) remains the only place generation/editing/history
+   actually work.
 
 ## Commands
 
@@ -32,14 +35,17 @@ Keystring/Shared Secret entered via the in-app Settings modal (or
 
 There is no automated test suite for this app yet.
 
-### `design/react-app/` (separate Node project - `cd design/react-app` first)
+### `design/` (separate Node project - `cd design` first)
 
 ```bash
 npm run dev      # vite dev server
-npm run build     # tsc -b && vite build
+npm run build     # tsc -b && vite build - Flask serves the resulting dist/ at "/"
 npm run lint      # oxlint
 npm run preview
 ```
+
+`npm run build` is not optional if you changed anything under `design/src`
+and want to see it at `/` - Flask serves the built `dist/`, not the source.
 
 ## Architecture: production app (MVC)
 
@@ -129,10 +135,11 @@ Gigapixel + Upscayl) applied to already-generated images in `output/`:
   `vendor/realesrgan/` (gitignored). **macOS only** (needs Vulkan via
   MoltenVK).
 
-## Architecture: `design/react-app/`
+## Architecture: `design/`
 
-Mock-data-only exploratory UI - no calls to the Flask backend. Deliberate
-patterns (discussed and confirmed with the project owner):
+Served by Flask at `/`, but still mock-data-only - no calls to the Flask
+backend. Deliberate patterns (discussed and confirmed with the project
+owner):
 
 - **Dependency injection via interface + default-parameter props.** Pages
   depend on a repository *interface* (`ShopsRepository`,
