@@ -75,12 +75,17 @@ which is active (`GET/POST /api/sources` switches it):
   in this file's docstring - read it before touching Etsy API calls.
   The official API does **not** expose competitor sales/revenue estimates
   even to Personal Access keys - only what's already publicly visible on a
-  listing page. See `etsy_conversion_research.md` and
-  `etsy_keyword_search_volume_research.md` for reverse-engineered notes on
-  how third-party tools (eRank etc.) estimate views/sales/conv-rate and
-  keyword search volume that Etsy itself doesn't provide via API - read
-  these before re-deriving that research if a similar estimate feature is
-  ever built here.
+  listing page. See `etsy_conversion_research.md`,
+  `etsy_keyword_search_volume_research.md` and
+  `etsy_shop_sales_history_research.md` for reverse-engineered notes on how
+  third-party tools (eRank, ListingView) estimate per-listing
+  views/sales/conv-rate, keyword search volume, and a shop's monthly sales
+  history - none of which Etsy provides via API - read these before
+  re-deriving that research if a similar estimate feature is ever built
+  here. The shop-sales file in particular records two *different* working
+  methods (review histogram vs daily snapshot deltas), each validated
+  against real Shop Manager order counts, plus the plan for which to use
+  when.
 - `HtmlPageListingSource` (in `models/listing_source.py`) - parses
   `.html` files the user manually saves from the browser into `pages/`
   (drag-and-drop in the "Збережені сторінки" tab). Predates the Etsy API
