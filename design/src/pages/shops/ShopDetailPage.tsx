@@ -5,6 +5,8 @@ import type { Shop } from "./types";
 import { ShopDetailView } from "./ShopDetailView";
 import { PlaceholderPage } from "../PlaceholderPage";
 import { LoadingState } from "../../shared/components/LoadingState";
+import { ErrorNotice } from "../../shared/components/ErrorNotice";
+import { describeError } from "../../shared/api";
 
 interface ShopDetailPageProps {
   repository?: ShopsRepository;
@@ -18,18 +20,33 @@ export function ShopDetailPage({ repository = mockShopsRepository }: ShopDetailP
   const { shopId } = useParams<{ shopId: string }>();
   const navigate = useNavigate();
   const [shop, setShop] = useState<Shop | null | undefined>(undefined);
+  // A repository that talks to the network can fail, and `shop` has no state
+  // left to express that: `undefined` means "still loading" (the spinner
+  // below) and `null` means "no such shop". Without this, a failed lookup
+  // would leave the page spinning forever.
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!shopId) return;
     setShop(undefined);
-    repository.getById(shopId).then(setShop);
+    setError(null);
+    repository.getById(shopId).then(setShop).catch((e) => {
+      console.error(e);
+      setError(describeError(e));
+    });
   }, [repository, shopId]);
 
   async function handleToggleTracked(id: string) {
-    await repository.toggleTracked(id);
-    if (shopId) setShop(await repository.getById(shopId));
+    try {
+      await repository.toggleTracked(id);
+      if (shopId) setShop(await repository.getById(shopId));
+    } catch (e) {
+      console.error(e);
+      setError(describeError(e));
+    }
   }
 
+  if (error) return <ErrorNotice message={error} />;
   if (shop === undefined) return <LoadingState />;
   if (shop === null) return <PlaceholderPage pageLabel="Магазин не знайдено" />;
 

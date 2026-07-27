@@ -8,12 +8,19 @@
 export class ApiError extends Error {
   readonly status: number;
   readonly path: string;
+  /** True when the message came from a controller's own `{"error": ...}`
+   *  body, i.e. the API answered and explained itself. False for anything
+   *  the app inferred (an HTML 404 from a route that doesn't exist, a dead
+   *  connection) - the distinction matters because a 404 alone doesn't say
+   *  whether the *record* is missing or the *route* is. */
+  readonly apiReported: boolean;
 
-  constructor(message: string, status: number, path: string) {
+  constructor(message: string, status: number, path: string, apiReported = false) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.path = path;
+    this.apiReported = apiReported;
   }
 }
 
@@ -51,7 +58,7 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
   if (!res.ok) {
     // A controller's own {"error": ...} is always the most specific thing we
     // have (a missing Etsy key, a rate limit, "магазин не знайдено", ...).
-    if (apiMessage) throw new ApiError(apiMessage, res.status, path);
+    if (apiMessage) throw new ApiError(apiMessage, res.status, path, true);
     if (res.status === 404) {
       throw new ApiError(
         `Сервер не знає роут ${path} (404). Найчастіша причина — Flask працює зі старого коду: ` +

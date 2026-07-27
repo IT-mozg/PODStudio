@@ -6,7 +6,7 @@
    for, so it would silently render zeroes; that is issue #8, which is also
    why ShopsPage renders its rows non-navigable against this repository. */
 
-import { apiFetch } from "../../shared/api";
+import { ApiError, apiFetch } from "../../shared/api";
 import { mapApiShop, type ApiShop } from "./shopMapper";
 import type { ShopSearchResult, ShopsRepository } from "./shopsRepository";
 import type { Shop } from "./types";
@@ -38,11 +38,18 @@ class HttpShopsRepository implements ShopsRepository {
     try {
       const { shops } = await apiFetch<ShopsResponse>(`/api/shops/${encodeURIComponent(shopId)}`);
       return shops[0] ? mapApiShop(shops[0]) : null;
-    } catch {
-      // The backend answers an unknown shop id with a 404, which apiFetch
-      // turns into a throw — but "no such shop" is a value here, not a
-      // failure (ShopDetailPage renders "not found" for null).
-      return null;
+    } catch (e) {
+      // "No such shop" is a value here, not a failure - the page renders
+      // "не знайдено" for null. Everything else must keep propagating so it
+      // reaches an ErrorNotice: a missing Etsy key, a rate limit and a dead
+      // connection all arrive here too, and answering them with `null` would
+      // report them as "магазин не знайдено".
+      //
+      // Only the API's *own* 404 means the record is missing. A 404 the app
+      // inferred is the route being absent (a Flask process running old
+      // code), which is a broken setup, not an unknown shop.
+      if (e instanceof ApiError && e.status === 404 && e.apiReported) return null;
+      throw e;
     }
   }
 
