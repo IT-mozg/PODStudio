@@ -36,6 +36,7 @@ class Listing:
     views: int = 0
     created_timestamp: int = 0  # unix seconds, original creation date
     shop_id: str = ""
+    shop_name: str = ""
     tags: list[str] = field(default_factory=list)
 
 

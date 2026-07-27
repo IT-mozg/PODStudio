@@ -205,6 +205,7 @@ def listings_payload(found: dict) -> list:
             "history": history.get(lid),
             "prompt": saved_prompt or build_prompt(listing.title, bg),
             "shop_id": listing.shop_id,
+            "shop_name": listing.shop_name,
             "tags": listing.tags,
             "views": listing.views,
             "age_months": age_months(listing.created_timestamp),

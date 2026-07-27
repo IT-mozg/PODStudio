@@ -105,6 +105,11 @@ class EtsyApiListingSource(ListingSource):
         # nowhere to remember them, and every repeat/concurrent lookup of
         # the same "extra" id would re-hit the network.
         self._id_cache: dict[str, Listing] = {}
+        # shop_id -> shop_name, populated the first time each shop is seen
+        # (see _resolve_shop_name) - a search page commonly has several
+        # listings from the same shop, so this keeps it to one extra
+        # request per distinct shop rather than one per listing.
+        self._shop_name_cache: dict[str, str] = {}
         self._total_count: int | None = None
         self._calibration: dict | None = None
         # Guards _page_cache/_total_count/_calibration AND is held across
@@ -231,13 +236,34 @@ class EtsyApiListingSource(ListingSource):
             except urllib.error.URLError as e:
                 raise EtsyApiError(f"Could not reach the Etsy API: {e}") from e
 
+    def _resolve_shop_name(self, shop_id: str) -> str:
+        """shop_id -> shop_name, cached. Must be called while holding
+        self._lock (only caller today is _batch_fetch, itself always called
+        under the lock)."""
+        if not shop_id:
+            return ""
+        cached = self._shop_name_cache.get(shop_id)
+        if cached is not None:
+            return cached
+        try:
+            data = self._get(f"{API_BASE}/shops/{shop_id}")
+            name = data.get("shop_name", "") or ""
+        except EtsyApiError:
+            name = ""  # don't let one bad shop lookup fail the whole page
+        self._shop_name_cache[shop_id] = name
+        return name
+
     def _batch_fetch(self, ids: list[str]) -> dict[str, Listing]:
-        """A single call to the batch endpoint (max ~100 ids), with images."""
+        """A single call to the batch endpoint (max ~100 ids), with images
+        and, where Etsy embeds it, shop info. Etsy's batch endpoint does not
+        reliably embed the Shop association on every account tier, so a
+        missing "shop_name" here falls back to a separate (cached-by-shop_id)
+        /shops/{shop_id} lookup rather than shipping a blank shop name."""
         if not ids:
             return {}
         batch_params = urllib.parse.urlencode({
             "listing_ids": ",".join(ids),
-            "includes": "Images",
+            "includes": "Images,Shop",
         })
         batch_data = self._get(f"{API_BASE}/listings/batch?{batch_params}")
         by_id = {str(r["listing_id"]): r for r in batch_data.get("results", [])}
@@ -249,6 +275,9 @@ class EtsyApiListingSource(ListingSource):
                 continue
             images = row.get("images") or []
             remote_img = images[0].get("url_570xN", "") if images else ""
+            shop_id = str(row.get("shop_id") or "")
+            shop_name = (row.get("shop") or {}).get("shop_name", "") \
+                or self._resolve_shop_name(shop_id)
             listings[lid] = Listing(
                 lid=lid,
                 title=html.unescape(row.get("title", "")),
@@ -256,7 +285,8 @@ class EtsyApiListingSource(ListingSource):
                 num_favorers=row.get("num_favorers") or 0,
                 views=row.get("views") or 0,
                 created_timestamp=row.get("original_creation_timestamp") or 0,
-                shop_id=str(row.get("shop_id") or ""),
+                shop_id=shop_id,
+                shop_name=shop_name,
                 tags=row.get("tags") or [],
             )
         return listings
