@@ -6,16 +6,10 @@
    tags audit) with no backend equivalent yet, which is also why
    ListingsPage renders its rows non-navigable against this repository. */
 
+import { apiFetch } from "../../shared/api";
 import { mapApiListing, type ApiListing } from "./listingMapper";
 import type { ListingsRepository } from "./listingsRepository";
 import type { Listing } from "./types";
-
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(path, init);
-  const body = await res.json();
-  if (!res.ok) throw new Error(body.error || `${path} failed (${res.status})`);
-  return body as T;
-}
 
 class HttpListingsRepository implements ListingsRepository {
   async search(query: string): Promise<Listing[]> {

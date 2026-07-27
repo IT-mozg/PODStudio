@@ -121,6 +121,17 @@
   color: var(--accent);
 }
 
+/* A filter the product wants but the data can't answer yet (see
+   shopFilters.ts) - dimmed and inert, but still visible, so it reads as
+   "not available yet" rather than disappearing. */
+.chipDisabled,
+.chipDisabled:hover {
+  opacity: 0.4;
+  cursor: not-allowed;
+  border-color: var(--border);
+  color: var(--text-1);
+}
+
 .toolbar {
   display: flex;
   align-items: center;

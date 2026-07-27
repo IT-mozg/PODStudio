@@ -16,6 +16,11 @@
   --accent: #7c6cff;
   --accent-2: #5b4bdb;
   --accent-glow: rgba(124, 108, 255, 0.35);
+  /* Failure states (ErrorNotice) - the one place the UI is allowed to go red,
+     so it stays legible against the dark panels. */
+  --danger: #f87171;
+  --danger-soft: rgba(248, 113, 113, 0.1);
+  --danger-border: rgba(248, 113, 113, 0.32);
   --radius: 14px;
   --radius-sm: 10px;
 

@@ -1,0 +1,58 @@
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius);
+  background: var(--danger-soft);
+}
+
+.icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--danger);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.body {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-0);
+  margin-bottom: 3px;
+}
+
+/* The message carries paths and API wording, so it must wrap instead of
+   stretching the panel - break-word keeps a long URL from forcing a
+   horizontal scrollbar. */
+.message {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--text-1);
+  overflow-wrap: break-word;
+}
+
+.retry {
+  flex-shrink: 0;
+  padding: 7px 13px;
+  border-radius: 999px;
+  border: 1px solid var(--danger-border);
+  background: transparent;
+  color: var(--danger);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.retry:hover {
+  background: rgba(248, 113, 113, 0.16);
+}
