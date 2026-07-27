@@ -9,10 +9,10 @@ The ids are opaque to this class, so one instance per kind of thing being
 bookmarked: container.py keeps tracked.json for listings and
 tracked_shops.json for shops."""
 
-import json
-import os
 import threading
 from pathlib import Path
+
+from .json_store import read_json, write_json
 
 
 class TrackedStore:
@@ -25,21 +25,13 @@ class TrackedStore:
         self._lock = threading.Lock()
 
     def load(self) -> set[str]:
-        if self.path.exists():
-            try:
-                return set(json.loads(self.path.read_text(encoding="utf-8")))
-            except json.JSONDecodeError:
-                pass
-        return set()
+        return set(read_json(self.path, []))
 
     def save(self, tracked: set[str]) -> None:
-        """Write via a temp file + atomic replace, so a concurrent load()
-        can never observe a half-written (truncated) file and silently
-        report nothing as tracked."""
-        tmp = self.path.with_suffix(self.path.suffix + ".tmp")
-        tmp.write_text(json.dumps(sorted(tracked), ensure_ascii=False, indent=2),
-                       encoding="utf-8")
-        os.replace(tmp, self.path)
+        """Written atomically (see models/json_store.py), so a concurrent
+        load() can never observe a half-written file and silently report
+        nothing as tracked."""
+        write_json(self.path, sorted(tracked))
 
     def toggle(self, item_id: str) -> bool:
         """Flips the tracked state of item_id, persists it, returns the new state."""
