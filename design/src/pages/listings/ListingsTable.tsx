@@ -7,8 +7,13 @@ import styles from "./ListingsTable.module.css";
 interface ListingsTableProps {
   listings: Listing[];
   onToggleTracked: (listingId: string) => void;
-  onSelectListing: (listing: Listing) => void;
-  onSelectShop: (shopId: string) => void;
+  /** Omit to make rows non-navigable — for callers whose ids the detail
+   *  pages can't resolve yet (see ListingsPage against the real Etsy
+   *  repository). Rows then render without a pointer cursor rather than
+   *  clicking through to a "not found" page. */
+  onSelectListing?: (listing: Listing) => void;
+  /** Same, for the shop-name cell. */
+  onSelectShop?: (shopId: string) => void;
 }
 
 const MAX_VISIBLE_TAGS = 2;
@@ -34,7 +39,11 @@ export const ListingsTable = memo(function ListingsTable({ listings, onToggleTra
       </thead>
       <tbody>
         {listings.map((listing) => (
-          <tr key={listing.id} onClick={() => onSelectListing(listing)}>
+          <tr
+            key={listing.id}
+            className={onSelectListing ? styles.clickable : undefined}
+            onClick={onSelectListing ? () => onSelectListing(listing) : undefined}
+          >
             <td>
               <div className={styles.listingCell}>
                 <div className={styles.thumb} style={{ background: `linear-gradient(135deg, ${listing.thumbGradient[0]}, ${listing.thumbGradient[1]})` }} />
@@ -46,11 +55,15 @@ export const ListingsTable = memo(function ListingsTable({ listings, onToggleTra
             </td>
             <td>
               <span
-                className={styles.shopLink}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectShop(listing.shopId);
-                }}
+                className={onSelectShop ? styles.shopLink : styles.shopName}
+                onClick={
+                  onSelectShop
+                    ? (e) => {
+                        e.stopPropagation();
+                        onSelectShop(listing.shopId);
+                      }
+                    : undefined
+                }
               >
                 {listing.shopName}
               </span>

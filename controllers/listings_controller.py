@@ -71,3 +71,20 @@ def api_toggle_track(lid):
     Etsy's data, purely our own persisted state (see models/tracked_store.py)."""
     tracked = container.tracked_store.toggle(lid)
     return jsonify({"ok": True, "tracked": tracked})
+
+
+@listings_bp.get("/tracked")
+def api_tracked():
+    """Every tracked listing, independent of the current search.
+
+    Needed because a bookmark outlives the query it was made under: the
+    tracked ids come from our own store, then get hydrated through
+    get_by_ids() (one batch call for the whole set, not one per listing)."""
+    lids = sorted(container.tracked_store.load())
+    if not lids:
+        return jsonify({"listings": []})
+    try:
+        found = container.listing_source.get_by_ids(lids)
+    except EtsyApiError as e:
+        return jsonify({"error": str(e)}), 502
+    return jsonify({"listings": container.listings_payload(found)})

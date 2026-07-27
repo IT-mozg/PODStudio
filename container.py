@@ -163,10 +163,11 @@ def ui_thumb(remote: str) -> str:
 
 def age_months(created_timestamp: int) -> int:
     """Whole months since a listing's original creation date, or 0 if
-    created_timestamp isn't available."""
+    created_timestamp isn't available. Floored, not rounded - a 20-day-old
+    listing is 0 months old, not 1."""
     if not created_timestamp:
         return 0
-    return max(0, round((time.time() - created_timestamp) / 2629800))  # 2629800s = 1 average month
+    return max(0, int((time.time() - created_timestamp) // 2629800))  # 2629800s = 1 average month
 
 
 def effective_bg(lid: str) -> str:

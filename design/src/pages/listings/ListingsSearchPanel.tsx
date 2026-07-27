@@ -17,8 +17,10 @@ interface ListingsSearchPanelProps {
   resultsValue: string;
   listings: Listing[];
   onToggleTracked: (listingId: string) => void;
-  onSelectListing: (listing: Listing) => void;
-  onSelectShop: (shopId: string) => void;
+  /** Both optional — omitted by callers whose ids the detail pages can't
+   *  resolve yet; see ListingsTable for what that changes. */
+  onSelectListing?: (listing: Listing) => void;
+  onSelectShop?: (shopId: string) => void;
 }
 
 /** Search + filter chips + results count + table — the exact block

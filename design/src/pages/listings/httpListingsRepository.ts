@@ -3,12 +3,12 @@
    ListingsPage's default repository. ListingDetailPage still defaults to
    mockListingsRepository (see listingsRepository.ts) - its detail view
    depends on several mock-only fields (SEO checklist, similar listings,
-   tags audit) with no backend equivalent yet. */
+   tags audit) with no backend equivalent yet, which is also why
+   ListingsPage renders its rows non-navigable against this repository. */
 
-import { parseCount } from "../../shared/money";
 import { mapApiListing, type ApiListing } from "./listingMapper";
 import type { ListingsRepository } from "./listingsRepository";
-import type { Listing, ListingFilter } from "./types";
+import type { Listing } from "./types";
 
 async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, init);
@@ -17,30 +17,12 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   return body as T;
 }
 
-/** Flask has no server-side notion of these filter chips today (no sort
- *  param on /api/listings, and container.listings_payload() doesn't even
- *  read the is_popular()/is_hot() badges it computes - see
- *  etsy_api_listing_source.py). These are client-side approximations over
- *  whatever real fields the payload does have, not the product-defined
- *  semantics for each chip - a real implementation needs either a backend
- *  sort or a product decision on what each chip should mean. */
-function applyFilter(listings: Listing[], filter: ListingFilter): Listing[] {
-  const sorted = [...listings];
-  switch (filter) {
-    case "top":
-      return sorted.sort((a, b) => parseCount(b.sales) - parseCount(a.sales));
-    case "new":
-      return sorted.sort((a, b) => a.ageMonths - b.ageMonths);
-    case "trending":
-      return sorted.sort((a, b) => parseCount(b.views) - parseCount(a.views));
-    case "outliers":
-      return sorted.sort((a, b) => parseCount(a.views) - parseCount(b.views));
-  }
-}
-
 class HttpListingsRepository implements ListingsRepository {
-  async search(query: string, filter: ListingFilter): Promise<Listing[]> {
+  async search(query: string): Promise<Listing[]> {
     if (query.trim()) {
+      // Re-posting the same query is cheap: EtsyApiListingSource.search()
+      // short-circuits when the keywords haven't changed, so this doesn't
+      // invalidate the page cache and force a fresh Etsy round trip.
       await apiFetch("/api/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -48,7 +30,7 @@ class HttpListingsRepository implements ListingsRepository {
       });
     }
     const { listings } = await apiFetch<{ listings: ApiListing[] }>("/api/listings");
-    return applyFilter(listings.map(mapApiListing), filter);
+    return listings.map(mapApiListing);
   }
 
   async toggleTracked(listingId: string): Promise<void> {
@@ -60,6 +42,11 @@ class HttpListingsRepository implements ListingsRepository {
       `/api/listing-info?lids=${encodeURIComponent(listingId)}`,
     );
     return listings[0] ? mapApiListing(listings[0]) : null;
+  }
+
+  async getTracked(): Promise<Listing[]> {
+    const { listings } = await apiFetch<{ listings: ApiListing[] }>("/api/tracked");
+    return listings.map(mapApiListing);
   }
 }
 
