@@ -18,13 +18,11 @@ from models.design_generator import OpenAIDesignGenerator
 from models.etsy_api_listing_source import EtsyApiListingSource
 from models.generation_queue import GenerationQueue, ReferenceResolver
 from models.history_store import HistoryStore
-from models.listing_source import HtmlPageListingSource
-from models.listing_source_registry import CompositeListingSource
 from models.tracked_store import TrackedStore
 
 BASE = Path(__file__).parent.resolve()
-os.chdir(BASE)  # keep pages/refs/output/history next to the project root
-for _d in (engine.PAGES_DIR, engine.REFS_DIR, engine.OUT_DIR):
+os.chdir(BASE)  # keep refs/output/history next to the project root
+for _d in (engine.REFS_DIR, engine.OUT_DIR):
     _d.mkdir(exist_ok=True)
 
 CONFIG_FILE = BASE / "ui_config.json"
@@ -115,23 +113,15 @@ def balance_status() -> dict:
 
 
 # ---------------- dependency wiring (composition root) ----------------
-# This is the only place the program "knows" the concrete listing sources
-# and the AI provider. listing_source is a CompositeListingSource wrapping
-# both - controllers and the generation queue only ever talk to that one
-# object (see models/listing_source_registry.py), so adding a third source
-# or swapping the AI provider never touches controller code.
+# This is the only place the program "knows" the concrete listing source
+# and the AI provider - controllers and the generation queue only ever
+# talk to listing_source (typed as the ListingSource interface), so
+# swapping either implementation never touches controller code.
 
-etsy_search_source = EtsyApiListingSource(
+listing_source = EtsyApiListingSource(
     api_key_provider=get_etsy_api_key,
     shared_secret_provider=get_etsy_shared_secret,
     page_size=78,
-)
-saved_pages_source = HtmlPageListingSource(engine.PAGES_DIR, engine.parse_page)
-
-listing_source = CompositeListingSource(
-    sources={"etsy_search": etsy_search_source, "saved_pages": saved_pages_source},
-    labels={"etsy_search": "Пошук на Etsy", "saved_pages": "Збережені сторінки"},
-    default="etsy_search",
 )
 design_generator = OpenAIDesignGenerator(api_key_provider=get_api_key)
 
@@ -172,8 +162,8 @@ def ui_thumb(remote: str) -> str:
 
 
 def age_months(created_timestamp: int) -> int:
-    """Whole months since a listing's original creation date, or 0 if the
-    active source doesn't provide created_timestamp (e.g. saved pages)."""
+    """Whole months since a listing's original creation date, or 0 if
+    created_timestamp isn't available."""
     if not created_timestamp:
         return 0
     return max(0, round((time.time() - created_timestamp) / 2629800))  # 2629800s = 1 average month

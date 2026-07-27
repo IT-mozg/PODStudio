@@ -84,11 +84,10 @@ class EtsyApiListingSource(ListingSource):
     """Listing source backed by the official Etsy API.
 
     A "page" here is a page of search results for the *current* query
-    (offset-based pagination on Etsy's side), not a file like in
-    HtmlPageListingSource - but the external interface is the same, so the
-    UI and the rest of the app do not need to know the difference. The
-    query itself is set at runtime via search(), not fixed at construction,
-    so a search bar can point this same instance at a new keyword any time."""
+    (offset-based pagination on Etsy's side), exposed through the same
+    ListingSource interface as any other source. The query itself is set
+    at runtime via search(), not fixed at construction, so a search bar
+    can point this same instance at a new keyword any time."""
 
     def __init__(self, api_key_provider: Callable[[], str],
                  shared_secret_provider: Callable[[], str],

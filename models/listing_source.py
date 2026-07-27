@@ -2,13 +2,10 @@
 """
 Abstraction over the source of Etsy listings.
 
-Today the only implementation (HtmlPageListingSource) parses html pages
-that the user manually saved into pages/ (search, shop, favorites -
-anything).
-
-If an official Etsy API ever becomes available (or any other source), it
-is enough to write a new class implementing the ListingSource interface
-and swap its instance in container.py in place of HtmlPageListingSource -
+The only implementation today is EtsyApiListingSource (models/
+etsy_api_listing_source.py), backed by the official Etsy Open API v3. Any
+other source (a different marketplace, a CSV import, ...) just needs to
+implement the ListingSource interface and be swapped in in container.py -
 the rest of the code (Flask controllers, generation queue, history) works
 only through this interface and does not need to know where listings
 actually come from.
@@ -16,16 +13,12 @@ actually come from.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from pathlib import Path
 
 
 @dataclass
 class Listing:
     """A single Etsy item - regardless of where it came from.
 
-    num_favorers/views/created_timestamp/shop_id/tags are optional fields -
-    populated by sources that actually have them (EtsyApiListingSource),
-    left at their defaults by sources that don't (HtmlPageListingSource).
     num_favorers/views/created_timestamp power the "Популярне"/"Гаряче"
     badges - see is_popular/is_hot below."""
     lid: str
@@ -69,9 +62,9 @@ class ListingSource(ABC):
         """Listings for specific ids, regardless of which page they're on.
 
         Default implementation just filters get_all() - fine for a source
-        with a handful of cheap-to-enumerate pages (HtmlPageListingSource).
-        Override this when a source can fetch specific ids more cheaply
-        (e.g. one batch API call) without walking every page."""
+        with a handful of cheap-to-enumerate pages. Override this when a
+        source can fetch specific ids more cheaply (e.g. one batch API
+        call) without walking every page."""
         wanted = set(lids)
         return {lid: listing for lid, listing in self.get_all().items() if lid in wanted}
 
@@ -93,57 +86,3 @@ class ListingSource(ABC):
         "current" by itself), so the default is NotImplementedError."""
         raise NotImplementedError(
             f"{type(self).__name__} does not support adding new pages")
-
-
-class HtmlPageListingSource(ListingSource):
-    """Parses all .html/.htm files in pages_dir. Cached by file mtime, so
-    unchanged pages are not re-parsed on every request."""
-
-    def __init__(self, pages_dir: Path, parser):
-        """parser: callable(Path) -> dict[lid, {"title","local_img","remote_img"}]
-        (signature-compatible with generate_designs.parse_page)."""
-        self.pages_dir = pages_dir
-        self._parser = parser
-        self._cache: dict[str, tuple[float, dict[str, Listing]]] = {}
-
-    def _files(self) -> list[Path]:
-        files = list(self.pages_dir.glob("*.html")) + list(self.pages_dir.glob("*.htm"))
-        return sorted(files, key=lambda f: f.stat().st_mtime)
-
-    def _parse_cached(self, f: Path) -> dict[str, Listing]:
-        mtime = f.stat().st_mtime
-        cached = self._cache.get(str(f))
-        if cached and cached[0] == mtime:
-            return cached[1]
-        raw = self._parser(f)
-        found = {lid: Listing(lid=lid, title=data.get("title", ""),
-                              local_img=data.get("local_img", ""),
-                              remote_img=data.get("remote_img", ""))
-                 for lid, data in raw.items()}
-        self._cache[str(f)] = (mtime, found)
-        return found
-
-    def list_pages(self) -> list[ListingPage]:
-        return [ListingPage(id=f.name, label=f.stem, count=len(self._parse_cached(f)))
-                for f in self._files()]
-
-    def get_page(self, page_id: str) -> dict[str, Listing]:
-        for f in self._files():
-            if f.name == page_id:
-                return self._parse_cached(f)
-        return {}
-
-    def get_all(self) -> dict[str, Listing]:
-        merged: dict[str, Listing] = {}
-        for f in self._files():
-            for lid, listing in self._parse_cached(f).items():
-                merged.setdefault(lid, listing)
-        return merged
-
-    def add_source(self, *, file_storage, filename: str) -> int:
-        """file_storage: a werkzeug FileStorage (from request.files)."""
-        name = Path(filename or "").name
-        if not name.lower().endswith((".html", ".htm")):
-            return 0
-        file_storage.save(self.pages_dir / name)
-        return 1
