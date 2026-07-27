@@ -16,8 +16,10 @@ from pathlib import Path
 from models import generate_designs as engine
 from models.design_generator import OpenAIDesignGenerator
 from models.etsy_api_listing_source import EtsyApiListingSource
+from models.etsy_api_shop_source import EtsyApiShopSource
 from models.generation_queue import GenerationQueue, ReferenceResolver
 from models.history_store import HistoryStore
+from models.shop_source import Shop
 from models.tracked_store import TrackedStore
 
 BASE = Path(__file__).parent.resolve()
@@ -123,10 +125,20 @@ listing_source = EtsyApiListingSource(
     shared_secret_provider=get_etsy_shared_secret,
     page_size=78,
 )
+# Shops are a separate port (models/shop_source.py), not a method on the
+# listing source - Etsy serves them from different endpoints and they are
+# worth caching for a different length of time.
+shop_source = EtsyApiShopSource(
+    api_key_provider=get_etsy_api_key,
+    shared_secret_provider=get_etsy_shared_secret,
+)
 design_generator = OpenAIDesignGenerator(api_key_provider=get_api_key)
 
 history_store = HistoryStore(engine.HISTORY_FILE)
+# Two instances of the same store, one file each: bookmarked listings and
+# bookmarked shops are independent lists of opaque ids.
 tracked_store = TrackedStore(Path("tracked.json"))
+tracked_shops_store = TrackedStore(Path("tracked_shops.json"))
 reference_resolver = ReferenceResolver(
     get_reference=engine.get_reference,
     shirt_background=engine.shirt_background,
@@ -203,14 +215,45 @@ def listings_payload(found: dict) -> list:
             "tags": listing.tags,
             "views": listing.views,
             "age_months": age_months(listing.created_timestamp),
-            # Etsy's public API exposes no sales/revenue figures for listings
-            # or shops other than the authenticated user's own - there is no
+            # Etsy's public API exposes no per-listing sales/revenue figures
+            # other than for the authenticated user's own shop - there is no
             # endpoint or field that provides them, so these stay None
-            # rather than shipping a made-up number. See Ticket 3 in
-            # map-flask-cached-wilkinson.md for the real options (hide in
-            # the UI, a heuristic estimate, or a future paid data provider).
+            # rather than shipping a made-up number. Estimating them from
+            # views x price-based conversion rate is issues #57/#58; see
+            # etsy_conversion_research.md for the method.
             "sales": None,
             "revenue": None,
             "tracked": lid in tracked,
         })
     return out
+
+
+def shops_payload(shops: list[Shop]) -> list:
+    """Same job as listings_payload, for shops: domain objects -> the JSON
+    shape design/'s shopMapper.ts consumes (snake_case, verbatim)."""
+    tracked = tracked_shops_store.load()
+    return [{
+        "shop_id": shop.shop_id,
+        "name": shop.name,
+        "listing_count": shop.listing_count,
+        "age_months": age_months(shop.created_timestamp),
+        # Real, unlike a listing's sales above: transaction_sold_count is
+        # public per shop. It counts order line items, not orders (Shop
+        # Manager's own "orders" number reads ~10% lower - see
+        # etsy_shop_sales_history_research.md).
+        "sales": shop.total_sales,
+        "review_average": shop.review_average,
+        "review_count": shop.review_count,
+        "num_favorers": shop.num_favorers,
+        "icon_url": shop.icon_url,
+        "etsy_url": shop.url or f"https://www.etsy.com/shop/{shop.name}",
+        # Deliberately None, each with a ticket - Etsy exposes none of them
+        # and no single call can derive them:
+        #   revenue -> #80 (sales x average listing price)
+        #   growth  -> #81 (needs daily transaction_sold_count snapshots)
+        #   niche   -> #82 (most common tag across the shop's listings)
+        "revenue": None,
+        "growth": None,
+        "niche": None,
+        "tracked": shop.shop_id in tracked,
+    } for shop in shops]

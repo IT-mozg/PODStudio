@@ -32,6 +32,7 @@ from controllers.history_controller import history_bp
 from controllers.listings_controller import listings_bp
 from controllers.pages_controller import pages_bp
 from controllers.settings_controller import settings_bp
+from controllers.shops_controller import shops_bp
 
 PORT = 8765
 
@@ -39,7 +40,8 @@ app = Flask(__name__,
            template_folder=str(container.BASE / "views" / "templates"),
            static_folder=str(container.BASE / "views" / "static"))
 
-for _bp in (pages_bp, listings_bp, generation_bp, history_bp, settings_bp, editing_bp):
+for _bp in (pages_bp, listings_bp, shops_bp, generation_bp, history_bp,
+            settings_bp, editing_bp):
     app.register_blueprint(_bp)
 
 

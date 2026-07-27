@@ -10,8 +10,10 @@ ui_config.json
 # history.json - персональна історія генерацій (назви, промпти, дати).
 history.json
 
-# tracked.json - персональні "відстежувані" лістинги (bookmark-стан).
+# tracked.json / tracked_shops.json - персональні "відстежувані" лістинги і
+# магазини (bookmark-стан).
 tracked.json
+tracked_shops.json
 
 # pages/ - вручну збережені сторінки Etsy (пошук/магазин/обране) разом з
 # супутніми папками "..._files/" (картинки, JS, CSS самого Etsy, які Chrome
