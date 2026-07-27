@@ -1,5 +1,4 @@
-/* Listing pages: pagination, card rendering, selection - agnostic to which
-   listing source (live Etsy search, saved pages) filled state.pageFiles. */
+/* Listing pages: search, pagination, card rendering, selection. */
 "use strict";
 
 import { $, state, api, toast, esc } from "./core.js";
@@ -10,16 +9,38 @@ import { $, state, api, toast, esc } from "./core.js";
 // loading - not during the modules' own top-level evaluation.
 import { updateRunbar } from "./generate.js";
 
-// Guards against overlapping loads: switching sources fast (etsy_search ->
-// saved_pages -> etsy_search before the first request even lands) used to
-// let whichever response arrived last win, even if it belonged to a load
-// that's no longer relevant - so the grid could end up showing saved-page
-// listings while the "Пошук на Etsy" tab was active. Every load bumps this
-// token and captures its own value; a load only applies its result if the
-// token is still current by the time the network call resolves - anything
-// superseded by a newer load silently discards itself instead of touching
-// state or the DOM.
+// Guards against overlapping loads: firing a new search before the
+// previous page load lands used to let whichever response arrived last
+// win, even if it belonged to a load that's no longer relevant. Every load
+// bumps this token and captures its own value; a load only applies its
+// result if the token is still current by the time the network call
+// resolves - anything superseded by a newer load silently discards itself
+// instead of touching state or the DOM.
 let loadToken = 0;
+
+function wireSearch() {
+  async function runSearch() {
+    const query = $("searchQuery").value.trim();
+    if (!query) { toast("Введи пошуковий запит", true); return; }
+    $("searchBtn").disabled = true;
+    try {
+      await api("/api/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query }),
+      });
+      await loadPageFiles(0);
+    } catch (e) {
+      toast(e.message, true);
+    } finally {
+      $("searchBtn").disabled = false;
+    }
+  }
+  $("searchBtn").addEventListener("click", runSearch);
+  $("searchQuery").addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); runSearch(); }
+  });
+}
 
 export function setListingsBusy(isBusy) {
   document.body.classList.toggle("listings-busy", isBusy);
@@ -39,8 +60,6 @@ export async function loadPageFiles(jumpTo) {
   }
   if (token !== loadToken) return; // a newer load started while this was in flight
   state.pageFiles = data.files;
-  const pagesCount = $("pagesCount");
-  if (pagesCount) pagesCount.textContent = state.pageFiles.length;
   if (typeof jumpTo === "number") {
     state.pageIndex = jumpTo;
   } else if (state.pageIndex >= state.pageFiles.length) {
@@ -152,6 +171,7 @@ export function renderListings() {
 }
 
 export function initListings() {
+  wireSearch();
   $("pagPrev").addEventListener("click", () => { state.pageIndex = Math.max(0, state.pageIndex - 1); loadListingsPage(); });
   $("pagNext").addEventListener("click", () => { state.pageIndex = Math.min(state.pageFiles.length - 1, state.pageIndex + 1); loadListingsPage(); });
   $("selectNew").addEventListener("click", () => {

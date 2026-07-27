@@ -15,7 +15,6 @@ export const state = {
   pageIndex: 0,    // which one is currently shown
   budget: { balance: null, spent_since_sync: 0, remaining: null },
   genModalItems: [],
-  activeSource: "etsy_search",
 };
 
 export function toast(msg, isError = false) {

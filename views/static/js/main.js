@@ -1,12 +1,11 @@
 /* Entry point: tab switching, modal-close wiring, and app bootstrap. Each
-   feature area (listings, sourceControl, generate, history, settings) owns
-   its own DOM wiring - this file only ties the top-level page chrome
-   together and kicks off the initial load. */
+   feature area (listings, generate, history, settings) owns its own DOM
+   wiring - this file only ties the top-level page chrome together and
+   kicks off the initial load. */
 "use strict";
 
 import { $, api, toast } from "./core.js";
 import { initListings, loadPageFiles } from "./listings.js";
-import { initSourceControl } from "./sourceControl.js";
 import { initGenerate, loadBudget, startPolling } from "./generate.js";
 import { initSettings } from "./settings.js";
 import { loadHistory } from "./history.js";
@@ -38,7 +37,6 @@ document.querySelectorAll(".modal-back").forEach((m) =>
 /* ---------------- bootstrap ---------------- */
 
 initListings();
-initSourceControl();
 initGenerate();
 initSettings();
 initEditing();
