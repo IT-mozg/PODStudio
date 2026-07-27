@@ -4,7 +4,7 @@
 from flask import Blueprint, jsonify, request
 
 import container
-from models.etsy_api_listing_source import EtsyApiError
+from models.etsy_api_client import EtsyApiError
 
 listings_bp = Blueprint("listings", __name__, url_prefix="/api")
 

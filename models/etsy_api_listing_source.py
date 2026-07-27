@@ -5,13 +5,14 @@ ListingSource implementation backed by the official Etsy Open API v3
 or browser automation, only documented REST requests with an official
 developer key.
 
-STATUS: verified against a real "Personal Access" key. Two things the docs
+The HTTP/auth/retry layer itself lives in models/etsy_api_client.py, shared
+with EtsyApiShopSource - this file is only about turning Etsy's listing
+endpoints into Listing objects.
+
+STATUS: verified against a real "Personal Access" key. Things the docs
 don't make obvious, found by testing directly:
 
-  1. The x-api-key header must be "{keystring}:{shared_secret}", not just
-     the keystring alone - a bare keystring gets a 403
-     ("Shared secret is required in x-api-key header").
-  2. GET /listings/active (search) never embeds images, no matter what
+  1. GET /listings/active (search) never embeds images, no matter what
      `includes` value is passed. Images only come back from the *batch*
      endpoint (GET /listings/batch?listing_ids=...&includes=Images), so
      fetching a page of results is a two-step call: search for matching
@@ -19,10 +20,10 @@ don't make obvious, found by testing directly:
      with images. This also keeps the request count down - one batch call
      for a whole page instead of one image call per listing (relevant
      given the 5 QPS / 5,000 requests-per-day personal-access limit).
-  3. Titles come back with literal HTML entities baked in (e.g. "DM&#39;s
+  2. Titles come back with literal HTML entities baked in (e.g. "DM&#39;s
      Plans" instead of "DM's Plans"), so they need html.unescape() before
      display - Etsy's API does not do this for you.
-  4. Without an explicit sort_on, results are NOT ranked by relevance -
+  3. Without an explicit sort_on, results are NOT ranked by relevance -
      confirmed live: unsorted results mixed in barely-related items (even
      digital SVG/PNG downloads for a plain "funny cat shirt" search).
      sort_on=score is what actually orders by match quality, and it is
@@ -53,35 +54,21 @@ read is_popular()/is_hot() anymore.
 """
 
 import html
-import json
 import math
 import threading
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
 from typing import Callable
 
-from . import generate_designs as _gd
+from .etsy_api_client import API_BASE, EtsyApiClient, EtsyApiError
 from .listing_source import Listing, ListingPage, ListingSource
 
-API_BASE = "https://openapi.etsy.com/v3/application"
-TIMEOUT = 15
 MAX_PAGES = 40  # a sane browsing depth cap - nobody needs to page to result #35,000
 BADGE_PERCENTILE = 0.15  # top ~15% of the calibration sample earns a badge
-RATE_LIMIT_RETRIES = 3  # the personal-access key is capped at 5 requests/second -
-                        # a burst of UI actions (paging, generate, listing-info)
-                        # can trip that within the same second; a short retry
-                        # clears it without the user having to notice and retry
-                        # by hand (429 only - anything else fails immediately)
 SHOP_LOOKUP_BUDGET = 5  # max /shops/{id} fallback calls per batch (see
                         # _resolve_shop_name) - Etsy normally embeds the Shop
                         # association, so this only caps the rare fallback
                         # instead of letting one page fire 78 of them
-
-
-class EtsyApiError(RuntimeError):
-    """The Etsy API returned an error (bad key, rate limit, etc.)."""
 
 
 class EtsyApiListingSource(ListingSource):
@@ -96,8 +83,7 @@ class EtsyApiListingSource(ListingSource):
     def __init__(self, api_key_provider: Callable[[], str],
                  shared_secret_provider: Callable[[], str],
                  keywords: str = "", page_size: int = 78):
-        self._api_key_provider = api_key_provider
-        self._shared_secret_provider = shared_secret_provider
+        self._client = EtsyApiClient(api_key_provider, shared_secret_provider)
         self.page_size = page_size
         self.keywords = ""
         self._has_searched = False
@@ -225,28 +211,6 @@ class EtsyApiListingSource(ListingSource):
 
     # ---------------- internal ----------------
 
-    def _get(self, url: str) -> dict:
-        api_key = self._api_key_provider()
-        shared_secret = self._shared_secret_provider()
-        if not api_key or not shared_secret:
-            raise EtsyApiError(
-                "Немає Etsy API-ключа/shared secret. Додай їх у налаштуваннях "
-                "(іконка шестерні вгорі).")
-        auth_header = f"{api_key}:{shared_secret}"
-        req = urllib.request.Request(url, headers={"x-api-key": auth_header})
-        for attempt in range(1, RATE_LIMIT_RETRIES + 1):
-            try:
-                with urllib.request.urlopen(req, timeout=TIMEOUT, context=_gd.SSL_CTX) as resp:
-                    return json.loads(resp.read().decode("utf-8"))
-            except urllib.error.HTTPError as e:
-                body = e.read().decode("utf-8", errors="replace")
-                if e.code == 429 and attempt < RATE_LIMIT_RETRIES:
-                    time.sleep(attempt)  # 1s, then 2s
-                    continue
-                raise EtsyApiError(f"Etsy API {e.code}: {body[:300]}") from e
-            except urllib.error.URLError as e:
-                raise EtsyApiError(f"Could not reach the Etsy API: {e}") from e
-
     def _resolve_shop_name(self, shop_id: str, budget: list[int]) -> str:
         """shop_id -> shop_name, cached. Must be called while holding
         self._lock (only caller today is _batch_fetch, itself always called
@@ -269,7 +233,7 @@ class EtsyApiListingSource(ListingSource):
             return ""
         budget[0] -= 1
         try:
-            name = self._get(f"{API_BASE}/shops/{shop_id}").get("shop_name", "") or ""
+            name = self._client.get(f"{API_BASE}/shops/{shop_id}").get("shop_name", "") or ""
         except EtsyApiError:
             # Don't let one bad shop lookup fail the whole page - but don't
             # cache the failure either: _shop_name_cache is never cleared
@@ -292,7 +256,7 @@ class EtsyApiListingSource(ListingSource):
             "listing_ids": ",".join(ids),
             "includes": "Images,Shop",
         })
-        batch_data = self._get(f"{API_BASE}/listings/batch?{batch_params}")
+        batch_data = self._client.get(f"{API_BASE}/listings/batch?{batch_params}")
         by_id = {str(r["listing_id"]): r for r in batch_data.get("results", [])}
 
         shop_lookup_budget = [SHOP_LOOKUP_BUDGET]
@@ -330,7 +294,7 @@ class EtsyApiListingSource(ListingSource):
             # orders by how well a listing matches the query.
             "sort_on": "score",
         })
-        search_data = self._get(f"{API_BASE}/listings/active?{search_params}")
+        search_data = self._client.get(f"{API_BASE}/listings/active?{search_params}")
         total = search_data.get("count", 0)
         ids = [str(r["listing_id"]) for r in search_data.get("results", [])
                if r.get("listing_id")]

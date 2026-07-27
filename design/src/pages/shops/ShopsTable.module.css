@@ -32,6 +32,11 @@
 
 .table tbody tr {
   transition: background 0.15s ease;
+}
+
+/* Only rows the caller made navigable get the pointer - see ShopsTable's
+   optional onSelectShop. */
+.table tbody tr.clickable {
   cursor: pointer;
 }
 

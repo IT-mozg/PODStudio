@@ -1,15 +1,31 @@
 /* Dependency Inversion: ShopsPage depends on this interface, never on
-   a concrete data source. Today it's backed by an in-memory mock;
-   swapping to the real Flask API later means writing a second class
-   that implements ShopsRepository and passing it into ShopsPage —
-   no page or component code changes. */
+   a concrete data source. Two implementations exist: the in-memory mock
+   below (still ShopDetailPage's default) and httpShopsRepository, backed by
+   the real Flask/Etsy API — ShopsPage swapped to it without a single change
+   to ShopsTable or any other component. */
 
-import type { Shop, ShopFilter } from "./types";
+import type { Shop } from "./types";
+
+export interface ShopSearchResult {
+  shops: Shop[];
+  /** How many shops matched in total, which can be far more than `shops`
+   *  carries: an Etsy name search reports tens of thousands of matches and
+   *  returns the first 100. Shown in the results toolbar. */
+  total: number;
+}
 
 export interface ShopsRepository {
-  search(query: string, filter: ShopFilter): Promise<Shop[]>;
+  /** Sorting by the filter chips is the caller's job (see shopFilters.ts's
+   *  sortShops) — Etsy has no server-side sort for shops at all, so the
+   *  filter is deliberately not a parameter here: passing it would make a
+   *  chip click look like it needs a network round trip. */
+  search(query: string): Promise<ShopSearchResult>;
   toggleTracked(shopId: string): Promise<void>;
   getById(shopId: string): Promise<Shop | null>;
+  /** Every tracked shop, independent of the current search — a bookmark
+   *  outlives the query it was made under, so this can't be a filter over
+   *  the last search's results. */
+  getTracked(): Promise<Shop[]>;
 }
 
 /* Sales/revenue kept internally consistent (revenue ÷ sales lands
@@ -30,19 +46,23 @@ const MOCK_SHOPS: Shop[] = [
 class MockShopsRepository implements ShopsRepository {
   private shops = MOCK_SHOPS.map((s) => ({ ...s }));
 
-  async search(query: string, _filter: ShopFilter): Promise<Shop[]> {
+  async search(query: string): Promise<ShopSearchResult> {
     // Always return a fresh array/objects: React bails out of re-rendering
     // when setState receives the exact same reference back, so a mock that
     // just returned `this.shops` would silently drop updates like a star
     // toggle when the query/filter didn't change.
     const needle = query.trim().toLowerCase();
     const matches = needle ? this.shops.filter((s) => s.name.toLowerCase().includes(needle)) : this.shops;
-    return matches.map((s) => ({ ...s }));
+    return { shops: matches.map((s) => ({ ...s })), total: matches.length };
   }
 
   async toggleTracked(shopId: string): Promise<void> {
     const shop = this.shops.find((s) => s.id === shopId);
     if (shop) shop.tracked = !shop.tracked;
+  }
+
+  async getTracked(): Promise<Shop[]> {
+    return this.shops.filter((s) => s.tracked).map((s) => ({ ...s }));
   }
 
   async getById(shopId: string): Promise<Shop | null> {

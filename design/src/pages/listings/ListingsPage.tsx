@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { PageHeader } from "../../shared/components/PageHeader";
 import { SegTabs } from "../../shared/components/SegTabs";
 import { ResultsToolbar } from "../../shared/components/ResultsToolbar";
+import { ErrorNotice } from "../../shared/components/ErrorNotice";
+import { describeError } from "../../shared/api";
 import { httpListingsRepository } from "./httpListingsRepository";
 import { sortListings } from "./listingFilters";
 import type { ListingsRepository } from "./listingsRepository";
@@ -38,9 +40,21 @@ export function ListingsPage({ repository = httpListingsRepository }: ListingsPa
   // so anything tracked under an earlier search would otherwise be
   // invisible here even though the backend still has it.
   const [tracked, setTracked] = useState<Listing[]>([]);
+  // Message from the last failed repository call, rendered as a banner - see
+  // ShopsPage for why silently logging it isn't enough.
+  const [error, setError] = useState<string | null>(null);
+  // Bumped by the retry button so the search effect re-runs on the same query.
+  const [reloadToken, setReloadToken] = useState(0);
 
   const refreshTracked = useCallback(
-    () => repository.getTracked().then(setTracked).catch(console.error),
+    () =>
+      repository
+        .getTracked()
+        .then(setTracked)
+        .catch((e) => {
+          console.error(e);
+          setError(describeError(e));
+        }),
     [repository],
   );
 
@@ -49,20 +63,22 @@ export function ListingsPage({ repository = httpListingsRepository }: ListingsPa
     // queries mid-flight means whichever request *resolves* last would
     // otherwise win. Same failure the old UI guards with its loadToken.
     let cancelled = false;
-    // No error-state UI exists anywhere in design/ yet (every other page's
-    // repository is a mock that can't fail) - logging is a stopgap so a
-    // real failure (e.g. missing Etsy API key) shows up somewhere instead
-    // of an unhandled promise rejection, not a designed error experience.
+    setError(null);
     repository
       .search(activeQuery)
       .then((found) => {
         if (!cancelled) setListings(found);
       })
-      .catch(console.error);
+      .catch((e) => {
+        if (cancelled) return;
+        console.error(e);
+        setListings([]);
+        setError(describeError(e));
+      });
     return () => {
       cancelled = true;
     };
-  }, [repository, activeQuery]);
+  }, [repository, activeQuery, reloadToken]);
 
   useEffect(() => {
     refreshTracked();
@@ -79,7 +95,15 @@ export function ListingsPage({ repository = httpListingsRepository }: ListingsPa
 
   const handleToggleTracked = useCallback(
     async (listingId: string) => {
-      await repository.toggleTracked(listingId);
+      try {
+        await repository.toggleTracked(listingId);
+      } catch (e) {
+        // Don't flip the star on a failed write - it would show a bookmark
+        // the backend never saved.
+        console.error(e);
+        setError(describeError(e));
+        return;
+      }
       // Flip the row in place instead of re-running the search: the search
       // is a live Etsy round trip, and re-fetching it here would also
       // reshuffle rows under the user's cursor mid-click.
@@ -108,6 +132,8 @@ export function ListingsPage({ repository = httpListingsRepository }: ListingsPa
         active={tab}
         onSelect={setTab}
       />
+
+      {error && <ErrorNotice message={error} onRetry={() => setReloadToken((n) => n + 1)} />}
 
       {tab === "search" && (
         <ListingsSearchPanel

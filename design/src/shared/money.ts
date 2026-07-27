@@ -16,6 +16,18 @@ export function parseMoneyShorthand(s: string): number {
   return n;
 }
 
+/** Renders a count the backend may have no real number for. `null` becomes
+ *  "—" rather than "0", so the UI never implies a real zero where Etsy
+ *  simply exposes nothing (a listing's sales, a shop's growth, ...). */
+export function formatCount(n: number | null): string {
+  return n === null ? "—" : n.toLocaleString("uk-UA");
+}
+
+/** Same, for money. */
+export function formatRevenue(n: number | null): string {
+  return n === null ? "—" : formatMoney(n);
+}
+
 export function formatMoney(n: number): string {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(2)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(1)}k`;

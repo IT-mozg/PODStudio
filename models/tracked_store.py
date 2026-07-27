@@ -1,9 +1,13 @@
 # -*- coding: utf-8 -*-
-"""Persistence for user-tracked ("bookmarked") listings (tracked.json).
+"""Persistence for user-tracked ("bookmarked") ids.
 
 Unlike num_favorers/views/tags, "tracked" is not an Etsy concept at all -
 it's our own user state, so it needs its own store rather than coming from
-a listing source. Same single-responsibility shape as HistoryStore."""
+a listing/shop source. Same single-responsibility shape as HistoryStore.
+
+The ids are opaque to this class, so one instance per kind of thing being
+bookmarked: container.py keeps tracked.json for listings and
+tracked_shops.json for shops."""
 
 import json
 import os
@@ -37,15 +41,15 @@ class TrackedStore:
                        encoding="utf-8")
         os.replace(tmp, self.path)
 
-    def toggle(self, lid: str) -> bool:
-        """Flips the tracked state of lid, persists it, returns the new state."""
+    def toggle(self, item_id: str) -> bool:
+        """Flips the tracked state of item_id, persists it, returns the new state."""
         with self._lock:
             tracked = self.load()
-            if lid in tracked:
-                tracked.discard(lid)
+            if item_id in tracked:
+                tracked.discard(item_id)
                 new_state = False
             else:
-                tracked.add(lid)
+                tracked.add(item_id)
                 new_state = True
             self.save(tracked)
             return new_state

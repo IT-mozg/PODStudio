@@ -68,23 +68,51 @@ UI. Додати нове джерело (інший маркетплейс, CSV
 клас, що реалізує `ListingSource`, і підставити його в `container.py`, без
 змін контролерів.
 
+## Звідки беруться магазини
+
+Окрема абстракція (`models/shop_source.py`, `ShopSource`) з єдиною
+реалізацією `models/etsy_api_shop_source.py` (`EtsyApiShopSource`) - той
+самий ключ і той самий HTTP-шар (`models/etsy_api_client.py`), інші
+ендпоінти.
+
+Etsy шукає магазини **тільки за назвою**: `GET /shops` без `shop_name`
+відповідає 400, перелічити магазини неможливо, і параметра сортування немає
+взагалі. Тому порядок видачі задає застосунок: спершу точний збіг назви,
+далі назви, що починаються з запиту, далі нечіткі домішки Etsy - у межах
+групи за кількістю продажів. Batch-ендпоінта для магазинів теж немає, тож
+кожен магазин у "Відстежуваних" - це окремий запит (кешується на час роботи
+процесу).
+
+Реальні дані магазину: продажі за весь час (`transaction_sold_count` - на
+відміну від лістинга, де продажів не дає взагалі), кількість і середня
+оцінка відгуків, кількість активних лістингів, дата створення, кількість
+"вподобань". Чого Etsy не дає ніяк - дохід, ріст у часі та ніша: у
+відповіді API вони приходять як `null` і показуються як "—", а не як
+вигаданим числом (тікети #80, #81, #82).
+
 ## Архітектура: MVC
 
 ```
 app.py               entry point - creates the Flask app, registers controllers
 container.py          composition root - wires concrete Model implementations together
 models/               domain logic and data
+  etsy_api_client.py         EtsyApiClient - спільний HTTP-шар до Etsy API
+                             (авторизація, таймаути, ретрай на 429)
   listing_source.py          ListingSource, Listing/ListingPage
   etsy_api_listing_source.py EtsyApiListingSource - live Etsy search, see above
+  shop_source.py             ShopSource, Shop
+  etsy_api_shop_source.py    EtsyApiShopSource - пошук магазинів за назвою
   design_generator.py        DesignGenerator, OpenAIDesignGenerator
   generation_queue.py        GenerationQueue - queueing, retries, per-lid dedup
   history_store.py           HistoryStore - history.json persistence
+  tracked_store.py           TrackedStore - tracked.json / tracked_shops.json
   generate_designs.py        low-level utilities (HTML parsing, reference
                              images, shirt background) + a standalone CLI
 controllers/          Flask blueprints - HTTP requests in, calls into models,
                        a view (JSON or a template) out
   pages_controller.py         "/" and static file directories (refs/, output/)
   listings_controller.py      searching, browsing listing pages
+  shops_controller.py         пошук магазинів, "відстежувані" магазини
   generation_controller.py    the generation queue and prompt drafts
   history_controller.py       the generation history list
   settings_controller.py      settings, balance tracking, misc actions
@@ -112,7 +140,8 @@ views/                templates and static assets
 ## Що не потрапляє в git
 
 Дивись `.gitignore` - коротко: API-ключ і баланс (`ui_config.json`),
-особиста історія генерацій (`history.json`), збережені сторінки Etsy
+особиста історія генерацій (`history.json`), особисті закладки
+(`tracked.json`, `tracked_shops.json`), збережені сторінки Etsy
 (`pages/`, читає лише окремий CLI-скрипт `models/generate_designs.py`) і
 завантажені референс-картинки конкурентів (`refs/`), згенеровані результати
 (`output/`).

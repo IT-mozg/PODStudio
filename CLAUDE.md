@@ -13,10 +13,11 @@ Two separate things live side by side - don't confuse them:
 2. **`design/`**: a React 19 + TypeScript + Vite app (own `package.json`,
    own dev server) that is the *intended future* frontend. Flask **does**
    serve it - `controllers/pages_controller.py` puts its built `dist/` at
-   `/` and keeps the original hand-written interface at `/old` - but its
-   data layer is still **entirely mock repositories**: there is not a
-   single `fetch` to the Flask API anywhere in `design/src`. So the two
-   frontends run side by side, and `/old` (`views/templates`,
+   `/` and keeps the original hand-written interface at `/old`. Its
+   *research* side is now real: `ListingsPage` and `ShopsPage` fetch live
+   Etsy data through `httpListingsRepository`/`httpShopsRepository`.
+   Everything else there (Dashboard, Keywords, both detail pages, the whole
+   manage side) is still mock-backed, and `/old` (`views/templates`,
    `views/static`) remains the only place generation/editing/history
    actually work.
 
@@ -70,9 +71,11 @@ The only listing source today is `models/etsy_api_listing_source.py`
 Open API v3 (`https://openapi.etsy.com/v3/application`). No HTML scraping or
 browser automation. Personal-access rate limit: 5 req/s, 5000/day; one "page
 shown" = 2 calls (id search + one batch image call for all 78 results). Page
-depth capped at 40 (`MAX_PAGES`). Several undocumented API quirks (auth
-header format, image URLs, HTML entities in headers) are recorded in this
-file's docstring - read it before touching Etsy API calls. The official API
+depth capped at 40 (`MAX_PAGES`). Several undocumented API quirks (image
+URLs, HTML entities in headers) are recorded in this file's docstring, and
+the transport-level ones (auth header format, 429 retry) in
+`models/etsy_api_client.py` - the HTTP layer both Etsy sources share. Read
+both before touching Etsy API calls. The official API
 does **not** expose competitor sales/revenue estimates even to Personal
 Access keys - only what's already publicly visible on a listing page. See
 `etsy_conversion_research.md`, `etsy_keyword_search_volume_research.md` and
@@ -96,6 +99,37 @@ source needed. The standalone CLI entry point in
 `models/generate_designs.py` (independent of Flask) still reads `.html`
 files from `pages/` the same way, if that approach is ever needed again
 outside the UI.
+
+### Shop source - `ShopSource` interface, separate from listings
+
+`models/shop_source.py` (`ShopSource`, `Shop`) +
+`models/etsy_api_shop_source.py` (`EtsyApiShopSource`), exposed as
+`container.shop_source` and served by `controllers/shops_controller.py`
+(`GET /api/shops?query=`, `GET /api/shops/tracked`,
+`GET /api/shops/<id>`, `POST /api/shops/<id>/track`). Deliberately its own
+port rather than methods on `ListingSource`: different endpoints, different
+caching lifetime (shop records are cached for the whole process, search
+pages are not).
+
+**Read `EtsyApiShopSource`'s docstring before touching shop search** - the
+API's limits shape the whole feature: `GET /shops` *requires* `shop_name`
+(there is no way to list shops, and no sort parameter at all), matching is
+Etsy's own fuzzy match, and there is no shop batch endpoint, so N shops
+cost N requests. Because Etsy offers no ranking, the source imposes its own
+(exact name match -> prefix matches -> the rest, by lifetime sales), and
+`ShopsPage` keeps that order as its resting state.
+
+What a shop *does* expose is real: `transaction_sold_count` (lifetime
+sales - unlike a listing, where sales are unavailable), `review_count`,
+`review_average`, `listing_active_count`, `created_timestamp`,
+`num_favorers`. What it never exposes, each `None` in
+`container.shops_payload()` with a ticket attached: revenue (#80), growth
+over time (#81 - needs the daily snapshots from Epic I), niche (#82).
+Don't "fill them in" with a plausible number without reading those.
+
+Bookmarked shops persist in `tracked_shops.json` via a second
+`TrackedStore` instance (`container.tracked_shops_store`) - the same class
+listings use, with its own file.
 
 ### Generation pipeline
 
@@ -131,17 +165,35 @@ Gigapixel + Upscayl) applied to already-generated images in `output/`:
 
 ## Architecture: `design/`
 
-Served by Flask at `/`, but still mock-data-only - no calls to the Flask
-backend. Deliberate patterns (discussed and confirmed with the project
-owner):
+Served by Flask at `/`. `ListingsPage` and `ShopsPage` are on real data;
+every other page is still mock-backed. Deliberate patterns (discussed and
+confirmed with the project owner):
 
 - **Dependency injection via interface + default-parameter props.** Pages
   depend on a repository *interface* (`ShopsRepository`,
-  `ListingsRepository`, `KeywordsRepository`); the mock implementation is
-  injected as a default parameter, e.g.
-  `ShopsPage({ repository = mockShopsRepository })`. Swapping in a real
-  API-backed repository later touches zero page components. No DI
-  container - unnecessary at this scale.
+  `ListingsRepository`, `KeywordsRepository`), injected as a default
+  parameter - and that seam is what the API wiring actually used: the two
+  live pages default to `httpListingsRepository`/`httpShopsRepository`
+  while `ListingDetailPage`/`ShopDetailPage` still default to the mocks
+  (issue #8), with zero changes to any table or presentational component.
+  No DI container - unnecessary at this scale.
+- **Backend shape stays in the mapper.** `listingMapper.ts`/`shopMapper.ts`
+  are the only files that know Flask's snake_case JSON; everything above
+  them sees the camelCase `Listing`/`Shop` types. Fields Etsy has no data
+  for arrive as `null` and are rendered as "—" (never `0`, which would read
+  as a real zero) - see `formatCount`/`formatRevenue` in `shared/money.ts`.
+- **One fetch helper, one error path.** `shared/api.ts` (`apiFetch`,
+  `ApiError`, `describeError`) is the only place that talks HTTP; it reads
+  the response as text before parsing, so Flask's HTML 404/500 pages produce
+  an actionable message instead of a `SyntaxError`, and a controller's own
+  `{"error": ...}` always wins. Pages render that message through
+  `shared/components/ErrorNotice` - never `catch(console.error)` alone,
+  which used to make a stale Flask process, a missing Etsy key and a genuine
+  empty result look identical ("Знайдено: 0").
+- **Filters sort client-side** (`listingFilters.ts`, `shopFilters.ts`) -
+  neither Flask nor Etsy has a sort parameter, so a chip click must never
+  cost a network round trip. Chips whose data doesn't exist yet render
+  `disabled` with a tooltip rather than silently sorting by something else.
 - **Feature-based (vertical slice) folders** under `src/pages/*`
   (`dashboard/`, `listings/`, `shops/`, `keywords/`, `calculator/`) - each
   owns its own types, repository, and components, not split across global
@@ -166,7 +218,8 @@ virtualization, a global store, or an Atomic Design reorg.
 ## What's gitignored (never commit)
 
 `ui_config.json` (OpenAI/Etsy API keys + balance), `history.json`
-(personal generation history), `pages/*` (manually-saved Etsy HTML -
+(personal generation history), `tracked.json`/`tracked_shops.json`
+(personal bookmarks), `pages/*` (manually-saved Etsy HTML -
 copyrighted third-party content), `refs/` (downloaded competitor
 reference images), `output/` (generated results), `vendor/` (the
 downloaded upscale binary/model weights).

@@ -3,7 +3,7 @@
    pure function — see httpListingsRepository.ts, ListingsPage's default
    repository, for where it's used against the live backend. */
 
-import { formatMoney } from "../../shared/money";
+import { formatCount, formatRevenue } from "../../shared/money";
 import { mulberry32, seedFromString } from "../../shared/prng";
 import type { Listing } from "./types";
 
@@ -41,18 +41,11 @@ function thumbGradientFor(id: string): [string, string] {
   return GRADIENTS[Math.floor(rand() * GRADIENTS.length)];
 }
 
-/** sales/revenue are `null` whenever the backend has no real number for
- *  them (currently: always — Etsy's API exposes neither; see Ticket 3 in
- *  map-flask-cached-wilkinson.md). Rendered as "—" rather than "0"/"$NaN"
- *  so the UI doesn't imply a real zero. */
-function formatCount(n: number | null): string {
-  return n === null ? "—" : n.toLocaleString("uk-UA");
-}
-
-function formatRevenue(n: number | null): string {
-  return n === null ? "—" : formatMoney(n);
-}
-
+/** sales/revenue arrive as `null` whenever the backend has no real number
+ *  for them (currently: always — Etsy's API exposes neither per listing;
+ *  estimating them is issue #57/#58). formatCount/formatRevenue in
+ *  shared/money.ts render that as "—" rather than "0"/"$NaN", and the shop
+ *  mapper needs the same treatment, which is why they live there. */
 export function mapApiListing(raw: ApiListing): Listing {
   return {
     id: raw.lid,

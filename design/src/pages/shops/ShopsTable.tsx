@@ -6,10 +6,21 @@ import { Pill } from "../../shared/components/Pill";
 import type { Shop } from "./types";
 import styles from "./ShopsTable.module.css";
 
+/** What the mapper puts in a field the backend has no data for. Such a value
+ *  renders as a bare dash rather than inside a Pill/GrowthBadge: a pill
+ *  around "—" reads as a UI element whose label failed to load, and a growth
+ *  badge around one puts a green up-arrow next to it — i.e. "this shop is
+ *  growing" — when in fact Etsy exposes nothing (niche is #82, growth #81). */
+const UNKNOWN = "—";
+
 interface ShopsTableProps {
   shops: Shop[];
   onToggleTracked: (shopId: string) => void;
-  onSelectShop: (shop: Shop) => void;
+  /** Omit to make rows non-navigable — for callers whose ids the detail page
+   *  can't resolve yet (see ShopsPage against the real Etsy repository).
+   *  Rows then render without a pointer cursor rather than clicking through
+   *  to a "not found" page. Same pattern as ListingsTable. */
+  onSelectShop?: (shop: Shop) => void;
 }
 
 /** Pure presentation — rows come from `shops`, the star click is
@@ -33,7 +44,11 @@ export const ShopsTable = memo(function ShopsTable({ shops, onToggleTracked, onS
         </thead>
         <tbody>
           {shops.map((shop) => (
-            <tr key={shop.id} onClick={() => onSelectShop(shop)}>
+            <tr
+              key={shop.id}
+              className={onSelectShop ? styles.clickable : undefined}
+              onClick={onSelectShop ? () => onSelectShop(shop) : undefined}
+            >
               <td>
                 <div className={styles.shopCell}>
                   <ShopAvatar initials={shop.initials} />
@@ -46,7 +61,7 @@ export const ShopsTable = memo(function ShopsTable({ shops, onToggleTracked, onS
                 </div>
               </td>
               <td>
-                <Pill>{shop.niche}</Pill>
+                {shop.niche === UNKNOWN ? UNKNOWN : <Pill>{shop.niche}</Pill>}
               </td>
               <td>
                 <div className={styles.num}>{shop.sales}</div>
@@ -59,7 +74,7 @@ export const ShopsTable = memo(function ShopsTable({ shops, onToggleTracked, onS
                 <div className={styles.numSub}>{shop.reviews} відгуків</div>
               </td>
               <td>
-                <GrowthBadge value={shop.growth} />
+                {shop.growth === UNKNOWN ? UNKNOWN : <GrowthBadge value={shop.growth} />}
               </td>
               <td>
                 <StarToggleButton
