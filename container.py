@@ -209,5 +209,13 @@ def listings_payload(found: dict) -> list:
             "tags": listing.tags,
             "views": listing.views,
             "age_months": age_months(listing.created_timestamp),
+            # Etsy's public API exposes no sales/revenue figures for listings
+            # or shops other than the authenticated user's own - there is no
+            # endpoint or field that provides them, so these stay None
+            # rather than shipping a made-up number. See Ticket 3 in
+            # map-flask-cached-wilkinson.md for the real options (hide in
+            # the UI, a heuristic estimate, or a future paid data provider).
+            "sales": None,
+            "revenue": None,
         })
     return out
