@@ -1,8 +1,9 @@
 /* Real ListingsRepository implementation, backed by the Flask API
-   (controllers/listings_controller.py) instead of mock data. Not wired
-   into ListingsPage/ListingDetailPage yet - those keep defaulting to
-   mockListingsRepository (see listingsRepository.ts) until this has been
-   exercised against a live backend. */
+   (controllers/listings_controller.py) instead of mock data. This is
+   ListingsPage's default repository. ListingDetailPage still defaults to
+   mockListingsRepository (see listingsRepository.ts) - its detail view
+   depends on several mock-only fields (SEO checklist, similar listings,
+   tags audit) with no backend equivalent yet. */
 
 import { parseCount } from "../../shared/money";
 import { mapApiListing, type ApiListing } from "./listingMapper";

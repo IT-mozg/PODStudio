@@ -1,7 +1,7 @@
 /* Maps the raw Flask /api/listings JSON shape (container.py's
    listings_payload()) onto design/'s Listing type. Kept as a standalone
-   pure function — see httpListingsRepository.ts for where it's actually
-   used against a live backend; nothing here is wired into the UI yet. */
+   pure function — see httpListingsRepository.ts, ListingsPage's default
+   repository, for where it's used against the live backend. */
 
 import { formatMoney } from "../../shared/money";
 import { mulberry32, seedFromString } from "../../shared/prng";
