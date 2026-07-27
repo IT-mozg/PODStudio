@@ -32,6 +32,11 @@
 
 .table tbody tr {
   transition: background 0.15s ease;
+}
+
+/* Only rows the caller actually wired a click handler to look clickable —
+   see ListingsTable's onSelectListing prop. */
+.table tbody tr.clickable {
   cursor: pointer;
 }
 
@@ -61,9 +66,14 @@
   text-overflow: ellipsis;
 }
 
-.shopLink {
+.shopName {
   color: var(--text-1);
   font-weight: 500;
+}
+
+/* The navigable variant — used only where onSelectShop is wired up. */
+.shopLink {
+  composes: shopName;
   cursor: pointer;
   transition: color 0.15s ease;
 }

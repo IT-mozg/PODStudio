@@ -1,49 +1,24 @@
 # -*- coding: utf-8 -*-
-"""Controller for switching, searching, and browsing Etsy listing sources."""
+"""Controller for searching and browsing Etsy listings."""
 
 from flask import Blueprint, jsonify, request
 
 import container
 from models.etsy_api_listing_source import EtsyApiError
-from models.listing_source_registry import UnsupportedByActiveSource
 
 listings_bp = Blueprint("listings", __name__, url_prefix="/api")
 
 
-@listings_bp.get("/sources")
-def api_sources():
-    """All listing sources the UI can switch between, plus which one is
-    currently active - powers the source-switch tabs above the search bar."""
-    return jsonify({
-        "sources": [{"id": s.id, "label": s.label} for s in container.listing_source.available()],
-        "active": container.listing_source.active_id,
-    })
-
-
-@listings_bp.post("/sources")
-def api_set_source():
-    data = request.get_json(force=True)
-    source_id = data.get("id")
-    try:
-        container.listing_source.set_active(source_id)
-    except KeyError:
-        return jsonify({"error": f'Невідоме джерело: "{source_id}"'}), 400
-    return jsonify({"ok": True, "active": source_id})
-
-
 @listings_bp.post("/search")
 def api_search():
-    """Point the active listing source at a new query. Does not itself hit
-    the network - the first /api/pages or /api/listings call after this
-    does, and any Etsy API error surfaces there."""
+    """Point the listing source at a new query. Does not itself hit the
+    network - the first /api/pages or /api/listings call after this does,
+    and any Etsy API error surfaces there."""
     data = request.get_json(force=True)
     query = (data.get("query") or "").strip()
     if not query:
         return jsonify({"error": "Введи пошуковий запит"}), 400
-    try:
-        container.listing_source.search(query)
-    except UnsupportedByActiveSource as e:
-        return jsonify({"error": str(e)}), 400
+    container.listing_source.search(query)
     return jsonify({"ok": True, "query": query})
 
 
@@ -90,21 +65,26 @@ def api_listing_info():
     return jsonify({"listings": container.listings_payload(found)})
 
 
-@listings_bp.post("/upload")
-def api_upload():
-    """Manual "save the page, drag it in" import (see
-    models/listing_source.HtmlPageListingSource). Only works while the
-    "saved_pages" source is active - add_source() on the Etsy API source
-    raises NotImplementedError, since "uploading a file" makes no sense for
-    a live search."""
+@listings_bp.post("/listings/<lid>/track")
+def api_toggle_track(lid):
+    """Toggles the user's own "tracked" bookmark on a listing - unrelated to
+    Etsy's data, purely our own persisted state (see models/tracked_store.py)."""
+    tracked = container.tracked_store.toggle(lid)
+    return jsonify({"ok": True, "tracked": tracked})
+
+
+@listings_bp.get("/tracked")
+def api_tracked():
+    """Every tracked listing, independent of the current search.
+
+    Needed because a bookmark outlives the query it was made under: the
+    tracked ids come from our own store, then get hydrated through
+    get_by_ids() (one batch call for the whole set, not one per listing)."""
+    lids = sorted(container.tracked_store.load())
+    if not lids:
+        return jsonify({"listings": []})
     try:
-        saved = 0
-        for f in request.files.getlist("files"):
-            saved += container.listing_source.add_source(file_storage=f, filename=f.filename)
-    except NotImplementedError:
-        return jsonify({"error": "Активне джерело лістингів не підтримує "
-                                 "завантаження файлів - перемкнись на «Збережені сторінки»."}), 501
-    if saved == 0:
-        return jsonify({"error": "Потрібен .html файл збереженої сторінки "
-                                 "(Chrome: Cmd+S -> 'Веб-сторінка повністю')"}), 400
-    return jsonify({"saved": saved})
+        found = container.listing_source.get_by_ids(lids)
+    except EtsyApiError as e:
+        return jsonify({"error": str(e)}), 502
+    return jsonify({"listings": container.listings_payload(found)})

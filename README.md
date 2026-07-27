@@ -35,13 +35,8 @@ python3 app.py
 
 Джерело даних - окрема абстракція (`models/listing_source.py`,
 `ListingSource`), тож спосіб отримання лістингів можна замінити чи додати,
-не чіпаючи решту коду (контролери, чергу генерації, історію). Застосунок
-підтримує **два джерела одночасно** і перемикається між ними прямо в UI
-(вкладки "Пошук на Etsy" / "Збережені сторінки" над стрічкою пошуку) -
-дивись `models/listing_source_registry.py` (`CompositeListingSource`)
-нижче.
-
-### Пошук на Etsy: офіційний Etsy Open API v3
+не чіпаючи решту коду (контролери, чергу генерації, історію). Сьогодні
+єдина реалізація - офіційний Etsy Open API v3, описаний нижче.
 
 `models/etsy_api_listing_source.py` (`EtsyApiListingSource`) - живий пошук
 через документований `https://openapi.etsy.com/v3/application`, без
@@ -63,30 +58,15 @@ python3 app.py
 не ділиться цим навіть через API) - тільки те, що й так публічно видно на
 сторінці лістингу (назва, ціна, теги, картинки, магазин).
 
-### Збережені сторінки: ручний імпорт
-
-`HtmlPageListingSource` (у `models/listing_source.py`) парсить
-`.html`-файли з `pages/`, які користувач сам зберігає через браузер
-(Chrome: `Cmd+S` → «Веб-сторінка повністю») і перетягує у drop-зону на
-вкладці "Збережені сторінки". Корисно, якщо треба переглянути щось, чого
-живий пошук не покаже (наприклад чужий магазин цілком, або "обране"), або
-якщо API тимчасово недоступний.
-
-Цей варіант свідомо існував до отримання API-ключа: пряме звернення до
-`etsy.com/search` (без справжнього браузера) миттєво впирається в
-DataDome-захист Etsy, а живий автоматизований браузер (Playwright) виявився
-надто нестабільним (капчі, рейт-ліміти) і був прибраний з кодової бази.
-
-### CompositeListingSource - перемикач джерел
-
-`models/listing_source_registry.py` тримає обидва джерела і делегує кожен
-виклик активному - контролери й черга генерації працюють з одним
-`container.listing_source` і не знають, яке джерело зараз активне.
-`GET/POST /api/sources` перемикає активне джерело; `search()` (тільки в
-Etsy-джерела) повертає зрозумілу помилку, якщо викликати його поки активне
-"Збережені сторінки". Додати третє джерело (інший маркетплейс, CSV-імпорт,
-...) - написати ще один клас `ListingSource` і зареєструвати його в
-`container.py`, без змін контролерів.
+Раніше поруч існувало друге джерело - ручний імпорт збережених `.html`
+сторінок Etsy (`HtmlPageListingSource`, до отримання API-ключа), перемикане
+прямо в UI (`CompositeListingSource`). Тепер, коли є Etsy API, обидва
+прибрані з застосунку - всі лістинги йдуть через живий пошук. Окремий
+CLI-скрипт `models/generate_designs.py` й досі вміє читати `.html`-файли з
+`pages/` незалежно від Flask, якщо колись знадобиться той самий підхід поза
+UI. Додати нове джерело (інший маркетплейс, CSV-імпорт, ...) - написати
+клас, що реалізує `ListingSource`, і підставити його в `container.py`, без
+змін контролерів.
 
 ## Архітектура: MVC
 
@@ -94,9 +74,8 @@ Etsy-джерела) повертає зрозумілу помилку, якщ�
 app.py               entry point - creates the Flask app, registers controllers
 container.py          composition root - wires concrete Model implementations together
 models/               domain logic and data
-  listing_source.py          ListingSource, HtmlPageListingSource, Listing/ListingPage
+  listing_source.py          ListingSource, Listing/ListingPage
   etsy_api_listing_source.py EtsyApiListingSource - live Etsy search, see above
-  listing_source_registry.py CompositeListingSource - switches between the two
   design_generator.py        DesignGenerator, OpenAIDesignGenerator
   generation_queue.py        GenerationQueue - queueing, retries, per-lid dedup
   history_store.py           HistoryStore - history.json persistence
@@ -105,7 +84,7 @@ models/               domain logic and data
 controllers/          Flask blueprints - HTTP requests in, calls into models,
                        a view (JSON or a template) out
   pages_controller.py         "/" and static file directories (refs/, output/)
-  listings_controller.py      source switching, searching, browsing listing pages
+  listings_controller.py      searching, browsing listing pages
   generation_controller.py    the generation queue and prompt drafts
   history_controller.py       the generation history list
   settings_controller.py      settings, balance tracking, misc actions
@@ -117,8 +96,7 @@ views/                templates and static assets
                              main.js:
     core.js                    $, state, toast(), api(), esc() - shared by all
     imageModal.js               fullscreen image preview (results/history/regen)
-    listings.js                 pagination, card rendering, selection
-    sourceControl.js            source-switch tabs, search bar, drop-zone/upload
+    listings.js                 search, pagination, card rendering, selection
     regen.js                     regeneration modal
     generate.js                  cost calc, generate modal, job polling, results
     history.js                   history tab
@@ -127,13 +105,14 @@ views/                templates and static assets
 ```
 
 Кожен `Model` — окрема абстракція (інтерфейс + конкретна реалізація), тож
-підміна (наприклад `HtmlPageListingSource` → `EtsyApiListingSource`)
+підміна на іншу реалізацію (наприклад інший маркетплейс чи джерело даних)
 робиться зміною одного рядка в `container.py`, без змін у `controllers/`
 чи `views/`.
 
 ## Що не потрапляє в git
 
 Дивись `.gitignore` - коротко: API-ключ і баланс (`ui_config.json`),
-особиста історія генерацій (`history.json`), збережені сторінки Etsy і
-завантажені референс-картинки конкурентів (`pages/`, `refs/`),
-згенеровані результати (`output/`).
+особиста історія генерацій (`history.json`), збережені сторінки Etsy
+(`pages/`, читає лише окремий CLI-скрипт `models/generate_designs.py`) і
+завантажені референс-картинки конкурентів (`refs/`), згенеровані результати
+(`output/`).

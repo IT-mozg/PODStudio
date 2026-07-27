@@ -4,7 +4,8 @@
 
 import { AlertCircleIcon, DesignsIcon, StarIcon, TrendUpIcon } from "../../shared/icons";
 import type { FilterOption } from "../../shared/components/FilterChips";
-import type { ListingFilter } from "./types";
+import { parseCount } from "../../shared/money";
+import type { Listing, ListingFilter } from "./types";
 
 export const LISTING_FILTERS: FilterOption<ListingFilter>[] = [
   { id: "top", label: "Топ продажів", icon: StarIcon },
@@ -12,3 +13,31 @@ export const LISTING_FILTERS: FilterOption<ListingFilter>[] = [
   { id: "trending", label: "В тренді", icon: TrendUpIcon },
   { id: "outliers", label: "Викиди", icon: AlertCircleIcon },
 ];
+
+/** Sorting for the chips above. Deliberately client-side: neither
+ *  repository has a server-side equivalent (Flask exposes no sort param on
+ *  /api/listings), so this lives here rather than inside an implementation
+ *  — that also keeps a filter change from costing a network round trip.
+ *
+ *  These are approximations over whatever real fields exist, not the
+ *  product-defined semantics for each chip. In particular `sales` is
+ *  always unavailable against the real backend (Etsy exposes no sales
+ *  figures), which is why "top" falls back to views instead of silently
+ *  becoming a no-op sort. */
+export function sortListings(listings: Listing[], filter: ListingFilter): Listing[] {
+  const sorted = [...listings];
+  switch (filter) {
+    case "top":
+      return sorted.sort(
+        (a, b) =>
+          parseCount(b.sales) - parseCount(a.sales) ||
+          parseCount(b.views) - parseCount(a.views),
+      );
+    case "new":
+      return sorted.sort((a, b) => a.ageMonths - b.ageMonths);
+    case "trending":
+      return sorted.sort((a, b) => parseCount(b.views) - parseCount(a.views));
+    case "outliers":
+      return sorted.sort((a, b) => parseCount(a.views) - parseCount(b.views));
+  }
+}

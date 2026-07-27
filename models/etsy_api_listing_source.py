@@ -74,6 +74,10 @@ RATE_LIMIT_RETRIES = 3  # the personal-access key is capped at 5 requests/second
                         # can trip that within the same second; a short retry
                         # clears it without the user having to notice and retry
                         # by hand (429 only - anything else fails immediately)
+SHOP_LOOKUP_BUDGET = 5  # max /shops/{id} fallback calls per batch (see
+                        # _resolve_shop_name) - Etsy normally embeds the Shop
+                        # association, so this only caps the rare fallback
+                        # instead of letting one page fire 78 of them
 
 
 class EtsyApiError(RuntimeError):
@@ -84,11 +88,10 @@ class EtsyApiListingSource(ListingSource):
     """Listing source backed by the official Etsy API.
 
     A "page" here is a page of search results for the *current* query
-    (offset-based pagination on Etsy's side), not a file like in
-    HtmlPageListingSource - but the external interface is the same, so the
-    UI and the rest of the app do not need to know the difference. The
-    query itself is set at runtime via search(), not fixed at construction,
-    so a search bar can point this same instance at a new keyword any time."""
+    (offset-based pagination on Etsy's side), exposed through the same
+    ListingSource interface as any other source. The query itself is set
+    at runtime via search(), not fixed at construction, so a search bar
+    can point this same instance at a new keyword any time."""
 
     def __init__(self, api_key_provider: Callable[[], str],
                  shared_secret_provider: Callable[[], str],
@@ -105,6 +108,11 @@ class EtsyApiListingSource(ListingSource):
         # nowhere to remember them, and every repeat/concurrent lookup of
         # the same "extra" id would re-hit the network.
         self._id_cache: dict[str, Listing] = {}
+        # shop_id -> shop_name, populated the first time each shop is seen
+        # (see _resolve_shop_name) - a search page commonly has several
+        # listings from the same shop, so this keeps it to one extra
+        # request per distinct shop rather than one per listing.
+        self._shop_name_cache: dict[str, str] = {}
         self._total_count: int | None = None
         self._calibration: dict | None = None
         # Guards _page_cache/_total_count/_calibration AND is held across
@@ -123,9 +131,17 @@ class EtsyApiListingSource(ListingSource):
     # ---------------- search control ----------------
 
     def search(self, keywords: str) -> None:
-        """Point this source at a new query - invalidates cached pages."""
+        """Point this source at a new query - invalidates cached pages.
+
+        Re-searching the *same* keywords is a no-op: callers hit this on
+        every render/filter change, and wiping the cache there would force
+        a fresh id+batch round trip (2 API calls) for listings we already
+        have, burning the 5 req/s, 5000/day personal-access budget."""
         with self._lock:
-            self.keywords = keywords.strip()
+            keywords = keywords.strip()
+            if keywords == self.keywords and self._has_searched:
+                return
+            self.keywords = keywords
             self._has_searched = bool(self.keywords)
             self._page_cache = {}
             self._id_cache = {}
@@ -231,17 +247,55 @@ class EtsyApiListingSource(ListingSource):
             except urllib.error.URLError as e:
                 raise EtsyApiError(f"Could not reach the Etsy API: {e}") from e
 
+    def _resolve_shop_name(self, shop_id: str, budget: list[int]) -> str:
+        """shop_id -> shop_name, cached. Must be called while holding
+        self._lock (only caller today is _batch_fetch, itself always called
+        under the lock).
+
+        Only reached when Etsy fails to embed the Shop association, which
+        in practice it does supply - so this is a rare fallback, not the
+        normal path. `budget` is a single-element list of remaining allowed
+        lookups for the current batch: a page can hold up to 78 listings
+        from as many distinct shops, and firing that many sequential
+        /shops/{id} calls would blow straight through the 5 req/s cap. Past
+        the budget we return "" (blank shop label) rather than rate-limit
+        the whole page - a degraded label beats a failed request."""
+        if not shop_id:
+            return ""
+        cached = self._shop_name_cache.get(shop_id)
+        if cached is not None:
+            return cached
+        if budget[0] <= 0:
+            return ""
+        budget[0] -= 1
+        try:
+            name = self._get(f"{API_BASE}/shops/{shop_id}").get("shop_name", "") or ""
+        except EtsyApiError:
+            # Don't let one bad shop lookup fail the whole page - but don't
+            # cache the failure either: _shop_name_cache is never cleared
+            # (not even by search()), so caching "" here would blank that
+            # shop for the rest of the process with no retry.
+            return ""
+        self._shop_name_cache[shop_id] = name
+        return name
+
     def _batch_fetch(self, ids: list[str]) -> dict[str, Listing]:
-        """A single call to the batch endpoint (max ~100 ids), with images."""
+        """A single call to the batch endpoint (max ~100 ids), with images
+        and, where Etsy embeds it, shop info. Etsy's batch endpoint does not
+        reliably embed the Shop association on every account tier, so a
+        missing "shop_name" here falls back to a separate (cached-by-shop_id)
+        /shops/{shop_id} lookup rather than shipping a blank shop name - see
+        _resolve_shop_name for why that fallback is budget-capped."""
         if not ids:
             return {}
         batch_params = urllib.parse.urlencode({
             "listing_ids": ",".join(ids),
-            "includes": "Images",
+            "includes": "Images,Shop",
         })
         batch_data = self._get(f"{API_BASE}/listings/batch?{batch_params}")
         by_id = {str(r["listing_id"]): r for r in batch_data.get("results", [])}
 
+        shop_lookup_budget = [SHOP_LOOKUP_BUDGET]
         listings: dict[str, Listing] = {}
         for lid in ids:
             row = by_id.get(lid)
@@ -249,6 +303,9 @@ class EtsyApiListingSource(ListingSource):
                 continue
             images = row.get("images") or []
             remote_img = images[0].get("url_570xN", "") if images else ""
+            shop_id = str(row.get("shop_id") or "")
+            shop_name = (row.get("shop") or {}).get("shop_name", "") \
+                or self._resolve_shop_name(shop_id, shop_lookup_budget)
             listings[lid] = Listing(
                 lid=lid,
                 title=html.unescape(row.get("title", "")),
@@ -256,6 +313,9 @@ class EtsyApiListingSource(ListingSource):
                 num_favorers=row.get("num_favorers") or 0,
                 views=row.get("views") or 0,
                 created_timestamp=row.get("original_creation_timestamp") or 0,
+                shop_id=shop_id,
+                shop_name=shop_name,
+                tags=row.get("tags") or [],
             )
         return listings
 

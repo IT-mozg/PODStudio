@@ -17,8 +17,7 @@ This project follows a classic MVC layout:
                   on the models and return a view (JSON or a template).
   - container.py  the composition root: wires concrete model
                   implementations together (see that file for how to swap
-                  them, e.g. to switch from manual HTML import to the
-                  official Etsy API).
+                  one, e.g. the listing source or the AI design generator).
 """
 
 import threading

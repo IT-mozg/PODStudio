@@ -1,1 +1,0 @@
-import{x as e}from"./index-BHUBsFiv.js";var t={header:`_header_1cwes_1`,title:`_title_1cwes_5`,subtitle:`_subtitle_1cwes_12`},n=e();function r({title:e,subtitle:r}){return(0,n.jsxs)(`div`,{className:t.header,children:[(0,n.jsx)(`div`,{className:t.title,children:e}),(0,n.jsx)(`div`,{className:t.subtitle,children:r})]})}export{r as t};

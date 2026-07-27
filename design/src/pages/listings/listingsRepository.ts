@@ -5,12 +5,20 @@
 import { mockShopsRepository } from "../shops/shopsRepository";
 import { buildShopDetail } from "../shops/shopDetail";
 import { buildListingDetail } from "./listingDetail";
-import type { Listing, ListingFilter } from "./types";
+import type { Listing } from "./types";
 
 export interface ListingsRepository {
-  search(query: string, filter: ListingFilter): Promise<Listing[]>;
+  /** Sorting by the filter chips is the caller's job (see
+   *  listingFilters.ts's sortListings) — no implementation has a
+   *  server-side sort, and doing it here would make a chip click cost a
+   *  network round trip. */
+  search(query: string): Promise<Listing[]>;
   toggleTracked(listingId: string): Promise<void>;
   getById(listingId: string): Promise<Listing | null>;
+  /** Every tracked listing, independent of the current search — a
+   *  bookmark outlives the query it was made under, so this can't be a
+   *  filter over the last search's results. */
+  getTracked(): Promise<Listing[]>;
 }
 
 const SHOP_SCOPED_LISTING_ID = /^(.+)-l\d+$/;
@@ -27,7 +35,7 @@ const MOCK_LISTINGS: Listing[] = [
 class MockListingsRepository implements ListingsRepository {
   private listings = MOCK_LISTINGS.map((l) => ({ ...l }));
 
-  async search(query: string, _filter: ListingFilter): Promise<Listing[]> {
+  async search(query: string): Promise<Listing[]> {
     const needle = query.trim().toLowerCase();
     const matches = needle ? this.listings.filter((l) => l.title.toLowerCase().includes(needle)) : this.listings;
     // Return fresh copies so React always sees a new reference (see the
@@ -39,6 +47,10 @@ class MockListingsRepository implements ListingsRepository {
   async toggleTracked(listingId: string): Promise<void> {
     const listing = this.listings.find((l) => l.id === listingId);
     if (listing) listing.tracked = !listing.tracked;
+  }
+
+  async getTracked(): Promise<Listing[]> {
+    return this.listings.filter((l) => l.tracked).map((l) => ({ ...l }));
   }
 
   async getById(listingId: string): Promise<Listing | null> {

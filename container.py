@@ -10,6 +10,7 @@ changing a single line below, without touching any controller.
 import json
 import os
 import threading
+import time
 from pathlib import Path
 
 from models import generate_designs as engine
@@ -17,12 +18,11 @@ from models.design_generator import OpenAIDesignGenerator
 from models.etsy_api_listing_source import EtsyApiListingSource
 from models.generation_queue import GenerationQueue, ReferenceResolver
 from models.history_store import HistoryStore
-from models.listing_source import HtmlPageListingSource
-from models.listing_source_registry import CompositeListingSource
+from models.tracked_store import TrackedStore
 
 BASE = Path(__file__).parent.resolve()
-os.chdir(BASE)  # keep pages/refs/output/history next to the project root
-for _d in (engine.PAGES_DIR, engine.REFS_DIR, engine.OUT_DIR):
+os.chdir(BASE)  # keep refs/output/history next to the project root
+for _d in (engine.REFS_DIR, engine.OUT_DIR):
     _d.mkdir(exist_ok=True)
 
 CONFIG_FILE = BASE / "ui_config.json"
@@ -113,27 +113,20 @@ def balance_status() -> dict:
 
 
 # ---------------- dependency wiring (composition root) ----------------
-# This is the only place the program "knows" the concrete listing sources
-# and the AI provider. listing_source is a CompositeListingSource wrapping
-# both - controllers and the generation queue only ever talk to that one
-# object (see models/listing_source_registry.py), so adding a third source
-# or swapping the AI provider never touches controller code.
+# This is the only place the program "knows" the concrete listing source
+# and the AI provider - controllers and the generation queue only ever
+# talk to listing_source (typed as the ListingSource interface), so
+# swapping either implementation never touches controller code.
 
-etsy_search_source = EtsyApiListingSource(
+listing_source = EtsyApiListingSource(
     api_key_provider=get_etsy_api_key,
     shared_secret_provider=get_etsy_shared_secret,
     page_size=78,
 )
-saved_pages_source = HtmlPageListingSource(engine.PAGES_DIR, engine.parse_page)
-
-listing_source = CompositeListingSource(
-    sources={"etsy_search": etsy_search_source, "saved_pages": saved_pages_source},
-    labels={"etsy_search": "Пошук на Etsy", "saved_pages": "Збережені сторінки"},
-    default="etsy_search",
-)
 design_generator = OpenAIDesignGenerator(api_key_provider=get_api_key)
 
 history_store = HistoryStore(engine.HISTORY_FILE)
+tracked_store = TrackedStore(Path("tracked.json"))
 reference_resolver = ReferenceResolver(
     get_reference=engine.get_reference,
     shirt_background=engine.shirt_background,
@@ -168,6 +161,15 @@ def ui_thumb(remote: str) -> str:
     return re.sub(r"il_(?:\d+x\d+|\d+xN|fullxfull)", "il_570xN", remote)
 
 
+def age_months(created_timestamp: int) -> int:
+    """Whole months since a listing's original creation date, or 0 if
+    created_timestamp isn't available. Floored, not rounded - a 20-day-old
+    listing is 0 months old, not 1."""
+    if not created_timestamp:
+        return 0
+    return max(0, int((time.time() - created_timestamp) // 2629800))  # 2629800s = 1 average month
+
+
 def effective_bg(lid: str) -> str:
     ref = engine.REFS_DIR / f"{lid}.jpg"
     if ref.exists():
@@ -180,6 +182,7 @@ def effective_bg(lid: str) -> str:
 
 def listings_payload(found: dict) -> list:
     history = history_store.load()
+    tracked = tracked_store.load()
     out = []
     for lid, listing in found.items():
         ref_exists = (engine.REFS_DIR / f"{lid}.jpg").exists()
@@ -195,5 +198,19 @@ def listings_payload(found: dict) -> list:
             "background": bg,
             "history": history.get(lid),
             "prompt": saved_prompt or build_prompt(listing.title, bg),
+            "shop_id": listing.shop_id,
+            "shop_name": listing.shop_name,
+            "tags": listing.tags,
+            "views": listing.views,
+            "age_months": age_months(listing.created_timestamp),
+            # Etsy's public API exposes no sales/revenue figures for listings
+            # or shops other than the authenticated user's own - there is no
+            # endpoint or field that provides them, so these stay None
+            # rather than shipping a made-up number. See Ticket 3 in
+            # map-flask-cached-wilkinson.md for the real options (hide in
+            # the UI, a heuristic estimate, or a future paid data provider).
+            "sales": None,
+            "revenue": None,
+            "tracked": lid in tracked,
         })
     return out
