@@ -20,6 +20,7 @@ from models.generation_queue import GenerationQueue, ReferenceResolver
 from models.history_store import HistoryStore
 from models.listing_source import HtmlPageListingSource
 from models.listing_source_registry import CompositeListingSource
+from models.tracked_store import TrackedStore
 
 BASE = Path(__file__).parent.resolve()
 os.chdir(BASE)  # keep pages/refs/output/history next to the project root
@@ -135,6 +136,7 @@ listing_source = CompositeListingSource(
 design_generator = OpenAIDesignGenerator(api_key_provider=get_api_key)
 
 history_store = HistoryStore(engine.HISTORY_FILE)
+tracked_store = TrackedStore(Path("tracked.json"))
 reference_resolver = ReferenceResolver(
     get_reference=engine.get_reference,
     shirt_background=engine.shirt_background,
@@ -189,6 +191,7 @@ def effective_bg(lid: str) -> str:
 
 def listings_payload(found: dict) -> list:
     history = history_store.load()
+    tracked = tracked_store.load()
     out = []
     for lid, listing in found.items():
         ref_exists = (engine.REFS_DIR / f"{lid}.jpg").exists()
@@ -217,5 +220,6 @@ def listings_payload(found: dict) -> list:
             # the UI, a heuristic estimate, or a future paid data provider).
             "sales": None,
             "revenue": None,
+            "tracked": lid in tracked,
         })
     return out

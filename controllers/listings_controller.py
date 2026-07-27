@@ -90,6 +90,14 @@ def api_listing_info():
     return jsonify({"listings": container.listings_payload(found)})
 
 
+@listings_bp.post("/listings/<lid>/track")
+def api_toggle_track(lid):
+    """Toggles the user's own "tracked" bookmark on a listing - unrelated to
+    Etsy's data, purely our own persisted state (see models/tracked_store.py)."""
+    tracked = container.tracked_store.toggle(lid)
+    return jsonify({"ok": True, "tracked": tracked})
+
+
 @listings_bp.post("/upload")
 def api_upload():
     """Manual "save the page, drag it in" import (see
