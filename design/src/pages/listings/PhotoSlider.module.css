@@ -1,21 +1,40 @@
 .slider {
   display: grid;
-  grid-template-columns: 84px 1fr;
+  /* The photo column is capped rather than stretched to the full content
+     width: Etsy serves il_570xN, so blowing a 570px-wide image across a
+     1200px panel upscales it into mush. */
+  grid-template-columns: 84px minmax(0, 620px);
   gap: 12px;
   margin-bottom: 24px;
+  /* stretch, so the rail wrapper takes the stage's height (see below). */
+  align-items: stretch;
+}
+
+/* Contributes no height of its own — its only child is absolutely
+   positioned — so the grid row is sized by the stage alone, and the rail
+   can never push the layout taller than the photo beside it. */
+.thumbRailWrap {
+  position: relative;
 }
 
 .thumbRail {
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 300px;
   overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .thumb {
   position: relative;
-  height: 60px;
+  /* Square, like Etsy's rail — a consistent grid of thumbnails reads much
+     faster than tiles of varying height, and cropping is fine at this size
+     (the stage is where the whole photo must be visible). */
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  background: var(--bg-2);
   border-radius: 9px;
   cursor: pointer;
   opacity: 0.55;
@@ -23,6 +42,23 @@
   overflow: hidden;
   flex-shrink: 0;
   transition: opacity 0.15s ease, border-color 0.15s ease;
+}
+
+.thumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* contain + centre: the whole photo is always visible, whatever its shape,
+   and nothing is ever cropped or stretched. object-position defaults to
+   centre, which is exactly the placement wanted. */
+.mainImg {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 
 .thumb:hover {
@@ -34,20 +70,35 @@
   border-color: var(--accent);
 }
 
+/* The stage. Fixed size for the whole listing, like Etsy's own gallery:
+   `width: 100%` pins it to the column so a portrait photo can't shrink it,
+   and the height comes from the primary photo's ratio (set inline by
+   PhotoSlider; 1/1 is only the pre-measurement fallback). Every photo is
+   centred inside it by object-fit: contain, so the arrows and the counter
+   never move. */
 .main {
   position: relative;
-  height: 300px;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 62vh;
   border-radius: var(--radius);
   overflow: hidden;
+  background: var(--bg-2);
 }
 
-.halftone {
-  position: absolute;
-  inset: 0;
-  background-image: radial-gradient(rgba(0, 0, 0, 0.35) 1.1px, transparent 1.2px);
-  background-size: 7px 7px;
-  mix-blend-mode: multiply;
-  opacity: 0.5;
+/* Shown instead of the whole slider when Etsy returns no images at all. */
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  height: 160px;
+  margin-bottom: 24px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--panel-glass);
+  color: var(--text-2);
+  font-size: 13px;
 }
 
 .arrow {
@@ -101,14 +152,21 @@
     grid-template-columns: 1fr;
   }
 
+  /* Stacked layout: the rail sits under the photo as a horizontal strip, so
+     it goes back to flowing normally instead of filling a fixed-height
+     column. */
+  .thumbRailWrap {
+    order: 2;
+  }
+
   .thumbRail {
+    position: static;
     flex-direction: row;
-    max-height: none;
     overflow-x: auto;
+    overflow-y: hidden;
   }
 
   .thumb {
     width: 60px;
-    height: 60px;
   }
 }

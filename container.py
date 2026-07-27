@@ -15,8 +15,10 @@ from pathlib import Path
 
 from models import generate_designs as engine
 from models.design_generator import OpenAIDesignGenerator
+from models.etsy_api_client import EtsyApiClient
 from models.etsy_api_listing_source import EtsyApiListingSource
 from models.etsy_api_shop_source import EtsyApiShopSource
+from models.etsy_taxonomy import EtsyTaxonomy
 from models.generation_queue import GenerationQueue, ReferenceResolver
 from models.history_store import HistoryStore
 from models.shop_source import Shop
@@ -132,6 +134,10 @@ shop_source = EtsyApiShopSource(
     api_key_provider=get_etsy_api_key,
     shared_secret_provider=get_etsy_shared_secret,
 )
+# Marketplace-wide reference data, not a listing/shop port: turns a listing's
+# bare taxonomy_id into a readable category path. Its own client instance
+# because it belongs to neither source.
+taxonomy = EtsyTaxonomy(EtsyApiClient(get_etsy_api_key, get_etsy_shared_secret))
 design_generator = OpenAIDesignGenerator(api_key_provider=get_api_key)
 
 history_store = HistoryStore(engine.HISTORY_FILE)
@@ -226,6 +232,53 @@ def listings_payload(found: dict) -> list:
             "tracked": lid in tracked,
         })
     return out
+
+
+def listing_detail_payload(listing) -> dict:
+    """Everything listings_payload() gives for one listing, plus the heavy
+    detail-only fields (description, price, the full photo set, attributes).
+
+    Split from listings_payload() on purpose rather than merged into it: a
+    search page carries 78 rows, and a description alone runs 2-5 KB, so
+    folding these in would turn a ~40 KB grid response into ~300 KB for data
+    the grid never renders. Costs no extra Etsy request either way - the
+    fields ride along in the same /listings/batch response the source
+    already makes (see EtsyApiListingSource's docstring, note 4).
+
+    Fields Etsy genuinely has no value for arrive as None/[] and are rendered
+    as "—" by design/'s mapper - never as 0 or an invented default."""
+    base = listings_payload({listing.lid: listing})[0]
+    base.update({
+        "description": listing.description,
+        # Raw money, not a formatted string: the frontend needs the currency
+        # to format it (listings exist in EUR/GBP/PLN, not just USD).
+        "price_amount": listing.price_amount,
+        "price_divisor": listing.price_divisor,
+        "price_currency": listing.price_currency,
+        # All photos, in Etsy's own rank order. listings_payload's "thumb"
+        # stays as-is (it can point at a locally-saved reference image).
+        "photos": [ui_thumb(url) for url in listing.images],
+        # Canonical URL as Etsy reports it - more reliable than the one
+        # listings_payload builds from the id, since Etsy includes the slug.
+        "etsy_url": listing.url or base["etsy_url"],
+        # Attributes. category_path is "" when the taxonomy lookup is
+        # unavailable; materials/style are frequently [] even on complete
+        # listings. Both render as "—".
+        "category_path": taxonomy.path_name(listing.taxonomy_id),
+        "who_made": listing.who_made,
+        "when_made": listing.when_made,
+        "materials": listing.materials,
+        "style": listing.style,
+        "processing_min": listing.processing_min,
+        "processing_max": listing.processing_max,
+        "is_personalizable": listing.is_personalizable,
+        "has_variations": listing.has_variations,
+        # The only public per-listing demand signal Etsy exposes. Real, so it
+        # is a number rather than the None that sales/revenue are.
+        "num_favorers": listing.num_favorers,
+        "production_partners": listing.production_partners,
+    })
+    return base
 
 
 def shops_payload(shops: list[Shop]) -> list:

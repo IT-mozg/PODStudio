@@ -2,7 +2,7 @@ import { memo, useMemo, useState } from "react";
 import { StarToggleButton } from "../../shared/components/StarToggleButton";
 import { MetricBar } from "../../shared/components/MetricBar";
 import { Sparkline } from "../../shared/components/Sparkline";
-import type { ListingTag } from "./listingDetail";
+import type { ListingTag } from "./types";
 import styles from "./TagsAuditTable.module.css";
 
 /** Same 3-way split as kdTone on Ключові слова: low KD is the easy
@@ -13,14 +13,25 @@ function kdTone(kd: number): "positive" | "warning" | "negative" {
   return "negative";
 }
 
+/** Largest real value in a column, for scaling the bars. Ignores the nulls
+ *  that every metric currently is (see below) and never returns 0. */
+function maxOf(tags: ListingTag[], pick: (t: ListingTag) => number | null): number {
+  return Math.max(1, ...tags.map(pick).filter((v): v is number => v !== null));
+}
+
 /** Same table as KeywordsTable on Ключові слова — MetricBar for
  *  volume/competition/KD, Sparkline for the trend, star to save a tag
  *  — just scoped to one listing's tags instead of a search result.
  *  Saving is local to this page for now (no cross-listing tag
- *  repository yet), same as any other page-local UI state. */
+ *  repository yet), same as any other page-local UI state.
+ *
+ *  The tags themselves are real (Etsy gives up to 13 per listing); every
+ *  metric beside them is `null` until the search-volume engine (#54/#56)
+ *  exists, and renders "—". They used to be PRNG output that looked exactly
+ *  like measured demand data. */
 export const TagsAuditTable = memo(function TagsAuditTable({ tags }: { tags: ListingTag[] }) {
-  const maxVolume = useMemo(() => Math.max(1, ...tags.map((t) => t.volume)), [tags]);
-  const maxCompetition = useMemo(() => Math.max(1, ...tags.map((t) => t.competition)), [tags]);
+  const maxVolume = useMemo(() => maxOf(tags, (t) => t.volume), [tags]);
+  const maxCompetition = useMemo(() => maxOf(tags, (t) => t.competition), [tags]);
   const [saved, setSaved] = useState<Set<string>>(new Set());
 
   function toggleSaved(tag: string) {
@@ -53,16 +64,32 @@ export const TagsAuditTable = memo(function TagsAuditTable({ tags }: { tags: Lis
                 <div className={styles.tagText}>{row.tag}</div>
               </td>
               <td>
-                <MetricBar ratio={row.volume / maxVolume} tone="positive" label={row.volume.toLocaleString("uk-UA")} />
+                {row.volume === null ? (
+                  <span className={styles.noData}>—</span>
+                ) : (
+                  <MetricBar ratio={row.volume / maxVolume} tone="positive" label={row.volume.toLocaleString("uk-UA")} />
+                )}
               </td>
               <td>
-                <MetricBar ratio={row.competition / maxCompetition} tone="negative" label={`${row.competition}%`} />
+                {row.competition === null ? (
+                  <span className={styles.noData}>—</span>
+                ) : (
+                  <MetricBar ratio={row.competition / maxCompetition} tone="negative" label={`${row.competition}%`} />
+                )}
               </td>
               <td>
-                <MetricBar ratio={row.kd / 100} tone={kdTone(row.kd)} label={String(row.kd)} />
+                {row.kd === null ? (
+                  <span className={styles.noData}>—</span>
+                ) : (
+                  <MetricBar ratio={row.kd / 100} tone={kdTone(row.kd)} label={String(row.kd)} />
+                )}
               </td>
               <td>
-                <Sparkline values={row.sparkline} />
+                {row.sparkline === null ? (
+                  <span className={styles.noData}>—</span>
+                ) : (
+                  <Sparkline values={row.sparkline} />
+                )}
               </td>
               <td>
                 <StarToggleButton

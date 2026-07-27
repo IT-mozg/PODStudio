@@ -3,9 +3,9 @@
    pure function — see httpListingsRepository.ts, ListingsPage's default
    repository, for where it's used against the live backend. */
 
-import { formatCount, formatRevenue } from "../../shared/money";
+import { formatCount, formatPrice, formatRevenue } from "../../shared/money";
 import { mulberry32, seedFromString } from "../../shared/prng";
-import type { Listing } from "./types";
+import type { Listing, ListingAttribute, ListingDetail } from "./types";
 
 /** Shape actually returned by Flask's listings_payload() (container.py) —
  *  field names match the backend's snake_case JSON verbatim, not the
@@ -25,9 +25,10 @@ export interface ApiListing {
   tracked: boolean;
 }
 
-// Same 5-pair palette shopDetail.ts/listingDetail.ts use for their
-// generated mock listings — kept local since each of those files already
-// keeps its own copy rather than sharing one (existing convention here).
+// Same 5-pair palette shopDetail.ts uses for its generated mock listings —
+// kept local since that file already keeps its own copy rather than sharing
+// one (existing convention here). Only the search grid still needs these:
+// the detail page renders the listing's real Etsy photos.
 const GRADIENTS: [string, string][] = [
   ["#ff9a5a", "#e0653f"],
   ["#7c6cff", "#5b4bdb"],
@@ -59,5 +60,113 @@ export function mapApiListing(raw: ApiListing): Listing {
     tags: raw.tags,
     tracked: raw.tracked,
     thumbGradient: thumbGradientFor(raw.lid),
+  };
+}
+
+/** The extra keys GET /api/listings/<lid> adds on top of ApiListing —
+ *  container.listing_detail_payload(). Kept a separate interface because the
+ *  search grid deliberately never receives them: a description alone is
+ *  2–5 KB and there are 78 rows on a page. */
+export interface ApiListingDetail extends ApiListing {
+  description: string;
+  // Etsy's own money shape, passed through raw so the frontend can format it
+  // with the right currency symbol rather than assuming "$".
+  price_amount: number | null;
+  price_divisor: number;
+  price_currency: string;
+  photos: string[];
+  etsy_url: string;
+  category_path: string;
+  who_made: string;
+  when_made: string;
+  materials: string[];
+  style: string[];
+  processing_min: number | null;
+  processing_max: number | null;
+  is_personalizable: boolean;
+  has_variations: boolean;
+  num_favorers: number;
+  production_partners: { name: string; location: string }[];
+}
+
+/** Etsy's enum values are API constants, not display text. Anything not
+ *  listed falls back to the raw value rather than to a guess. */
+const WHO_MADE: Record<string, string> = {
+  i_did: "Продавець",
+  someone_else: "Інша особа чи компанія",
+  collective: "Творчий колектив",
+};
+
+const WHEN_MADE: Record<string, string> = {
+  made_to_order: "На замовлення",
+  vintage: "Вінтаж",
+};
+
+/** The rest of `when_made` is a set of year ranges Etsy revises over time
+ *  ("2020_2025", "before_2005", ...). Deriving the label from the code
+ *  rather than listing the ranges keeps this correct when Etsy shifts them,
+ *  and avoids inventing a boundary that was never verified. */
+function whenMadeLabel(raw: string): string | null {
+  if (!raw) return null;
+  if (WHEN_MADE[raw]) return WHEN_MADE[raw];
+
+  const range = raw.match(/^(\d{4})_(\d{4})$/);
+  if (range) return `${range[1]}–${range[2]}`;
+
+  const before = raw.match(/^before_(\d{4})$/);
+  if (before) return `До ${before[1]}`;
+
+  return raw;
+}
+
+function processingTime(min: number | null, max: number | null): string | null {
+  if (min === null && max === null) return null;
+  if (min !== null && max !== null) {
+    return min === max ? `${min} роб. дн.` : `${min}–${max} роб. дн.`;
+  }
+  return `${min ?? max} роб. дн.`;
+}
+
+/** Attributes in a fixed order, so the grid doesn't reshuffle between
+ *  listings. Values Etsy has nothing for stay `null` and render as "—" —
+ *  materials and style in particular come back as [] very often. */
+function attributesOf(raw: ApiListingDetail): ListingAttribute[] {
+  return [
+    { label: "Категорія", value: raw.category_path || null },
+    // `|| null`, not `?? `: the backend's default for a field Etsy omitted is
+    // "", and an empty string would render as blank text styled like a real
+    // value instead of "—".
+    { label: "Хто зробив", value: raw.who_made ? WHO_MADE[raw.who_made] ?? raw.who_made : null },
+    { label: "Коли зроблено", value: whenMadeLabel(raw.when_made) },
+    { label: "Матеріали", value: raw.materials.length ? raw.materials.join(", ") : null },
+    { label: "Стиль", value: raw.style.length ? raw.style.join(", ") : null },
+    { label: "Час обробки", value: processingTime(raw.processing_min, raw.processing_max) },
+    { label: "Персоналізація", value: raw.is_personalizable ? "Доступна" : "Немає" },
+    // Etsy only reports *whether* variations exist, not what they vary by —
+    // so this says "Є", never "розміри/кольори", which would be a guess.
+    { label: "Варіанти", value: raw.has_variations ? "Є" : "Немає" },
+    {
+      label: "Виробничі партнери",
+      // An empty list is not proof the seller prints in-house — only that
+      // none was declared. "Хто зробив" above is the field that speaks to
+      // that, so this stays "—" rather than claiming "друкує сам".
+      value: raw.production_partners.length
+        ? raw.production_partners
+            .map((p) => [p.name, p.location].filter(Boolean).join(" · "))
+            .join("; ")
+        : null,
+    },
+  ];
+}
+
+export function mapApiListingDetail(raw: ApiListingDetail): ListingDetail {
+  return {
+    ...mapApiListing(raw),
+    description: raw.description,
+    price: formatPrice(raw.price_amount, raw.price_divisor, raw.price_currency),
+    photos: raw.photos,
+    attributes: attributesOf(raw),
+    etsyUrl: raw.etsy_url,
+    favorites: raw.num_favorers.toLocaleString("uk-UA"),
   };
 }

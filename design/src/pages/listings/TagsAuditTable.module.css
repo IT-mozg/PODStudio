@@ -43,3 +43,9 @@
   color: var(--text-0);
 }
 
+/* Metric with no real value behind it. Muted on purpose: "—" must not read
+   like a measured result. */
+.noData {
+  color: var(--text-2);
+}
+

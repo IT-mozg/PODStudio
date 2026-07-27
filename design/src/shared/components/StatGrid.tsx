@@ -1,10 +1,15 @@
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 import styles from "./StatGrid.module.css";
 
 export interface StatDatum {
   id: string;
   icon: ComponentType<{ size?: number }>;
-  delta: { text: string; tone: "up" | "warn" | "neutral" };
+  /** Optional so a tile with no real value behind it can carry a `badge`
+   *  instead — a delta on a "—" would be describing nothing. */
+  delta?: { text: string; tone: "up" | "warn" | "neutral" };
+  /** Takes the delta's place. A TodoBadge, where the metric has no data
+   *  source yet. */
+  badge?: ReactNode;
   value: string;
   label: string;
 }
@@ -17,7 +22,10 @@ function StatCard({ stat }: { stat: StatDatum }) {
         <div className={styles.icon}>
           <Icon size={16} />
         </div>
-        <span className={`${styles.delta} ${styles[stat.delta.tone]}`}>{stat.delta.text}</span>
+        {stat.badge ??
+          (stat.delta && (
+            <span className={`${styles.delta} ${styles[stat.delta.tone]}`}>{stat.delta.text}</span>
+          ))}
       </div>
       <div className={styles.value}>{stat.value}</div>
       <div className={styles.label}>{stat.label}</div>

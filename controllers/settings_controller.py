@@ -55,6 +55,13 @@ def api_settings_save():
 
     container.update_config(mutate)
 
+    if data.get("etsy_api_key") or data.get("etsy_shared_secret"):
+        # Credentials are read fresh per request everywhere else, but the
+        # taxonomy cache latches its first failure so a keyless app doesn't
+        # re-request 365 KB on every detail-page view. New keys are exactly
+        # the case where that failure is worth retrying.
+        container.taxonomy.reload()
+
     if "balance" in data:
         raw = str(data["balance"]).strip()
         if raw:

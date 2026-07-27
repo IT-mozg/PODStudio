@@ -65,6 +65,31 @@ def api_listing_info():
     return jsonify({"listings": container.listings_payload(found)})
 
 
+@listings_bp.get("/listings/<int:lid>")
+def api_listing(lid):
+    """One listing with its full detail payload - what design/'s
+    ListingDetailPage renders.
+
+    Separate from /listing-info (which is a batch endpoint, answers 200 with
+    an empty list for an unknown id, and returns the lean grid payload)
+    precisely so a missing listing is a real 404 with an {"error": ...} body.
+    design/'s repository distinguishes that from an *inferred* 404 - a route
+    that isn't registered at all, i.e. a stale Flask process - and only the
+    api-reported one means "no such listing". See commit 35c5195, which fixed
+    exactly this confusion on the shops side.
+
+    Registered with an <int:> converter: Etsy listing ids are always numeric,
+    and it keeps this route from swallowing any future /listings/<word> path."""
+    try:
+        found = container.listing_source.get_by_ids([str(lid)])
+    except EtsyApiError as e:
+        return jsonify({"error": str(e)}), 502
+    listing = found.get(str(lid))
+    if not listing:
+        return jsonify({"error": "Лістинг не знайдено"}), 404
+    return jsonify({"listings": [container.listing_detail_payload(listing)]})
+
+
 @listings_bp.post("/listings/<lid>/track")
 def api_toggle_track(lid):
     """Toggles the user's own "tracked" bookmark on a listing - unrelated to
