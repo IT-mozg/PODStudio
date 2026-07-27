@@ -95,8 +95,17 @@ from typing import Callable
 
 from .etsy_api_client import API_BASE, EtsyApiClient, EtsyApiError
 from .listing_source import Listing, ListingPage, ListingSource
+from .lru import LruCache
 
 MAX_PAGES = 40  # a sane browsing depth cap - nobody needs to page to result #35,000
+# Cache ceilings. Every Listing carries its own description (2-5 KB) and full
+# photo list, so these are the difference between a bounded working set and a
+# process that grows all afternoon. Sized to keep the realistic access pattern
+# a pure cache hit: paging back and forth over a handful of pages, and
+# re-opening listings looked at earlier in the same session.
+PAGE_CACHE_SIZE = 8      # ~8 x 78 fully-populated listings
+ID_CACHE_SIZE = 500      # listings resolved by id outside any browsed page
+SHOP_NAME_CACHE_SIZE = 500  # shop_id -> shop_name, short strings
 BADGE_PERCENTILE = 0.15  # top ~15% of the calibration sample earns a badge
 SHOP_LOOKUP_BUDGET = 5  # max /shops/{id} fallback calls per batch (see
                         # _resolve_shop_name) - Etsy normally embeds the Shop
@@ -126,18 +135,23 @@ class EtsyApiListingSource(ListingSource):
         self.page_size = page_size
         self.keywords = ""
         self._has_searched = False
-        self._page_cache: dict[int, dict[str, Listing]] = {}
+        # All three caches are bounded (models/lru.py): they used to be plain
+        # dicts, and only a *new search query* ever released any of them - so
+        # a long session on one query grew them without limit. Eviction only
+        # ever costs a re-fetch, never correctness.
+        self._page_cache: LruCache = LruCache(PAGE_CACHE_SIZE)
         # get_by_ids() results for ids that don't belong to any page fetched
         # so far (e.g. a listing from history/regenerate that isn't on the
         # currently browsed page) - without this, get_by_ids() would have
         # nowhere to remember them, and every repeat/concurrent lookup of
         # the same "extra" id would re-hit the network.
-        self._id_cache: dict[str, Listing] = {}
+        self._id_cache: LruCache = LruCache(ID_CACHE_SIZE)
         # shop_id -> shop_name, populated the first time each shop is seen
         # (see _resolve_shop_name) - a search page commonly has several
         # listings from the same shop, so this keeps it to one extra
         # request per distinct shop rather than one per listing.
-        self._shop_name_cache: dict[str, str] = {}
+        # Not cleared by search(): a shop's name doesn't change with the query.
+        self._shop_name_cache: LruCache = LruCache(SHOP_NAME_CACHE_SIZE)
         self._total_count: int | None = None
         self._calibration: dict | None = None
         # Guards _page_cache/_total_count/_calibration AND is held across
@@ -168,8 +182,8 @@ class EtsyApiListingSource(ListingSource):
                 return
             self.keywords = keywords
             self._has_searched = bool(self.keywords)
-            self._page_cache = {}
-            self._id_cache = {}
+            self._page_cache.clear()
+            self._id_cache.clear()
             self._total_count = None
             self._calibration = None
 
@@ -200,6 +214,10 @@ class EtsyApiListingSource(ListingSource):
             return self._page_cache[idx]
 
     def get_all(self) -> dict[str, Listing]:
+        """Every page of the current search, merged. Correct but expensive
+        against a bounded page cache (up to MAX_PAGES fetches, of which only
+        PAGE_CACHE_SIZE stay cached) - which is why nothing calls it: every
+        caller that used to wants specific ids and uses get_by_ids()."""
         merged: dict[str, Listing] = {}
         for page in self.list_pages():
             merged.update(self.get_page(page.id))
