@@ -66,7 +66,13 @@ export function ListingDetailPage({ repository = httpListingsRepository }: Listi
       }
       // Patch the flag in place rather than re-fetching: the listing detail
       // is a live Etsy round trip, and nothing else about it changed.
-      setListing((prev) => (prev ? { ...prev, tracked: !prev.tracked } : prev));
+      //
+      // Guarded on the id, not just on `prev` being set: nothing cancels an
+      // in-flight POST, and /listings/:listingId is one route, so navigating
+      // to another listing before it resolves would otherwise flip the star
+      // on whichever listing is on screen by then, while the server toggled
+      // a different one. Same id-matched shape as ListingsPage.
+      setListing((prev) => (prev && prev.id === id ? { ...prev, tracked: !prev.tracked } : prev));
     },
     [repository],
   );

@@ -10,11 +10,15 @@
   gap: 12px;
   padding: 12px 14px;
   border-radius: 10px;
-  cursor: pointer;
   transition: background 0.15s ease;
 }
 
-.row:hover {
+/* Only rows that actually navigate somewhere look and behave clickable. */
+.clickable {
+  cursor: pointer;
+}
+
+.clickable:hover {
   background: var(--panel-glass);
 }
 

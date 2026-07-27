@@ -45,6 +45,14 @@ class HttpListingsRepository implements ListingsRepository {
   }
 
   async getDetailById(listingId: string): Promise<ListingDetail | null> {
+    // Etsy listing ids are always numeric, and the Flask route is registered
+    // as <int:lid>. A non-numeric id therefore can never resolve - it's a
+    // mock id or a typo'd URL - and letting it through produces Flask's own
+    // HTML 404, which apiFetch (correctly, for a genuinely absent route)
+    // reports as "перезапусти python3 app.py". Answering "not found" here is
+    // the truthful result; this is id validation, not swallowing an error.
+    if (!/^\d+$/.test(listingId)) return null;
+
     try {
       const { listings } = await apiFetch<{ listings: ApiListingDetail[] }>(
         `/api/listings/${encodeURIComponent(listingId)}`,
