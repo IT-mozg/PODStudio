@@ -10,6 +10,7 @@ changing a single line below, without touching any controller.
 import json
 import os
 import threading
+import time
 from pathlib import Path
 
 from models import generate_designs as engine
@@ -168,6 +169,14 @@ def ui_thumb(remote: str) -> str:
     return re.sub(r"il_(?:\d+x\d+|\d+xN|fullxfull)", "il_570xN", remote)
 
 
+def age_months(created_timestamp: int) -> int:
+    """Whole months since a listing's original creation date, or 0 if the
+    active source doesn't provide created_timestamp (e.g. saved pages)."""
+    if not created_timestamp:
+        return 0
+    return max(0, round((time.time() - created_timestamp) / 2629800))  # 2629800s = 1 average month
+
+
 def effective_bg(lid: str) -> str:
     ref = engine.REFS_DIR / f"{lid}.jpg"
     if ref.exists():
@@ -195,5 +204,9 @@ def listings_payload(found: dict) -> list:
             "background": bg,
             "history": history.get(lid),
             "prompt": saved_prompt or build_prompt(listing.title, bg),
+            "shop_id": listing.shop_id,
+            "tags": listing.tags,
+            "views": listing.views,
+            "age_months": age_months(listing.created_timestamp),
         })
     return out

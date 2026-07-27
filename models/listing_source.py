@@ -23,11 +23,11 @@ from pathlib import Path
 class Listing:
     """A single Etsy item - regardless of where it came from.
 
-    num_favorers/views/created_timestamp are optional engagement stats -
+    num_favorers/views/created_timestamp/shop_id/tags are optional fields -
     populated by sources that actually have them (EtsyApiListingSource),
     left at their defaults by sources that don't (HtmlPageListingSource).
-    They power the "Популярне"/"Гаряче" badges - see is_popular/is_hot
-    below."""
+    num_favorers/views/created_timestamp power the "Популярне"/"Гаряче"
+    badges - see is_popular/is_hot below."""
     lid: str
     title: str
     local_img: str = ""
@@ -35,6 +35,8 @@ class Listing:
     num_favorers: int = 0
     views: int = 0
     created_timestamp: int = 0  # unix seconds, original creation date
+    shop_id: str = ""
+    tags: list[str] = field(default_factory=list)
 
 
 @dataclass

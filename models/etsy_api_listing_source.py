@@ -256,6 +256,8 @@ class EtsyApiListingSource(ListingSource):
                 num_favorers=row.get("num_favorers") or 0,
                 views=row.get("views") or 0,
                 created_timestamp=row.get("original_creation_timestamp") or 0,
+                shop_id=str(row.get("shop_id") or ""),
+                tags=row.get("tags") or [],
             )
         return listings
 
