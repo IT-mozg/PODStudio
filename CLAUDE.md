@@ -65,43 +65,37 @@ there, no controller ever needs to change.
 
 ### Listing sources - swappable via `ListingSource` interface
 
-The app supports **two listing sources at once**, switchable live in the UI
-(tabs above the search bar), both wrapped by
-`models/listing_source_registry.py`'s `CompositeListingSource` so
-controllers/the generation queue always talk to one object regardless of
-which is active (`GET/POST /api/sources` switches it):
+The only listing source today is `models/etsy_api_listing_source.py`
+(`EtsyApiListingSource`) - live search against the official, documented Etsy
+Open API v3 (`https://openapi.etsy.com/v3/application`). No HTML scraping or
+browser automation. Personal-access rate limit: 5 req/s, 5000/day; one "page
+shown" = 2 calls (id search + one batch image call for all 78 results). Page
+depth capped at 40 (`MAX_PAGES`). Several undocumented API quirks (auth
+header format, image URLs, HTML entities in headers) are recorded in this
+file's docstring - read it before touching Etsy API calls. The official API
+does **not** expose competitor sales/revenue estimates even to Personal
+Access keys - only what's already publicly visible on a listing page. See
+`etsy_conversion_research.md`, `etsy_keyword_search_volume_research.md` and
+`etsy_shop_sales_history_research.md` for reverse-engineered notes on how
+third-party tools (eRank, ListingView) estimate per-listing
+views/sales/conv-rate, keyword search volume, and a shop's monthly sales
+history - none of which Etsy provides via API - read these before
+re-deriving that research if a similar estimate feature is ever built here.
+The shop-sales file in particular records two *different* working methods
+(review histogram vs daily snapshot deltas), each validated against real
+Shop Manager order counts, plus the plan for which to use when.
 
-- `models/etsy_api_listing_source.py` (`EtsyApiListingSource`) - live
-  search against the official, documented Etsy Open API v3
-  (`https://openapi.etsy.com/v3/application`). No HTML scraping or browser
-  automation. Personal-access rate limit: 5 req/s, 5000/day; one "page
-  shown" = 2 calls (id search + one batch image call for all 78 results).
-  Page depth capped at 40 (`MAX_PAGES`). Several undocumented API quirks
-  (auth header format, image URLs, HTML entities in headers) are recorded
-  in this file's docstring - read it before touching Etsy API calls.
-  The official API does **not** expose competitor sales/revenue estimates
-  even to Personal Access keys - only what's already publicly visible on a
-  listing page. See `etsy_conversion_research.md`,
-  `etsy_keyword_search_volume_research.md` and
-  `etsy_shop_sales_history_research.md` for reverse-engineered notes on how
-  third-party tools (eRank, ListingView) estimate per-listing
-  views/sales/conv-rate, keyword search volume, and a shop's monthly sales
-  history - none of which Etsy provides via API - read these before
-  re-deriving that research if a similar estimate feature is ever built
-  here. The shop-sales file in particular records two *different* working
-  methods (review histogram vs daily snapshot deltas), each validated
-  against real Shop Manager order counts, plus the plan for which to use
-  when.
-- `HtmlPageListingSource` (in `models/listing_source.py`) - parses
-  `.html` files the user manually saves from the browser into `pages/`
-  (drag-and-drop in the "Збережені сторінки" tab). Predates the Etsy API
-  key; kept because it can show things live search can't (a competitor's
-  full shop, "favorites") and works if the API is down. A live-browser
-  (Playwright) scraping approach was tried and removed - too unstable
-  against Etsy's DataDome bot protection.
-
-Adding a third source = one new `ListingSource` subclass + one line
-registering it in `container.py` - no controller changes.
+`container.listing_source` is just this `EtsyApiListingSource` instance -
+controllers/the generation queue talk to it only through the
+`ListingSource` interface, so adding a second source back = one new
+`ListingSource` subclass + one line in `container.py`, no controller
+changes. There used to be a second source (`HtmlPageListingSource`,
+manually-saved `.html` pages, switchable live via `CompositeListingSource`)
+predating the Etsy API key - both were removed once the API became the only
+source needed. The standalone CLI entry point in
+`models/generate_designs.py` (independent of Flask) still reads `.html`
+files from `pages/` the same way, if that approach is ever needed again
+outside the UI.
 
 ### Generation pipeline
 
