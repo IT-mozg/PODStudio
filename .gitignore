@@ -41,3 +41,6 @@ __pycache__/
 *.pyc
 .DS_Store
 .claude/
+
+# tmp/ - локальні копії планів (tmp/plans/) та інші тимчасові робочі файли.
+tmp/
