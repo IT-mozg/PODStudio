@@ -34,7 +34,26 @@ Keystring/Shared Secret entered via the in-app Settings modal (or
 `OPENAI_API_KEY` / `ETSY_API_KEY` / `ETSY_SHARED_SECRET` env vars - see
 `container.get_api_key`/`get_etsy_api_key`/`get_etsy_shared_secret`).
 
-There is no automated test suite for this app yet.
+### Tests
+
+```bash
+pip3 install pytest
+python3 -m pytest          # config in pytest.ini (adds "." to the path)
+```
+
+`tests/` covers **concurrency and resource bounds only** - the things that
+are invisible in a single-threaded read of the code and that a manual click
+through the UI will not reproduce: the history/config lost-update races, the
+atomic-write guarantee, the generation queue's session handling and its
+retained-results cap, the LRU cache bounds, and OpenAI client reuse. Nothing
+there touches the network or OpenAI - every collaborator is injected, so the
+suite is fast and offline. There is deliberately no coverage of the image
+pipeline, the Flask routes or the Etsy response parsing yet.
+
+When adding a test here, make it *fail against the old code first*. Each of
+these was written that way, and the failures were real: the lost-update test
+kept 1 of 20 history entries, the atomic-write test saw 397 corrupt reads,
+and the superseded-batch test ran 6 paid generations where 2 were wanted.
 
 ### `design/` (separate Node project - `cd design` first)
 
@@ -63,6 +82,41 @@ Controllers and the generation queue only ever talk to the shared instances
 it exports (`listing_source`, `design_generator`, `gen_queue`,
 `history_store`, ...) - swapping an implementation is a one-line change
 there, no controller ever needs to change.
+
+### Concurrency - every shared instance is touched by many threads
+
+`app.run(threaded=True)`, plus `WORKERS` generation threads in
+`GenerationQueue`'s executor. Everything `container.py` exports is a
+*single instance shared by all of them*, so read this before adding state
+to any model:
+
+- **Never read-modify-write a JSON state file in two steps.** Use the
+  store's own `update(mutate)` (`HistoryStore`, `container.update_config`)
+  or `toggle()` (`TrackedStore`), which hold one lock across
+  load→mutate→save. Doing the load outside the lock is exactly the bug that
+  cost 19 of 20 history entries when two workers finished together.
+- **All writes go through `models/json_store.py`** (`write_json` - temp file
+  + `os.replace`). Reads then need no lock at all, which is why
+  `load_config()` can stay lock-free on a path called by nearly every
+  request. Plain `Path.write_text` truncates first, and every reader here
+  swallows `JSONDecodeError`, so a partial read doesn't crash - it silently
+  becomes `{}`, i.e. "Немає API-ключа" on a valid key.
+- **Caches are bounded** (`models/lru.py`). Both Etsy sources' caches are
+  `LruCache`, not dicts; a `Listing` carries its own 2-5 KB description, so
+  unbounded ones grew all session. `LruCache` is deliberately *not*
+  thread-safe on its own - it always lives behind its owner's lock, which
+  is already held across the network call that fills it.
+- **`GenerationQueue` carries a session token.** `start_new()` bumps it;
+  workers from a superseded batch check it and exit instead of generating.
+  Futures already inside the executor cannot be un-submitted, so without
+  this a replaced batch kept running - measured at 6 paid generations where
+  the user asked for 2. A worker already *inside* `generate()` still
+  records its result: the image was paid for, losing it would be worse.
+- **Etsy source locks are held across the network call**, on purpose (see
+  `EtsyApiListingSource._lock`) - that's what makes N concurrent lookups of
+  the same page or shop cost one request against a 5 req/s key, not N.
+
+`tests/` exists to keep all of the above honest - see the Tests section.
 
 ### Listing sources - swappable via `ListingSource` interface
 
