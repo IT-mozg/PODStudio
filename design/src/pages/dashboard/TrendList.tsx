@@ -5,7 +5,10 @@ import styles from "./TrendList.module.css";
 
 interface TrendListProps {
   items: TrendItemData[];
-  onSelect: (listingId: string) => void;
+  /** Optional — omitted by callers whose ids the detail page can't resolve.
+   *  Rows then render non-navigable rather than dead-ending, the same rule
+   *  ListingsTable follows. */
+  onSelect?: (listingId: string) => void;
 }
 
 export function TrendList({ items, onSelect }: TrendListProps) {
@@ -13,7 +16,11 @@ export function TrendList({ items, onSelect }: TrendListProps) {
     <PanelCard>
       <div className={styles.list}>
         {items.map((item) => (
-          <div className={styles.row} key={item.id} onClick={() => onSelect(item.id)}>
+          <div
+            className={onSelect ? `${styles.row} ${styles.clickable}` : styles.row}
+            key={item.id}
+            onClick={onSelect ? () => onSelect(item.id) : undefined}
+          >
             <div className={styles.rank}>{item.rank}</div>
             <div className={styles.thumb} style={{ background: `linear-gradient(135deg, ${item.color[0]}, ${item.color[1]})` }} />
             <div className={styles.body}>

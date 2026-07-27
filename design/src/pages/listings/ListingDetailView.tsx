@@ -1,14 +1,16 @@
 import { useMemo } from "react";
-import { TrendUpIcon, SearchIcon, ImageIcon, ListingsIcon, CheckShieldIcon, GridSquaresIcon, LightningIcon } from "../../shared/icons";
+import { TrendUpIcon, SearchIcon, ImageIcon, ListingsIcon, CheckShieldIcon, LightningIcon } from "../../shared/icons";
 import { StatGrid, type StatDatum } from "../../shared/components/StatGrid";
 import { SectionHead } from "../../shared/components/SectionHead";
 import { PanelCard } from "../../shared/components/PanelCard";
 import { BackButton } from "../../shared/components/BackButton";
 import { FollowButton } from "../../shared/components/FollowButton";
+import { TodoBadge } from "../../shared/components/TodoBadge";
+import { NoDataNotice } from "../../shared/components/NoDataNotice";
 import { TwoColumnLayout } from "../../shared/components/TwoColumnLayout";
 import searchStyles from "../../shared/components/SearchToolbar.module.css";
-import type { Listing } from "./types";
-import { buildListingDetail } from "./listingDetail";
+import { PREVIEW_TAGS } from "./previewData";
+import type { ListingDetail, ListingTag } from "./types";
 import { PhotoSlider } from "./PhotoSlider";
 import { TagsAuditTable } from "./TagsAuditTable";
 import { SeoChecklist } from "./SeoChecklist";
@@ -17,28 +19,59 @@ import { ListingScoreCard } from "./ListingScoreCard";
 import { SimilarListingsCarousel } from "./SimilarListingsCarousel";
 import styles from "./ListingDetailView.module.css";
 
+/** Etsy allows 13 tags per listing — the denominator sellers optimise
+ *  against, so "9 / 13" is a real, actionable number. */
+const MAX_TAGS = 13;
+
+const NO_DATA = "—";
+
 interface ListingDetailViewProps {
-  listing: Listing;
+  listing: ListingDetail;
   onBack: () => void;
   onToggleTracked: (listingId: string) => void;
   onSelectListing: (listingId: string) => void;
-  onSelectShop: (shopId: string) => void;
 }
 
-export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectListing, onSelectShop }: ListingDetailViewProps) {
-  const detail = useMemo(() => buildListingDetail(listing), [listing]);
+export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectListing }: ListingDetailViewProps) {
+  // Tag names are real; every metric beside them needs the search-volume
+  // engine (#54/#56) and stays null so the table renders "—".
+  const tags: ListingTag[] = useMemo(
+    () => listing.tags.map((tag) => ({ tag, volume: null, competition: null, kd: null, sparkline: null })),
+    [listing.tags],
+  );
 
   const stats: StatDatum[] = [
-    { id: "views", icon: TrendUpIcon, value: detail.stats.monthlyViews, label: "Переглядів / міс.", delta: { text: "приблизно", tone: "neutral" } },
-    { id: "conv", icon: SearchIcon, value: detail.stats.conversionRate, label: "Конверсія", delta: { text: "оцінка", tone: "neutral" } },
+    {
+      id: "views",
+      icon: TrendUpIcon,
+      value: NO_DATA,
+      label: "Переглядів / міс.",
+      badge: <TodoBadge issue={87} reason="Etsy віддає перегляди лише сумарно за весь час, без розбивки за періодами" />,
+    },
+    {
+      id: "conv",
+      icon: SearchIcon,
+      value: NO_DATA,
+      label: "Конверсія",
+      badge: <TodoBadge issue={57} reason="Etsy API не віддає конверсію — потрібна оцінка за ціною" />,
+    },
     {
       id: "tags",
       icon: ListingsIcon,
-      value: detail.stats.tagsFilled,
+      value: `${listing.tags.length} / ${MAX_TAGS}`,
       label: "Тегів заповнено",
-      delta: { text: detail.tags.length === 13 ? "максимум" : "можна додати ще", tone: detail.tags.length === 13 ? "up" : "warn" },
+      delta: {
+        text: listing.tags.length === MAX_TAGS ? "максимум" : "можна додати ще",
+        tone: listing.tags.length === MAX_TAGS ? "up" : "warn",
+      },
     },
-    { id: "photos", icon: ImageIcon, value: String(detail.stats.photoCount), label: "Фото у слайдері", delta: { text: "жодного графіка тут немає", tone: "neutral" } },
+    {
+      id: "photos",
+      icon: ImageIcon,
+      value: String(listing.photos.length),
+      label: "Фото в лістингу",
+      delta: { text: listing.photos.length >= 6 ? "добре" : "у топів зазвичай 6+", tone: listing.photos.length >= 6 ? "up" : "warn" },
+    },
   ];
 
   return (
@@ -47,66 +80,118 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
         <BackButton onClick={onBack} />
       </div>
 
-      <PhotoSlider photos={detail.photos} title={listing.title} />
+      {/* Gallery left, product card right - the layout Etsy itself uses, and
+          the reason the attributes grid lives up here rather than at the
+          bottom of the page: the photo column is capped (Etsy serves
+          il_570xN, so stretching it wider only upscales), which left the
+          right-hand side empty. */}
+      <div className={styles.productHeader}>
+        <PhotoSlider photos={listing.photos} title={listing.title} />
 
-      <div className={styles.headRow}>
-        <div>
+        <div className={styles.productCard}>
           <h1 className={styles.title}>{listing.title}</h1>
+
           <div className={styles.shopLine}>
-            <b className={styles.shopLink} onClick={() => onSelectShop(listing.shopId)}>{listing.shopName}</b>
-            <span className={styles.sep}>·</span>
+            {/* Deliberately plain text, not a link: shopId is a real Etsy
+                shop_id, but ShopDetailPage still resolves against the mock
+                repository, so a click would always land on "Магазин не
+                знайдено". Restore onSelectShop together with #8. */}
+            <b>{listing.shopName}</b>
+            <TodoBadge issue={8} reason="Сторінка магазину ще на мокових даних — посилання тимчасово вимкнене" />
+          </div>
+
+          <div className={styles.metaLine}>
             {listing.ageMonths} міс. на Etsy
             <span className={styles.sep}>·</span>
-            {listing.views} переглядів
+            {listing.views} переглядів за весь час
+            <span className={styles.sep}>·</span>
+            {/* Real, unlike sales/revenue below - so no TODO badge, and a 0
+                here means genuinely nobody favourited it. */}
+            {listing.favorites} в улюблених
           </div>
-        </div>
-        <div className={styles.priceBlock}>
-          <div className={styles.price}>{detail.stats.avgPrice}</div>
-          <div className={styles.priceSub}>{listing.sales} продажів · {listing.revenue}</div>
-          <div className={styles.followRow}>
+
+          <div className={styles.priceRow}>
+            <div className={styles.price}>{listing.price ?? NO_DATA}</div>
+            <div className={styles.priceSub}>
+              {listing.sales} продажів · {listing.revenue}
+              <TodoBadge issue={58} reason="Etsy API не віддає продажів/доходу лістинга — потрібна оцінка через конверсію" />
+            </div>
+          </div>
+
+          <div className={styles.actions}>
             <FollowButton tracked={listing.tracked} onClick={() => onToggleTracked(listing.id)} />
+            <a className={styles.etsyLink} href={listing.etsyUrl} target="_blank" rel="noreferrer">
+              Відкрити на Etsy ↗
+            </a>
           </div>
+
+          <dl className={styles.attrList}>
+            {listing.attributes.map((attr) => (
+              <div className={styles.attrRow} key={attr.label}>
+                <dt className={styles.attrLabel}>{attr.label}</dt>
+                <dd className={attr.value === null ? styles.attrEmpty : styles.attrValue}>
+                  {attr.value ?? NO_DATA}
+                </dd>
+              </div>
+            ))}
+          </dl>
         </div>
       </div>
 
       <StatGrid stats={stats} />
 
-      <SectionHead icon={LightningIcon} title="Listing Score" />
-      <ListingScoreCard score={detail.score} />
+      <SectionHead
+        icon={LightningIcon}
+        title="Listing Score"
+        badge={<TodoBadge issue={84} reason="Оцінка ще не рахується з реальних полів" />}
+      />
+      <ListingScoreCard score={null} />
 
-      <SectionHead icon={SearchIcon} title="Теги та ключові слова" />
+      <SectionHead
+        icon={SearchIcon}
+        title="Теги та ключові слова"
+        badge={<TodoBadge issue={56} reason="Обсяг пошуку, конкуренція і KD потребують рушія пошукового попиту" />}
+      />
       <div className={searchStyles.tableWrap}>
-        <TagsAuditTable tags={detail.tags} />
+        <TagsAuditTable tags={tags} />
       </div>
+      {/* The table above already shows the listing's real tags — only the
+          metric columns are empty, so the preview goes underneath it rather
+          than replacing it. */}
+      <NoDataNotice preview={<TagsAuditTable tags={PREVIEW_TAGS} />}>
+        Теги справжні, а обсяг пошуку, конкуренція і KD поруч — ні: Etsy їх не
+        віддає, потрібен окремий рушій пошукового попиту. Заповнені колонки
+        виглядатимуть так:
+      </NoDataNotice>
 
       <TwoColumnLayout
         aside={
           <>
-            <SectionHead icon={CheckShieldIcon} title="SEO — що перевірено" />
+            <SectionHead
+              icon={CheckShieldIcon}
+              title="SEO — що перевірено"
+              badge={<TodoBadge issue={85} reason="Перевірки ще не виводяться з реальних полів лістинга" />}
+            />
             <PanelCard>
-              <SeoChecklist checks={detail.seoChecks} />
+              <SeoChecklist checks={[]} />
             </PanelCard>
           </>
         }
       >
-        <SectionHead icon={ListingsIcon} title="Опис — з позначеними проблемами" />
+        {/* Attributes used to sit here; they moved into the product card
+            beside the gallery, where a product page expects them. */}
+        <SectionHead icon={ListingsIcon} title="Опис" />
         <PanelCard>
-          <FlaggedDescription segments={detail.descriptionSegments} />
+          <FlaggedDescription text={listing.description} segments={null} />
         </PanelCard>
-
-        <SectionHead icon={GridSquaresIcon} title="Атрибути та категорія" />
-        <div className={styles.attrGrid}>
-          {detail.attributes.map((attr) => (
-            <div className={styles.attr} key={attr.label}>
-              <div className={styles.attrLabel}>{attr.label}</div>
-              <div className={styles.attrValue}>{attr.value}</div>
-            </div>
-          ))}
-        </div>
       </TwoColumnLayout>
 
-      <SectionHead icon={ListingsIcon} title="Схожі лістинги" />
-      <SimilarListingsCarousel items={detail.similar} onSelect={onSelectListing} />
+      <SectionHead
+        icon={ListingsIcon}
+        title="Схожі лістинги"
+        badge={<TodoBadge issue={86} reason="Etsy API не має ендпоінта «схожі лістинги»" />}
+      />
+      <SimilarListingsCarousel items={[]} onSelect={onSelectListing} />
     </div>
   );
 }

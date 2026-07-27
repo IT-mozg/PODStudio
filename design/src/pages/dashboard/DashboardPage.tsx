@@ -30,7 +30,14 @@ export function DashboardPage() {
       <div className={styles.grid2}>
         <div className={styles.col}>
           <SectionHead icon={TrendUpIcon} title="Тренди зараз" linkText="Усі тренди →" />
-          <TrendList items={trends} onSelect={(listingId) => navigate(`/listings/${listingId}`)} />
+          {/* onSelect deliberately not passed: these trends are mock rows
+              carrying mock ids ("l1"…), but ListingDetailPage now resolves
+              against the live backend, where /api/listings/l1 doesn't match
+              the <int:lid> route at all — the user would get a "перезапусти
+              Flask" diagnostic for a perfectly healthy setup. Restore it
+              when the dashboard gets a real repository (#9). Same rule as
+              ListingsPage's onSelectShop. */}
+          <TrendList items={trends} />
 
           <SectionHead icon={SearchIcon} title="Ключові слова, що ростуть" />
           <KeywordCloud keywords={keywords} onSelect={(text) => navigate(`/keywords?q=${encodeURIComponent(text)}`)} />

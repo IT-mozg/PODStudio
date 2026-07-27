@@ -14,12 +14,12 @@ Two separate things live side by side - don't confuse them:
    own dev server) that is the *intended future* frontend. Flask **does**
    serve it - `controllers/pages_controller.py` puts its built `dist/` at
    `/` and keeps the original hand-written interface at `/old`. Its
-   *research* side is now real: `ListingsPage` and `ShopsPage` fetch live
-   Etsy data through `httpListingsRepository`/`httpShopsRepository`.
-   Everything else there (Dashboard, Keywords, both detail pages, the whole
-   manage side) is still mock-backed, and `/old` (`views/templates`,
-   `views/static`) remains the only place generation/editing/history
-   actually work.
+   *research* side is now real: `ListingsPage`, `ShopsPage` and
+   `ListingDetailPage` fetch live Etsy data through
+   `httpListingsRepository`/`httpShopsRepository`. Everything else there
+   (Dashboard, Keywords, `ShopDetailPage`, the whole manage side) is still
+   mock-backed, and `/old` (`views/templates`, `views/static`) remains the
+   only place generation/editing/history actually work.
 
 ## Commands
 
@@ -87,6 +87,19 @@ re-deriving that research if a similar estimate feature is ever built here.
 The shop-sales file in particular records two *different* working methods
 (review histogram vs daily snapshot deltas), each validated against real
 Shop Manager order counts, plus the plan for which to use when.
+
+**Two listing payloads, on purpose.** `container.listings_payload()` is the
+lean grid shape (78 rows a page); `container.listing_detail_payload()` adds
+the heavy per-listing fields - description, price, the full photo array,
+category/attributes - and is served only by `GET /api/listings/<int:lid>`.
+Merging them would turn a ~40 KB search response into ~300 KB of data the
+grid never renders. The extra fields cost **no additional Etsy request**:
+they ride along in the `/listings/batch` response the source already makes,
+so opening a listing the user just searched is served straight from
+`_page_cache`. `models/etsy_taxonomy.py` (`container.taxonomy`) turns a
+listing's bare `taxonomy_id` into a readable category path - one 365 KB
+`/seller-taxonomy/nodes` call cached for the whole process, and a failure
+there yields `""`/"—" rather than breaking the page.
 
 `container.listing_source` is just this `EtsyApiListingSource` instance -
 controllers/the generation queue talk to it only through the
@@ -182,6 +195,18 @@ confirmed with the project owner):
   them sees the camelCase `Listing`/`Shop` types. Fields Etsy has no data
   for arrive as `null` and are rendered as "—" (never `0`, which would read
   as a real zero) - see `formatCount`/`formatRevenue` in `shared/money.ts`.
+  Money that *is* real goes through `formatPrice`, which keeps the listing's
+  own `currency_code` - Etsy listings are not all in USD.
+- **Nothing without a real source is rendered as a fact.** The detail pages
+  used to synthesize most of their content with a seeded PRNG
+  (`mulberry32`), so an invented Listing Score or keyword volume was
+  indistinguishable from measured data. `ListingDetailPage` no longer does:
+  every block Etsy can't back shows "—"/an empty state plus a
+  `shared/components/TodoBadge` linking to the issue that will fill it in
+  (#84 score, #85 SEO checks, #86 similar listings, #87 monthly views,
+  #56 tag volume/KD, #57/#58 sales & conversion, #8 the shop link). When
+  closing one of those, delete its badge - don't leave it pointing at
+  finished work. `shopDetail.ts` is still PRNG-backed, pending #8.
 - **One fetch helper, one error path.** `shared/api.ts` (`apiFetch`,
   `ApiError`, `describeError`) is the only place that talks HTTP; it reads
   the response as text before parsing, so Flask's HTML 404/500 pages produce

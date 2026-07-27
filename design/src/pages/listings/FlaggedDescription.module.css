@@ -2,6 +2,11 @@
   font-size: 13px;
   color: var(--text-1);
   line-height: 1.75;
+  /* Etsy descriptions are plain text carrying their own newlines - keep the
+     seller's paragraph breaks instead of collapsing them into one block. */
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  margin: 0;
 }
 
 .warn {

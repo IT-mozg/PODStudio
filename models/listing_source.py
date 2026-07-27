@@ -32,6 +32,43 @@ class Listing:
     shop_name: str = ""
     tags: list[str] = field(default_factory=list)
 
+    # ---- detail-only fields ----
+    # Everything below is for the single-listing detail view, not the grid.
+    # They cost nothing extra to populate: Etsy's /listings/batch call
+    # EtsyApiListingSource already makes returns all of them in the same
+    # response (verified against the live API - see that module's docstring).
+    # container.listings_payload() deliberately does NOT emit them, since a
+    # search page carries 78 rows and a description alone runs 2-5 KB;
+    # container.listing_detail_payload() does. A source that has no such data
+    # simply leaves the defaults, and the UI renders "—".
+    description: str = ""
+    # Etsy returns money as amount/divisor/currency_code (2499 / 100 / "USD"),
+    # never a float. Kept in that raw form rather than pre-divided: the
+    # currency matters (listings exist in EUR/GBP/PLN too), so nothing
+    # downstream may assume "$".
+    price_amount: int | None = None
+    price_divisor: int = 100
+    price_currency: str = ""
+    images: list[str] = field(default_factory=list)  # url_570xN, in Etsy's own rank order
+    url: str = ""  # canonical listing URL as Etsy reports it
+    taxonomy_id: int = 0  # numeric - resolve to a name via models/etsy_taxonomy.py
+    who_made: str = ""
+    when_made: str = ""
+    materials: list[str] = field(default_factory=list)
+    style: list[str] = field(default_factory=list)
+    processing_min: int | None = None
+    processing_max: int | None = None
+    is_personalizable: bool = False
+    has_variations: bool = False
+    # Print shops / manufacturers the seller declared for this listing:
+    # [{"name": "A print shop in New York", "location": "Farmingdale, NY"}].
+    # Etsy requires declaring them, so a non-empty list means the item is
+    # produced by someone other than the seller - which for a POD research
+    # tool is the single most telling field on the whole listing. An empty
+    # list is NOT proof the seller prints in-house, only that none was
+    # declared; who_made is the field that speaks to that.
+    production_partners: list[dict] = field(default_factory=list)
+
 
 @dataclass
 class ListingPage:

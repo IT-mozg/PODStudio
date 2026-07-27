@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../../shared/components/PageHeader";
 import { SegTabs } from "../../shared/components/SegTabs";
 import { ResultsToolbar } from "../../shared/components/ResultsToolbar";
@@ -26,6 +27,7 @@ interface ListingsPageProps {
 }
 
 export function ListingsPage({ repository = httpListingsRepository }: ListingsPageProps) {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<ListingsTab>("search");
   const [query, setQuery] = useState("");
   // The query actually sent to the repository - only changes on explicit
@@ -93,6 +95,11 @@ export function ListingsPage({ repository = httpListingsRepository }: ListingsPa
     setActiveQuery(query.trim() || DEFAULT_QUERY);
   }, [query]);
 
+  const openListing = useCallback(
+    (listing: Listing) => navigate(`/listings/${listing.id}`),
+    [navigate],
+  );
+
   const handleToggleTracked = useCallback(
     async (listingId: string) => {
       try {
@@ -115,11 +122,10 @@ export function ListingsPage({ repository = httpListingsRepository }: ListingsPa
     [repository, refreshTracked],
   );
 
-  // onSelectListing/onSelectShop are deliberately not passed: rows carry
-  // real numeric Etsy ids, but ListingDetailPage/ShopDetailPage still
-  // resolve against the mock repositories, so navigating there would
-  // always land on "not found". Tracked as separate tickets; until then
-  // the rows render non-navigable rather than dead-ending.
+  // onSelectShop is still deliberately not passed: ShopDetailPage resolves
+  // against the mock repository, so a real Etsy shop_id would always land on
+  // "Магазин не знайдено" (#8). onSelectListing is safe now — ListingDetailPage
+  // reads the same live backend these rows come from (#78).
   return (
     <div>
       <PageHeader title="Лістинги" subtitle="Аналізуйте будь-який лістинг конкурента або відстежуйте власні" />
@@ -147,6 +153,7 @@ export function ListingsPage({ repository = httpListingsRepository }: ListingsPa
           resultsValue="58 200 000"
           listings={visibleListings}
           onToggleTracked={handleToggleTracked}
+          onSelectListing={openListing}
         />
       )}
 
@@ -154,7 +161,11 @@ export function ListingsPage({ repository = httpListingsRepository }: ListingsPa
         <>
           <ResultsToolbar label="У відстежуваних" value={`${tracked.length} лістинг(и)`} />
           <div className={styles.tableWrap}>
-            <ListingsTable listings={visibleTracked} onToggleTracked={handleToggleTracked} />
+            <ListingsTable
+              listings={visibleTracked}
+              onToggleTracked={handleToggleTracked}
+              onSelectListing={openListing}
+            />
           </div>
         </>
       )}

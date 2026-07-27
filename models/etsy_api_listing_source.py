@@ -31,6 +31,38 @@ don't make obvious, found by testing directly:
      all (min_favorites and is_best_seller/explicit - the query params the
      Etsy *website* uses - are silently ignored by this API); min_price/
      max_price (in whole dollars) do work, confirmed live.
+  4. The batch endpoint returns far more per listing than the search grid
+     needs, at no extra cost - confirmed live against a real listing:
+     description (with the same HTML entities as titles, see 2), price as
+     {amount, divisor, currency_code} (2499/100/"USD" - never a float, and
+     not always USD), the FULL images array (7 on the listing tested, each
+     with url_75x75/url_170x135/url_570xN/url_fullxfull/alt_text/rank -
+     _batch_fetch used to keep only images[0]), the canonical url, plus
+     taxonomy_id, who_made, when_made, materials, style, processing_min/max,
+     is_personalizable, has_variations, quantity, and production_partners.
+     All of these now populate Listing's detail-only fields, which is why
+     opening a listing's detail page costs zero extra Etsy requests when the
+     user got there from a search page (_page_cache already holds the
+     fully-populated object).
+     production_partners is worth calling out: on a real listing it came
+     back as [{"partner_name": "A print shop in New York", "location":
+     "Farmingdale, NY"}] - i.e. Etsy publicly names the print shop a
+     competitor outsources to. num_favorers is the only public demand signal
+     Etsy exposes per listing (1,725 on one listing tested, 0 on another).
+     Caveat: materials and style are frequently [] even on complete
+     listings, so they must render as "—" rather than a made-up value.
+  5. taxonomy_id is a bare number (482), not a category name. Resolving it
+     to "Clothing > ... > T-shirts" needs GET /seller-taxonomy/nodes - one
+     365 KB call returning all ~3,065 nodes, cacheable for the whole
+     process. That lives in models/etsy_taxonomy.py, not here: it's a
+     marketplace-wide reference table, not a property of any listing.
+  6. /listings/batch is all-or-nothing: if even ONE requested id no longer
+     exists, Etsy 404s the entire request instead of omitting that id from
+     the results. Body: {"error": "Not all requested listings exist. Missing
+     listing_ids: 1."}. Left unhandled, a single deleted listing takes down a
+     whole page - most easily the tracked list, where a bookmark outlives the
+     listing it points at. _batch_request() reads the missing ids back out of
+     that error and retries once without them.
 
 Credentials are passed as callables (api_key_provider/shared_secret_provider),
 not plain strings, so they can be read fresh from settings on every request -
@@ -55,6 +87,7 @@ read is_popular()/is_hot() anymore.
 
 import html
 import math
+import re
 import threading
 import time
 import urllib.parse
@@ -69,6 +102,12 @@ SHOP_LOOKUP_BUDGET = 5  # max /shops/{id} fallback calls per batch (see
                         # _resolve_shop_name) - Etsy normally embeds the Shop
                         # association, so this only caps the rare fallback
                         # instead of letting one page fire 78 of them
+MISSING_ID_RETRIES = 4  # attempts at one batch call while dropping the ids
+                        # Etsy reports as missing (see _batch_request). More
+                        # than one is needed only because the error body is
+                        # truncated; 4 covers far more dead ids than a real
+                        # tracked list ever accumulates, and each round
+                        # strictly shrinks the id list, so it always ends.
 
 
 class EtsyApiListingSource(ListingSource):
@@ -243,20 +282,73 @@ class EtsyApiListingSource(ListingSource):
         self._shop_name_cache[shop_id] = name
         return name
 
+    # Etsy names the ids it couldn't find in the 404 body, e.g.
+    # {"error": "Not all requested listings exist. Missing listing_ids: 1,2."}
+    _MISSING_IDS_RE = re.compile(r"Missing listing_ids:\s*([\d,\s]+)")
+
+    def _batch_request(self, ids: list[str]) -> dict | None:
+        """The raw batch call, with Etsy's all-or-nothing 404 worked around.
+
+        A single unknown id makes Etsy 404 the WHOLE batch rather than
+        omitting it from the results, which would otherwise mean one deleted
+        listing breaks an entire page - the tracked list especially, since a
+        bookmark long outlives the listing it points at. So on a 404 the
+        missing ids are read out of the error body and the call is retried
+        without them; the good ids still come back.
+
+        Retried in a bounded loop rather than once, because EtsyApiError
+        truncates the response body to 300 chars: with many dead ids in one
+        batch the error names only some of them, and a single retry would
+        404 again and lose the whole batch. Each round drops the ids that
+        round named, so the list converges.
+
+        Returns None when nothing is retrievable (every id missing, or the
+        body named none of them - callers turn that into an empty result,
+        which is what lets /api/listings/<lid> answer a truthful 404 instead
+        of a 502 for a listing that simply doesn't exist)."""
+        def call(batch_ids: list[str]) -> dict:
+            params = urllib.parse.urlencode({
+                "listing_ids": ",".join(batch_ids),
+                "includes": "Images,Shop",
+            })
+            return self._client.get(f"{API_BASE}/listings/batch?{params}")
+
+        remaining = list(ids)
+        for _ in range(MISSING_ID_RETRIES):
+            try:
+                return call(remaining)
+            except EtsyApiError as e:
+                if e.status != 404:
+                    raise
+                match = self._MISSING_IDS_RE.search(str(e))
+                if not match:
+                    return None
+                missing = {x.strip() for x in match.group(1).split(",") if x.strip()}
+                # A truncated body can end mid-number, so the last entry may
+                # be a prefix of a real id rather than the id itself. Dropping
+                # it costs nothing (a later round re-reports it if it was
+                # wrong) and prevents an unproductive identical retry.
+                survivors = [lid for lid in remaining if lid not in missing]
+                if not survivors or survivors == remaining:
+                    return None
+                remaining = survivors
+        return None
+
     def _batch_fetch(self, ids: list[str]) -> dict[str, Listing]:
         """A single call to the batch endpoint (max ~100 ids), with images
         and, where Etsy embeds it, shop info. Etsy's batch endpoint does not
         reliably embed the Shop association on every account tier, so a
         missing "shop_name" here falls back to a separate (cached-by-shop_id)
         /shops/{shop_id} lookup rather than shipping a blank shop name - see
-        _resolve_shop_name for why that fallback is budget-capped."""
+        _resolve_shop_name for why that fallback is budget-capped.
+
+        Ids Etsy doesn't know are simply absent from the result (see note 6
+        in the module docstring for why that needs a retry to achieve)."""
         if not ids:
             return {}
-        batch_params = urllib.parse.urlencode({
-            "listing_ids": ",".join(ids),
-            "includes": "Images,Shop",
-        })
-        batch_data = self._client.get(f"{API_BASE}/listings/batch?{batch_params}")
+        batch_data = self._batch_request(ids)
+        if batch_data is None:
+            return {}
         by_id = {str(r["listing_id"]): r for r in batch_data.get("results", [])}
 
         shop_lookup_budget = [SHOP_LOOKUP_BUDGET]
@@ -270,6 +362,7 @@ class EtsyApiListingSource(ListingSource):
             shop_id = str(row.get("shop_id") or "")
             shop_name = (row.get("shop") or {}).get("shop_name", "") \
                 or self._resolve_shop_name(shop_id, shop_lookup_budget)
+            price = row.get("price") or {}
             listings[lid] = Listing(
                 lid=lid,
                 title=html.unescape(row.get("title", "")),
@@ -280,6 +373,34 @@ class EtsyApiListingSource(ListingSource):
                 shop_id=shop_id,
                 shop_name=shop_name,
                 tags=row.get("tags") or [],
+                # Detail-only fields - free, they're already in this response.
+                # description carries the same HTML-entity quirk as title
+                # ("you&#39;re"), so it needs the same unescape.
+                description=html.unescape(row.get("description") or ""),
+                price_amount=price.get("amount"),
+                price_divisor=price.get("divisor") or 100,
+                price_currency=price.get("currency_code") or "",
+                images=[img.get("url_570xN", "") for img in images
+                        if img.get("url_570xN")],
+                url=row.get("url") or "",
+                taxonomy_id=row.get("taxonomy_id") or 0,
+                who_made=row.get("who_made") or "",
+                when_made=row.get("when_made") or "",
+                # Often [] even on well-filled listings - the UI must render
+                # that as "—", never as an invented material/style.
+                materials=row.get("materials") or [],
+                style=row.get("style") or [],
+                processing_min=row.get("processing_min"),
+                processing_max=row.get("processing_max"),
+                is_personalizable=bool(row.get("is_personalizable")),
+                has_variations=bool(row.get("has_variations")),
+                production_partners=[
+                    {
+                        "name": p.get("partner_name") or "",
+                        "location": p.get("location") or "",
+                    }
+                    for p in (row.get("production_partners") or [])
+                ],
             )
         return listings
 

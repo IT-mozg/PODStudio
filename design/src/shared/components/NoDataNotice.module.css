@@ -1,0 +1,45 @@
+.notice {
+  padding: 18px 20px;
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-sm);
+  background: var(--panel-glass);
+  color: var(--text-1);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.text {
+  max-width: 78ch;
+}
+
+.previewWrap {
+  position: relative;
+  margin-top: 16px;
+  padding-top: 30px;
+  border-top: 1px dashed var(--border-strong);
+}
+
+.ribbon {
+  position: absolute;
+  top: 8px;
+  left: 0;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: rgba(239, 124, 74, 0.12);
+  border: 1px solid rgba(239, 124, 74, 0.28);
+  color: var(--ink-warm);
+}
+
+/* Dimmed and desaturated so the example never competes visually with real
+   data on the same page, and inert so a fake "similar listing" card can't
+   be clicked through to an id that doesn't exist. */
+.preview {
+  opacity: 0.42;
+  filter: saturate(0.55);
+  pointer-events: none;
+  user-select: none;
+}
