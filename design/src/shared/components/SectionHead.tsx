@@ -5,12 +5,16 @@ interface SectionHeadProps {
   icon: ComponentType<{ size?: number }>;
   title: string;
   linkText?: string;
+  /** What the linkText actually does. Optional only because the dashboard's
+   *  three headings have carried a decorative "Усі →" since before there
+   *  were pages to send it to; anything new should wire this. */
+  onLinkClick?: () => void;
   /** Rendered right after the title — a TodoBadge, when the section has no
    *  real data behind it yet. */
   badge?: ReactNode;
 }
 
-export function SectionHead({ icon: Icon, title, linkText, badge }: SectionHeadProps) {
+export function SectionHead({ icon: Icon, title, linkText, onLinkClick, badge }: SectionHeadProps) {
   return (
     <div className={styles.head}>
       <div className={styles.title}>
@@ -18,7 +22,11 @@ export function SectionHead({ icon: Icon, title, linkText, badge }: SectionHeadP
         <span>{title}</span>
         {badge}
       </div>
-      {linkText && <span className={styles.link}>{linkText}</span>}
+      {linkText && (
+        <span className={styles.link} onClick={onLinkClick}>
+          {linkText}
+        </span>
+      )}
     </div>
   );
 }

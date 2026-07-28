@@ -185,10 +185,6 @@ export function ShopDetailView({ shop, onBack, onToggleTracked }: ShopDetailView
         <>
           <StatGrid stats={stats} />
 
-          {/* "Топ лістинги" used to sit under the chart. It duplicated the
-              Лістинги tab, and with no data behind either there is no reason
-              to render the same empty notice twice — it comes back with #91,
-              alongside the tab itself. */}
           <TwoColumnLayout
             ratio="1.4fr 1fr"
             aside={
@@ -270,6 +266,29 @@ export function ShopDetailView({ shop, onBack, onToggleTracked }: ShopDetailView
               розбивки за місяцями. Помісячну історію треба або накопичувати
               щоденними знімками, або оцінювати з гістограми відгуків (#49).
               Графік виглядатиме так:
+            </NoDataNotice>
+
+            <SectionHead
+              icon={GridSquaresIcon}
+              title="Топ лістинги"
+              linkText="Усі →"
+              onLinkClick={() => setTab("listings")}
+              badge={<TodoBadge issue={ISSUE_SHOP_LISTINGS} reason="Потрібен ендпоінт лістингів магазину, щоб було з чого брати топ" />}
+            />
+            {/* Deliberately the same preview as the Лістинги tab. The tab is
+                where the full, searchable list will live; this is the top
+                slice of it, and "Усі →" is the way across. Both stay empty
+                until #91, so the shorter copy here avoids repeating the whole
+                explanation twice on one page. */}
+            <NoDataNotice
+              preview={
+                <div className={searchStyles.tableWrap}>
+                  <ListingsTable listings={PREVIEW_SHOP_LISTINGS} onToggleTracked={() => {}} />
+                </div>
+              }
+            >
+              Найпродаваніші лістинги магазину зʼявляться тут разом з
+              ендпоінтом лістингів (#91):
             </NoDataNotice>
           </TwoColumnLayout>
         </>
