@@ -4,3 +4,8 @@ beautifulsoup4
 pillow
 numpy
 scipy
+
+# --- тільки для розробки (tests/) ---
+# Застосунку не потрібен: `python3 app.py` стартує і без нього.
+pytest
+

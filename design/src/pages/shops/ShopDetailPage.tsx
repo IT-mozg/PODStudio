@@ -28,18 +28,37 @@ export function ShopDetailPage({ repository = mockShopsRepository }: ShopDetailP
 
   useEffect(() => {
     if (!shopId) return;
+    // Guard against a stale response overwriting a newer one — navigating
+    // between shops mid-flight would otherwise let whichever request
+    // resolves last win. Same guard as ListingDetailPage/ShopsPage.
+    let cancelled = false;
     setShop(undefined);
     setError(null);
-    repository.getById(shopId).then(setShop).catch((e) => {
-      console.error(e);
-      setError(describeError(e));
-    });
+    repository
+      .getById(shopId)
+      .then((found) => {
+        if (!cancelled) setShop(found);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        console.error(e);
+        setError(describeError(e));
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [repository, shopId]);
 
   async function handleToggleTracked(id: string) {
     try {
       await repository.toggleTracked(id);
-      if (shopId) setShop(await repository.getById(shopId));
+      // Re-read the shop the toggle was for, and only apply it if that is
+      // still the shop on screen: nothing cancels an in-flight POST, so
+      // navigating away before it resolves would otherwise drop another
+      // shop's record into this page. Same id-matched shape as
+      // ListingDetailPage.
+      const refreshed = await repository.getById(id);
+      setShop((prev) => (prev && prev.id === id ? refreshed : prev));
     } catch (e) {
       console.error(e);
       setError(describeError(e));

@@ -7,13 +7,13 @@ what lets a Model implementation (e.g. the listing source) be swapped by
 changing a single line below, without touching any controller.
 """
 
-import json
 import os
 import threading
 import time
 from pathlib import Path
 
 from models import generate_designs as engine
+from models import json_store
 from models.design_generator import OpenAIDesignGenerator
 from models.etsy_api_client import EtsyApiClient
 from models.etsy_api_listing_source import EtsyApiListingSource
@@ -42,22 +42,23 @@ COST = {  # rough price per generated image, $
 # One shared lock around read-modify-write of ui_config.json: both settings
 # saves and spend tracking (record_spend, called from generation queue
 # worker threads) write to the same file.
+#
+# load_config() itself stays lock-free on purpose - it is called on nearly
+# every request (get_api_key, get_etsy_api_key, balance_status...) and the
+# atomic write below is what makes that safe: a reader sees either the whole
+# old file or the whole new one. Before that, a reader could land inside
+# write_text's truncate-then-write window, get a JSONDecodeError, fall back
+# to {} and report "Немає API-ключа" on a perfectly good key.
 
 config_lock = threading.Lock()
 
 
 def load_config() -> dict:
-    if CONFIG_FILE.exists():
-        try:
-            return json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
-        except json.JSONDecodeError:
-            pass
-    return {}
+    return json_store.read_json(CONFIG_FILE, {})
 
 
 def save_config(cfg: dict):
-    CONFIG_FILE.write_text(json.dumps(cfg, ensure_ascii=False, indent=2),
-                           encoding="utf-8")
+    json_store.write_json(CONFIG_FILE, cfg)
 
 
 def update_config(mutate) -> dict:
