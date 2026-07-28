@@ -2,8 +2,6 @@
    depends only on this interface. Swap in a real Etsy-API-backed
    implementation later without touching any component. */
 
-import { mockShopsRepository } from "../shops/shopsRepository";
-import { buildShopDetail } from "../shops/shopDetail";
 import type { Listing, ListingDetail } from "./types";
 
 export interface ListingsRepository {
@@ -24,8 +22,6 @@ export interface ListingsRepository {
    *  filter over the last search's results. */
   getTracked(): Promise<Listing[]>;
 }
-
-const SHOP_SCOPED_LISTING_ID = /^(.+)-l\d+$/;
 
 const MOCK_LISTINGS: Listing[] = [
   { id: "l1", title: "Funny cat vintage tee", shopId: "ct", shopName: "CatTeesShop", views: "987,976", sales: "12,942", revenue: "$198.1k", ageMonths: 38, tags: ["funny cat", "t-shirt"], tracked: true, thumbGradient: ["#ff9a5a", "#e0653f"] },
@@ -93,22 +89,12 @@ class MockListingsRepository implements ListingsRepository {
     };
   }
 
-  /** Resolves any listing id the mock app can produce, not just the fixed
-   *  list: a shop-scoped listing ("ct-l0") comes from buildShopDetail.
-   *  Same deterministic-seed trick as the rest of the mock data, so
-   *  there's no separate store to keep in sync. */
+  /** There used to be a second branch here, resolving shop-scoped ids like
+   *  "ct-l0" by regenerating a shop's listings from shopDetail.ts's PRNG.
+   *  #8 deleted that generator, and with it the only source of such ids. */
   private async resolve(listingId: string): Promise<Listing | null> {
     const listing = this.listings.find((l) => l.id === listingId);
-    if (listing) return { ...listing };
-
-    const shopMatch = listingId.match(SHOP_SCOPED_LISTING_ID);
-    if (shopMatch) {
-      const shop = await mockShopsRepository.getById(shopMatch[1]);
-      if (!shop) return null;
-      return buildShopDetail(shop).listings.find((l) => l.id === listingId) ?? null;
-    }
-
-    return null;
+    return listing ? { ...listing } : null;
   }
 }
 

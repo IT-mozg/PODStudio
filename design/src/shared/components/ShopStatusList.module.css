@@ -10,10 +10,15 @@
   gap: 12px;
   padding: 11px 14px;
   border-radius: 10px;
+}
+
+/* Only rows the caller wired a click handler to look clickable — a pointer
+   cursor on a row that goes nowhere is a promise the page can't keep. */
+.row.clickable {
   cursor: pointer;
 }
 
-.row:hover {
+.row.clickable:hover {
   background: var(--panel-glass);
 }
 

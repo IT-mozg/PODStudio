@@ -98,6 +98,7 @@ export function ListingDetailPage({ repository = httpListingsRepository }: Listi
       onBack={() => navigate(-1)}
       onToggleTracked={handleToggleTracked}
       onSelectListing={(id) => navigate(`/listings/${id}`)}
+      onSelectShop={(id) => navigate(`/shops/${id}`)}
     />
   );
 }

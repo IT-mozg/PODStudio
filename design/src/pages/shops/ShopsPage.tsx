@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { PageHeader } from "../../shared/components/PageHeader";
 import { SegTabs } from "../../shared/components/SegTabs";
 import { SearchBar } from "../../shared/components/SearchBar";
@@ -22,6 +23,7 @@ interface ShopsPageProps {
 }
 
 export function ShopsPage({ repository = httpShopsRepository }: ShopsPageProps) {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<ShopsTab>("search");
   const [query, setQuery] = useState("");
   // The query actually sent to the repository - only changes on explicit
@@ -132,11 +134,12 @@ export function ShopsPage({ repository = httpShopsRepository }: ShopsPageProps) 
     [repository, refreshTracked],
   );
 
-  // onSelectShop is deliberately not passed: rows carry real numeric Etsy
-  // shop ids, but ShopDetailPage still resolves against the mock repository
-  // (its stats are derived from fields Etsy doesn't expose), so navigating
-  // there would always land on "not found". Tracked as issue #8; until then
-  // the rows render non-navigable rather than dead-ending.
+  // Rows carry real numeric Etsy shop ids and ShopDetailPage now resolves
+  // them against the same live backend (#8), so a click lands on the shop it
+  // names. useCallback because ShopsTable is memoized - an inline arrow would
+  // re-render every row on each keystroke in the search box.
+  const handleSelectShop = useCallback((shop: Shop) => navigate(`/shops/${shop.id}`), [navigate]);
+
   return (
     <div>
       <PageHeader title="Магазини" subtitle="Аналізуйте будь-який Etsy-магазин конкурента або відстежуйте власні" />
@@ -188,7 +191,7 @@ export function ShopsPage({ repository = httpShopsRepository }: ShopsPageProps) 
                 }
               />
               <div className={styles.tableWrap}>
-                <ShopsTable shops={visibleShops} onToggleTracked={handleToggleTracked} />
+                <ShopsTable shops={visibleShops} onToggleTracked={handleToggleTracked} onSelectShop={handleSelectShop} />
               </div>
             </>
           )}
@@ -205,7 +208,7 @@ export function ShopsPage({ repository = httpShopsRepository }: ShopsPageProps) 
         <>
           <ResultsToolbar label="У відстежуваних" value={`${tracked.length} магазин(и)`} />
           <div className={styles.tableWrap}>
-            <ShopsTable shops={visibleTracked} onToggleTracked={handleToggleTracked} />
+            <ShopsTable shops={visibleTracked} onToggleTracked={handleToggleTracked} onSelectShop={handleSelectShop} />
           </div>
         </>
       )}

@@ -45,7 +45,12 @@ export function DashboardPage() {
 
         <div className={styles.col}>
           <SectionHead icon={ShopBagIcon} title="Мої магазини" linkText="Усі →" />
-          <ShopStatusList shops={myShops} onSelect={(shopId) => navigate(`/shops/${shopId}`)} />
+          {/* No onSelect: myShops still comes from dashboardData.ts's mocks,
+              whose ids ("ct", "vg", ...) are not Etsy shop_ids, and since #8
+              ShopDetailPage resolves against the live backend — every row
+              would land on "не знайдено". Restore it with #9, the same fix
+              TrendList got in #78. */}
+          <ShopStatusList shops={myShops} />
 
           <SectionHead icon={LightningIcon} title="Швидкі дії" />
           <QuickActions />

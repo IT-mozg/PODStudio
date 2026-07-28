@@ -100,6 +100,8 @@ export function ListingsPage({ repository = httpListingsRepository }: ListingsPa
     [navigate],
   );
 
+  const openShop = useCallback((shopId: string) => navigate(`/shops/${shopId}`), [navigate]);
+
   const handleToggleTracked = useCallback(
     async (listingId: string) => {
       try {
@@ -122,10 +124,9 @@ export function ListingsPage({ repository = httpListingsRepository }: ListingsPa
     [repository, refreshTracked],
   );
 
-  // onSelectShop is still deliberately not passed: ShopDetailPage resolves
-  // against the mock repository, so a real Etsy shop_id would always land on
-  // "Магазин не знайдено" (#8). onSelectListing is safe now — ListingDetailPage
-  // reads the same live backend these rows come from (#78).
+  // Both handlers are safe now: these rows carry real Etsy ids, and both
+  // detail pages read the same live backend they came from (#78 for
+  // listings, #8 for shops).
   return (
     <div>
       <PageHeader title="Лістинги" subtitle="Аналізуйте будь-який лістинг конкурента або відстежуйте власні" />
@@ -154,6 +155,7 @@ export function ListingsPage({ repository = httpListingsRepository }: ListingsPa
           listings={visibleListings}
           onToggleTracked={handleToggleTracked}
           onSelectListing={openListing}
+          onSelectShop={openShop}
         />
       )}
 
@@ -165,6 +167,7 @@ export function ListingsPage({ repository = httpListingsRepository }: ListingsPa
               listings={visibleTracked}
               onToggleTracked={handleToggleTracked}
               onSelectListing={openListing}
+              onSelectShop={openShop}
             />
           </div>
         </>

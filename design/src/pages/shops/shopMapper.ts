@@ -50,9 +50,15 @@ export function mapApiShop(raw: ApiShop): Shop {
     niche: raw.niche ?? "—",
     sales: formatCount(raw.sales),
     revenue: formatRevenue(raw.revenue),
-    rating: raw.review_average,
+    // Etsy sends review_average: 0.0 for a shop nobody has reviewed yet,
+    // which is not the same statement as "rated 0.00". Null here so every
+    // consumer renders "—" instead of libelling a new shop.
+    rating: raw.review_count > 0 ? raw.review_average : null,
     reviews: formatCount(raw.review_count),
     growth: raw.growth === null ? "—" : `${raw.growth > 0 ? "+" : ""}${raw.growth}%`,
+    iconUrl: raw.icon_url,
+    favorers: formatCount(raw.num_favorers),
+    etsyUrl: raw.etsy_url,
     tracked: raw.tracked,
   };
 }

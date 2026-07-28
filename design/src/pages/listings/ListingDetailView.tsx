@@ -30,9 +30,10 @@ interface ListingDetailViewProps {
   onBack: () => void;
   onToggleTracked: (listingId: string) => void;
   onSelectListing: (listingId: string) => void;
+  onSelectShop: (shopId: string) => void;
 }
 
-export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectListing }: ListingDetailViewProps) {
+export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectListing, onSelectShop }: ListingDetailViewProps) {
   // Tag names are real; every metric beside them needs the search-volume
   // engine (#54/#56) and stays null so the table renders "—".
   const tags: ListingTag[] = useMemo(
@@ -92,12 +93,11 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
           <h1 className={styles.title}>{listing.title}</h1>
 
           <div className={styles.shopLine}>
-            {/* Deliberately plain text, not a link: shopId is a real Etsy
-                shop_id, but ShopDetailPage still resolves against the mock
-                repository, so a click would always land on "Магазин не
-                знайдено". Restore onSelectShop together with #8. */}
-            <b>{listing.shopName}</b>
-            <TodoBadge issue={8} reason="Сторінка магазину ще на мокових даних — посилання тимчасово вимкнене" />
+            {/* shopId is a real Etsy shop_id and ShopDetailPage resolves it
+                against the live backend now (#8), so this leads somewhere. */}
+            <b className={styles.shopLink} onClick={() => onSelectShop(listing.shopId)}>
+              {listing.shopName}
+            </b>
           </div>
 
           <div className={styles.metaLine}>

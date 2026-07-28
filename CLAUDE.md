@@ -14,12 +14,12 @@ Two separate things live side by side - don't confuse them:
    own dev server) that is the *intended future* frontend. Flask **does**
    serve it - `controllers/pages_controller.py` puts its built `dist/` at
    `/` and keeps the original hand-written interface at `/old`. Its
-   *research* side is now real: `ListingsPage`, `ShopsPage` and
-   `ListingDetailPage` fetch live Etsy data through
+   *research* side is now real: `ListingsPage`, `ShopsPage`,
+   `ListingDetailPage` and `ShopDetailPage` fetch live Etsy data through
    `httpListingsRepository`/`httpShopsRepository`. Everything else there
-   (Dashboard, Keywords, `ShopDetailPage`, the whole manage side) is still
-   mock-backed, and `/old` (`views/templates`, `views/static`) remains the
-   only place generation/editing/history actually work.
+   (Dashboard, Keywords, the whole manage side) is still mock-backed, and
+   `/old` (`views/templates`, `views/static`) remains the only place
+   generation/editing/history actually work.
 
 ## Commands
 
@@ -232,18 +232,20 @@ Gigapixel + Upscayl) applied to already-generated images in `output/`:
 
 ## Architecture: `design/`
 
-Served by Flask at `/`. `ListingsPage` and `ShopsPage` are on real data;
+Served by Flask at `/`. The four research pages (`ListingsPage`,
+`ListingDetailPage`, `ShopsPage`, `ShopDetailPage`) are on real data;
 every other page is still mock-backed. Deliberate patterns (discussed and
 confirmed with the project owner):
 
 - **Dependency injection via interface + default-parameter props.** Pages
   depend on a repository *interface* (`ShopsRepository`,
   `ListingsRepository`, `KeywordsRepository`), injected as a default
-  parameter - and that seam is what the API wiring actually used: the two
-  live pages default to `httpListingsRepository`/`httpShopsRepository`
-  while `ListingDetailPage`/`ShopDetailPage` still default to the mocks
-  (issue #8), with zero changes to any table or presentational component.
-  No DI container - unnecessary at this scale.
+  parameter - and that seam is what the API wiring actually used: all four
+  live pages default to `httpListingsRepository`/`httpShopsRepository`,
+  with zero changes to any table or presentational component along the way.
+  The mock repositories are still exported and still compile against the
+  interface (they are what #31's first DI test will inject), but nothing
+  injects them today. No DI container - unnecessary at this scale.
 - **Backend shape stays in the mapper.** `listingMapper.ts`/`shopMapper.ts`
   are the only files that know Flask's snake_case JSON; everything above
   them sees the camelCase `Listing`/`Shop` types. Fields Etsy has no data
@@ -251,16 +253,29 @@ confirmed with the project owner):
   as a real zero) - see `formatCount`/`formatRevenue` in `shared/money.ts`.
   Money that *is* real goes through `formatPrice`, which keeps the listing's
   own `currency_code` - Etsy listings are not all in USD.
-- **Nothing without a real source is rendered as a fact.** The detail pages
+- **Nothing without a real source is rendered as a fact.** Both detail pages
   used to synthesize most of their content with a seeded PRNG
-  (`mulberry32`), so an invented Listing Score or keyword volume was
-  indistinguishable from measured data. `ListingDetailPage` no longer does:
-  every block Etsy can't back shows "—"/an empty state plus a
-  `shared/components/TodoBadge` linking to the issue that will fill it in
-  (#84 score, #85 SEO checks, #86 similar listings, #87 monthly views,
-  #56 tag volume/KD, #57/#58 sales & conversion, #8 the shop link). When
-  closing one of those, delete its badge - don't leave it pointing at
-  finished work. `shopDetail.ts` is still PRNG-backed, pending #8.
+  (`mulberry32`), so an invented Listing Score, keyword volume or shop
+  conversion rate was indistinguishable from measured data. Neither does
+  now (`listingDetail.ts` deleted in #78, `shopDetail.ts` in #8): every
+  block Etsy can't back shows "—"/an empty state plus a
+  `shared/components/TodoBadge` linking to the issue that will fill it in.
+  Listing side: #84 score, #85 SEO checks, #86 similar listings, #87
+  monthly views, #56 tag volume/KD, #57/#58 sales & conversion. Shop side:
+  #80 revenue, #49 the monthly sales chart, #82 niche, plus #91 listings /
+  #92 reviews / #93 category & handmade / #94 conversion, whose numbers are
+  kept in `pages/shops/shopTodoIssues.ts` rather than inline in the JSX.
+  When closing one of those, delete its badge *and* its `previewData.ts`
+  constant - don't leave either pointing at finished work.
+- **Preview blocks, not fallbacks.** Where a whole section has no data, its
+  body renders `NoDataNotice` with a `preview` of hand-written constants
+  from `previewData.ts` (one per feature slice), dimmed behind a "Приклад —
+  не реальні дані" ribbon and made inert. That keeps the intended design
+  visible while the feature waits, without a single number that could be
+  read as measured. Components rendered in bulk (`ListingsTable`,
+  `RatingBars`, `BarTrendChart`, `BarBreakdown`) deliberately have *no*
+  empty-state branch of their own - they live in `shared/`, and giving them
+  one would make the shared kernel import a feature's preview data.
 - **One fetch helper, one error path.** `shared/api.ts` (`apiFetch`,
   `ApiError`, `describeError`) is the only place that talks HTTP; it reads
   the response as text before parsing, so Flask's HTML 404/500 pages produce

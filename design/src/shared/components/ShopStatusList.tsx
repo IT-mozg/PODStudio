@@ -11,17 +11,25 @@ export interface ShopStatusEntry {
 
 interface ShopStatusListProps {
   shops: ShopStatusEntry[];
-  onSelect: (shopId: string) => void;
+  /** Optional — omitted by callers whose ids the shop detail page can't
+   *  resolve. Rows then render non-navigable rather than dead-ending, the
+   *  same rule TrendList and ListingsTable follow. */
+  onSelect?: (shopId: string) => void;
 }
 
-/** Used by the dashboard's "Мої магазини" widget — each entry's `id`
- *  is a real shopsRepository id, so a row is always a valid
- *  /shops/:id link. */
+/** Used by the dashboard's "Мої магазини" widget. Its entries still come
+ *  from dashboardData.ts's hardcoded mocks, whose ids ("ct", "vg", ...) are
+ *  not Etsy shop_ids — so the dashboard passes no onSelect until #9 gives
+ *  it a real repository. */
 export function ShopStatusList({ shops, onSelect }: ShopStatusListProps) {
   return (
     <div className={styles.list}>
       {shops.map((shop) => (
-        <div className={styles.row} key={shop.id} onClick={() => onSelect(shop.id)}>
+        <div
+          className={onSelect ? `${styles.row} ${styles.clickable}` : styles.row}
+          key={shop.id}
+          onClick={onSelect ? () => onSelect(shop.id) : undefined}
+        >
           <ShopAvatar initials={shop.initials} />
           <div className={styles.body}>
             <div className={styles.name}>{shop.name}</div>
