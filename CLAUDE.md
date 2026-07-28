@@ -2,6 +2,59 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Start-of-session briefing (read this first)
+
+Two codebases: Flask at the repo root (Python) and `design/` (React 19 + TS).
+Flask serves the built `design/dist` at `/`, and the old hand-written UI at
+`/old`.
+
+| Action | Command |
+|---|---|
+| Run the app | `python3 app.py` → http://127.0.0.1:8765 |
+| Python tests | `python3 -m pytest -q` |
+| One test file | `python3 -m pytest tests/test_history_store.py -v` |
+| Frontend: types + lint | `cd design && npx tsc -b && npm run lint` |
+| Rebuild dist (REQUIRED after any `design/src` change) | `cd design && npm run build`, then commit `dist` |
+| Port already taken | `lsof -ti tcp:8765 -sTCP:LISTEN \| xargs -r kill` |
+
+### What does not exist here - don't go looking for it
+
+- **No frontend test runner.** `vitest` is not in `design/package.json`
+  (issue #31 adds it). Do **not** reach for `npx vitest` as a workaround -
+  `npx` silently downloads the package from the registry, so the command
+  appears to work while testing nothing that is actually installed.
+- **No tests for `controllers/`.** Not one. No Flask route tests anywhere.
+- **No tests for** `models/etsy_api_listing_source.py`, `halftone.py`,
+  `background_removal.py`, `upscale.py`, `etsy_taxonomy.py`.
+  `tests/test_etsy_api_shop_source.py` covers the **shop** source, not the
+  listing source - an easy and expensive misread.
+- **No authentication, roles or sessions.** The app is single-user and bound
+  to `127.0.0.1` (`app.py`). Every `/api/*` route is unauthenticated,
+  including the ones that write API keys and spend money.
+- **No Docker, no CI, no migrations, no database.** All state is JSON files.
+- **`strict` is off** in `design/tsconfig.app.json`. The mappers *read* as
+  null-safe and the `Listing`/`Shop` types spell out `| null`, but the
+  compiler is not enforcing any of it. Null discipline there is convention
+  only - treat every backend field as possibly `null` by hand.
+
+### Workflow
+
+Branches: `feature/*` → `develop`. **Never push or merge to `main`
+directly.** Changed `design/src` → `npm run build` → commit `dist`, or Flask
+keeps serving the old bundle and the bug you just fixed will look unfixed.
+
+### Deliberately deferred - don't raise these unprompted
+
+- **The editing pipeline** (`models/halftone.py`, `background_removal.py`,
+  `upscale.py`) has no tests, and that is a deliberate choice for now, as is
+  the missing checksum on the downloaded upscale binary (issue #37). Both
+  come back when the management page starts. **Exception:** if this app is
+  ever deployed to a network, #37 becomes urgent immediately - an unsigned
+  binary would then execute on a server, not on the owner's own Mac.
+- **Phase 4 / the manage side** (issues #11-#18, #60-#65) is parked. `/old`
+  stays the only place generation works.
+- Current focus is the **research side: Listings and Shops**.
+
 ## What this repo contains
 
 Two separate things live side by side - don't confuse them:
@@ -50,6 +103,11 @@ there touches the network or OpenAI - every collaborator is injected, so the
 suite is fast and offline. There is deliberately no coverage of the image
 pipeline, the Flask routes or the Etsy response parsing yet.
 
+To be blunt about the gap, because it is bigger than that paragraph sounds:
+**only `models/` is covered, and only partly.** `controllers/` has zero
+tests, `design/` has zero tests and no test runner installed at all. If you
+are about to look for either, don't - add them instead.
+
 When adding a test here, make it *fail against the old code first*. Each of
 these was written that way, and the failures were real: the lost-update test
 kept 1 of 20 history entries, the atomic-write test saw 397 corrupt reads,
@@ -66,6 +124,11 @@ npm run preview
 
 `npm run build` is not optional if you changed anything under `design/src`
 and want to see it at `/` - Flask serves the built `dist/`, not the source.
+`dist/` is committed on purpose (see `design/.gitignore`), and **nothing
+verifies that it matches `src/`**. A stale bundle is completely invisible:
+Flask serves the old code without an error, so the symptom is "my fix did
+nothing" and you go debugging a bug that is already fixed. Rebuild and
+commit `dist` in the same commit as the `src` change.
 
 ## Architecture: production app (MVC)
 
@@ -159,13 +222,10 @@ there yields `""`/"—" rather than breaking the page.
 controllers/the generation queue talk to it only through the
 `ListingSource` interface, so adding a second source back = one new
 `ListingSource` subclass + one line in `container.py`, no controller
-changes. There used to be a second source (`HtmlPageListingSource`,
-manually-saved `.html` pages, switchable live via `CompositeListingSource`)
-predating the Etsy API key - both were removed once the API became the only
-source needed. The standalone CLI entry point in
-`models/generate_designs.py` (independent of Flask) still reads `.html`
-files from `pages/` the same way, if that approach is ever needed again
-outside the UI.
+changes. A second source (`HtmlPageListingSource` + `CompositeListingSource`,
+manually-saved `.html` pages) predated the API key and was removed - see git
+history if you need it. The CLI entry point in `models/generate_designs.py`
+still reads `.html` files from `pages/` the same way.
 
 ### Shop source - `ShopSource` interface, separate from listings
 
@@ -317,3 +377,47 @@ virtualization, a global store, or an Atomic Design reorg.
 copyrighted third-party content), `refs/` (downloaded competitor
 reference images), `output/` (generated results), `vendor/` (the
 downloaded upscale binary/model weights).
+
+## Where to look, by topic
+
+Go straight to these. Reading around them is the single biggest waste of a
+session here.
+
+| Topic | Files - and don't read past them |
+|---|---|
+| Etsy transport, retries, rate limits | `models/etsy_api_client.py` (84 lines) - read the **docstring**, not the code |
+| Listing search, page cache, quirks | `models/etsy_api_listing_source.py` - 508 lines. Read the docstring plus the one method you need. **Never the whole file.** |
+| Shops | `models/etsy_api_shop_source.py` + `models/shop_source.py` |
+| Payload shapes (the Python↔TS contract) | `container.py` → `listings_payload`, `listing_detail_payload`, `shops_payload` |
+| Persistence | `models/json_store.py` + `history_store.py` + `tracked_store.py` (159 lines total) |
+| Money and generation | `models/generation_queue.py` + `design_generator.py` + `container.COST` |
+| Listings UI | `design/src/pages/listings/` - `listingMapper.ts`, `listingFilters.ts`, `types.ts` |
+| Shops UI | `design/src/pages/shops/` - `ShopDetailView.tsx` is 353 lines, read a range |
+| "Why isn't this number real?" | `etsy_conversion_research.md`, `etsy_keyword_search_volume_research.md`, `etsy_shop_sales_history_research.md` - **the named section only**; these are 8-14 KB each |
+
+## Context rules
+
+**Never read in full:**
+
+- `design/dist/**` - a built bundle. Unreadable and huge.
+- `output/`, `refs/`, `pages/` - binaries and saved third-party HTML.
+- `history.json`, `ui_config.json`, `tracked*.json` - runtime state, and
+  `ui_config.json` holds API keys. Need the shape? Read the store, not the
+  file.
+- `design/src/shared/icons.tsx` (251 lines) - SVG path data, not logic.
+- The three `*_research.md` files - the named section only.
+
+**Grep first, then read a range.** For anything over ~200 lines
+(`etsy_api_listing_source.py` 508, `ShopDetailView.tsx` 353,
+`generation_queue.py` 266), find the line and read ±40 around it.
+
+**Docstrings beat code.** `etsy_api_client.py`, `etsy_api_shop_source.py`,
+`background_removal.py` and `lru.py` all carry docstrings written precisely
+so nobody has to read the implementation. Read them and stop there.
+
+**Trust the tests as the spec.** `tests/` states the concurrency guarantees
+more precisely than the code does. Reading a test is cheaper than deriving
+the same rule from the implementation.
+
+**Budget: 6 files read per ticket.** Needing more means the ticket is too
+big - say so instead of pulling the whole repo into context.
