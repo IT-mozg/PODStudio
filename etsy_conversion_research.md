@@ -80,17 +80,63 @@ actual internal logic.)
 
 | Price | Conv. Rate | Price | Conv. Rate |
 |---|---|---|---|
-| $1 – $4.99 (band) | 5.16% | $30.00 | 1.61% |
-| $5.00 | 3.31% | $34.99 | 1.61% |
-| $10.00–14.99 (band) | 2.51% | $35.00 | 1.38% |
-| $15.99 | 2.27% | $40.00 | 1.31% |
-| $18.99–19.99 | 2.27% | $44.99 | 1.31% |
-| $20.00 | 2.07% | $45.00 | 1.15% |
-| $22.00–22.50 | 2.07% | $49.98 | 1.15% |
-| $25.71–28.00 | 1.88% | $70.00 | 0.76% |
+| $1 – $4.99 (band) | 5.16% | $34.99 | 1.61% |
+| $5.00 | 3.31% | $35.00 | 1.38% |
+| $10.00–14.99 (band) | 2.51% | $40.00 | 1.31% |
+| $15.99 | 2.27% | $44.99 | 1.31% |
+| $18.99–19.99 | 2.27% | $45.00 | 1.15% |
+| $20.00 | 2.07% | $49.98 | 1.15% |
+| $22.00–22.50 | 2.07% | $50.00–54.99 (band) | 1.07% |
+| $25.71–28.00 | 1.88% | $55.00–59.99 (band) | 0.98% |
+| $30.00 | 1.61% | $70.00 | 0.76% |
 | — | — | $80.00 | 0.71% |
 | — | — | $90.00 | 0.68% |
 | — | — | **$100+** | **0.50% (hard floor, confirmed by user)** |
+
+### Consolidated lookup table for the exact price points we worked through
+
+Every price point actually stepped through in the chat ($1-10 at a $1
+step, $10-100 at a $5 step), in one place, with source marked. `REAL` =
+directly confirmed against a real listing (or same band as one); `model`
+= filled in from the curve-fit formulas below because no real listing at
+that exact price was ever checked.
+
+| Price | Conv. Rate | Source |
+|---|---|---|
+| $1 | 5.16% | REAL |
+| $2 | 4.21% | model |
+| $3 | 3.73% | model |
+| $4 | 3.42% | model |
+| $5 | 3.31% | REAL |
+| $6 | 3.03% | model |
+| $7 | 2.90% | model |
+| $8 | 2.78% | model |
+| $9 | 2.69% | model |
+| $10 | 2.51% | REAL |
+| $15 | 2.27% | REAL (same band as confirmed $15.99) |
+| $20 | 2.07% | REAL |
+| $25 | 1.98% | model (interpolated between real $22.50/$28.00) |
+| $30 | 1.61% | REAL |
+| $35 | 1.38% | REAL |
+| $40 | 1.31% | REAL |
+| $45 | 1.15% | REAL |
+| $50 | 1.07% | REAL |
+| $55 | 0.98% | REAL |
+| $60 | 0.92% | model |
+| $65 | 0.86% | model |
+| $70 | 0.76% | REAL |
+| $75 | 0.76%† | model |
+| $80 | 0.71% | REAL |
+| $85 | 0.68%† | model |
+| $90 | 0.68% | REAL |
+| $95 | 0.62% | model |
+| $100 | 0.50% | REAL (floor) |
+
+† The $60-100 fit is only anchored on 4 points (55/70/80/90), so its
+in-between predictions ($75, $85) are the least reliable numbers in this
+whole table - notice $75 and $85 land suspiciously close to their
+neighbors. Treat those two specifically as rough placeholders, not real
+estimates, until an actual listing in that window gets checked.
 
 ### Fitted approximation formulas (for filling in unmeasured gaps only)
 
