@@ -22,10 +22,16 @@
 .link {
   font-size: 12px;
   color: var(--text-2);
-  cursor: pointer;
   font-weight: 500;
 }
 
-.link:hover {
+/* Only a link the caller actually wired looks clickable — same rule as
+   ShopStatusList's rows: a pointer cursor on something that goes nowhere is
+   a promise the page can't keep. */
+.link.clickable {
+  cursor: pointer;
+}
+
+.link.clickable:hover {
   color: var(--accent);
 }

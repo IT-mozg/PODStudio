@@ -1,0 +1,71 @@
+- generic [ref=f17e3]:
+  - complementary [ref=f17e4]:
+    - generic [ref=f17e12]:
+      - generic [ref=f17e13]: POD Studio POD Studio POD Studio
+      - generic [ref=f17e14]: automation · design · publish
+    - generic [ref=f17e15]:
+      - button "Дослідження" [ref=f17e16] [cursor=pointer]
+      - button "Керування" [ref=f17e20] [cursor=pointer]
+    - generic [ref=f17e26]:
+      - generic [ref=f17e27]: Аналітика
+      - list [ref=f17e28]:
+        - listitem [ref=f17e29] [cursor=pointer]: Дашборд
+        - listitem [ref=f17e35] [cursor=pointer]: Магазини
+        - listitem [ref=f17e39] [cursor=pointer]:
+          - text: Лістинги
+          - generic [ref=f17e43]: NEW
+        - listitem [ref=f17e44] [cursor=pointer]: Ключові слова
+        - listitem [ref=f17e48] [cursor=pointer]: Калькулятор
+    - generic [ref=f17e52]:
+      - generic [ref=f17e53]:
+        - generic [ref=f17e54]: Pro-план
+        - text: Безлімітна генерація дизайнів і магазинів
+      - generic [ref=f17e55]:
+        - generic [ref=f17e56]: S
+        - generic [ref=f17e57]:
+          - generic [ref=f17e58]: Synevir
+          - generic [ref=f17e59]: hustonmen@gmail.com
+        - generic "Налаштування" [ref=f17e60] [cursor=pointer]
+  - generic [ref=f17e64]:
+    - generic [ref=f17e65]:
+      - generic [ref=f17e67]:
+        - generic [ref=f17e68]: POD Studio /
+        - generic [ref=f17e69]: Магазини
+      - generic [ref=f17e70]:
+        - generic [ref=f17e71]: Швидкий пошук…
+        - generic "Сповіщення" [ref=f17e76] [cursor=pointer]
+    - generic [ref=f17e83]:
+      - generic [ref=f17e84]:
+        - generic [ref=f17e85]: Магазини
+        - generic [ref=f17e86]: Аналізуйте будь-який Etsy-магазин конкурента або відстежуйте власні
+      - generic [ref=f17e87]:
+        - button "Пошук" [ref=f17e88] [cursor=pointer]
+        - button "Відстежувані1" [active] [ref=f17e89] [cursor=pointer]
+      - generic [ref=f17e116]: "У відстежуваних: 1 магазин(и)"
+      - table [ref=f17e119]:
+        - rowgroup [ref=f17e120]:
+          - row [ref=f17e121]:
+            - columnheader "Магазин" [ref=f17e122]
+            - columnheader "Ніша" [ref=f17e123]
+            - columnheader "Продажі" [ref=f17e124]
+            - columnheader "Дохід (оц.)" [ref=f17e125]
+            - columnheader "Рейтинг" [ref=f17e126]
+            - columnheader "Ріст" [ref=f17e127]
+            - columnheader [ref=f17e128]
+        - rowgroup [ref=f17e129]:
+          - row [ref=f17e130] [cursor=pointer]:
+            - cell "OS OldSchoolCulture 1646 лістингів · 41 міс." [ref=f17e131]:
+              - generic [ref=f17e132]:
+                - generic [ref=f17e133]: OS
+                - generic [ref=f17e134]:
+                  - generic [ref=f17e135]: OldSchoolCulture
+                  - generic [ref=f17e136]: 1646 лістингів · 41 міс.
+            - cell "—" [ref=f17e137]
+            - cell "90 815" [ref=f17e138]
+            - cell "—" [ref=f17e140]
+            - cell "4.90 13 766 відгуків" [ref=f17e142]:
+              - generic [ref=f17e143]: "4.90"
+              - generic [ref=f17e144]: 13 766 відгуків
+            - cell "—" [ref=f17e145]
+            - cell [ref=f17e146]:
+              - generic "У відстежуваних" [ref=f17e148]

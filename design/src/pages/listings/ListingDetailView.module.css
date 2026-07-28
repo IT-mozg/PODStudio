@@ -40,6 +40,18 @@
   color: var(--text-0);
 }
 
+/* Navigable shop name — matches the .shopLink affordance in ListingsTable
+   rather than inventing a second one for the same target. */
+.shopLink {
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.shopLink:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
 .metaLine {
   color: var(--text-1);
   font-size: 13px;

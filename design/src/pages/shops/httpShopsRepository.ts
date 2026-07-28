@@ -1,10 +1,11 @@
 /* Real ShopsRepository implementation, backed by the Flask API
-   (controllers/shops_controller.py) instead of mock data. This is
-   ShopsPage's default repository. ShopDetailPage still defaults to
-   mockShopsRepository (see shopsRepository.ts) — its detail view derives
-   revenue/price/conversion numbers from fields the real backend has no data
-   for, so it would silently render zeroes; that is issue #8, which is also
-   why ShopsPage renders its rows non-navigable against this repository. */
+   (controllers/shops_controller.py) instead of mock data. Default repository
+   for both ShopsPage and ShopDetailPage.
+
+   The detail page's blocks Etsy has no data for (revenue, the sales trend,
+   the price distribution, the rating histogram, reviews, the shop's own
+   listings) are not faked here - they render explicit TODO states keyed to
+   their issues. See ShopDetailView.tsx and shopTodoIssues.ts. */
 
 import { ApiError, apiFetch } from "../../shared/api";
 import { mapApiShop, type ApiShop } from "./shopMapper";
@@ -35,6 +36,16 @@ class HttpShopsRepository implements ShopsRepository {
   }
 
   async getById(shopId: string): Promise<Shop | null> {
+    // Etsy shop ids are always numeric, and the Flask route is registered as
+    // <int:shop_id>. A non-numeric id therefore can never resolve - it's a
+    // mock id (the dashboard's "ct"/"vg"/...) or a typo'd URL - and letting
+    // it through produces Flask's own HTML 404, which apiFetch (correctly,
+    // for a genuinely absent route) reports as "перезапусти python3 app.py"
+    // on a perfectly healthy server. Answering "not found" here is the
+    // truthful result; this is id validation, not swallowing an error. Same
+    // guard as httpListingsRepository.getDetailById.
+    if (!/^\d+$/.test(shopId)) return null;
+
     try {
       const { shops } = await apiFetch<ShopsResponse>(`/api/shops/${encodeURIComponent(shopId)}`);
       return shops[0] ? mapApiShop(shops[0]) : null;

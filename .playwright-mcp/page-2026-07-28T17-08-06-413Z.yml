@@ -1,0 +1,35 @@
+- generic [ref=f16e3]:
+  - complementary [ref=f16e4]:
+    - generic [ref=f16e12]:
+      - generic [ref=f16e13]: POD Studio POD Studio POD Studio
+      - generic [ref=f16e14]: automation · design · publish
+    - generic [ref=f16e15]:
+      - button "Дослідження" [ref=f16e16] [cursor=pointer]
+      - button "Керування" [ref=f16e20] [cursor=pointer]
+    - generic [ref=f16e26]:
+      - generic [ref=f16e27]: Аналітика
+      - list [ref=f16e28]:
+        - listitem [ref=f16e29] [cursor=pointer]: Дашборд
+        - listitem [ref=f16e35] [cursor=pointer]: Магазини
+        - listitem [ref=f16e39] [cursor=pointer]:
+          - text: Лістинги
+          - generic [ref=f16e43]: NEW
+        - listitem [ref=f16e44] [cursor=pointer]: Ключові слова
+        - listitem [ref=f16e48] [cursor=pointer]: Калькулятор
+    - generic [ref=f16e52]:
+      - generic [ref=f16e53]:
+        - generic [ref=f16e54]: Pro-план
+        - text: Безлімітна генерація дизайнів і магазинів
+      - generic [ref=f16e55]:
+        - generic [ref=f16e56]: S
+        - generic [ref=f16e57]:
+          - generic [ref=f16e58]: Synevir
+          - generic [ref=f16e59]: hustonmen@gmail.com
+        - generic "Налаштування" [ref=f16e60] [cursor=pointer]
+  - generic [ref=f16e65]:
+    - generic [ref=f16e67]:
+      - generic [ref=f16e68]: POD Studio /
+      - generic [ref=f16e69]: Магазини
+    - generic [ref=f16e70]:
+      - generic [ref=f16e71]: Швидкий пошук…
+      - generic "Сповіщення" [ref=f16e76] [cursor=pointer]

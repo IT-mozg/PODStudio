@@ -39,6 +39,25 @@
   font-weight: 700;
 }
 
+/* The row's own `gap` sits between its children, so a label and the badge
+   inside one child would otherwise be flush against each other. */
+.metaTodo {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.etsyLink {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.etsyLink:hover {
+  text-decoration: underline;
+}
+
 /* ---- layout ---- */
 .chartCard {
   padding: 20px 20px 8px;
@@ -64,8 +83,9 @@
   margin-top: 2px;
 }
 
+/* Wraps its own SectionHead as well as the card, so no padding of its own —
+   the heading has to line up with "Розподіл цін" above it. */
 .ratingCard {
-  padding: 18px;
   margin-top: 14px;
 }
 
@@ -85,56 +105,4 @@
 .ratingCount {
   font-size: 12px;
   color: var(--text-2);
-}
-
-/* ---- reviews ---- */
-.reviewGrid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 12px;
-}
-
-@media (max-width: 760px) {
-  .reviewGrid {
-    grid-template-columns: 1fr;
-  }
-}
-
-.reviewCard {
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 16px;
-}
-
-.reviewTop {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-
-.reviewStars {
-  color: #fbbf24;
-  font-size: 12px;
-  letter-spacing: 1px;
-}
-
-.reviewDate {
-  font-size: 11px;
-  color: var(--text-2);
-  font-family: "IBM Plex Mono", monospace;
-}
-
-.reviewText {
-  font-size: 13px;
-  color: var(--text-1);
-  line-height: 1.5;
-  margin-bottom: 10px;
-}
-
-.reviewRef {
-  font-size: 10.5px;
-  color: var(--text-2);
-  font-family: "IBM Plex Mono", monospace;
 }

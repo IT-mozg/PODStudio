@@ -25,10 +25,10 @@ export interface ApiListing {
   tracked: boolean;
 }
 
-// Same 5-pair palette shopDetail.ts uses for its generated mock listings —
-// kept local since that file already keeps its own copy rather than sharing
-// one (existing convention here). Only the search grid still needs these:
-// the detail page renders the listing's real Etsy photos.
+// Thumbnail placeholder palette. Purely presentational — a listing with no
+// loaded photo gets a stable gradient instead of a grey box. Only the search
+// grid still needs these: the detail page renders the listing's real Etsy
+// photos.
 const GRADIENTS: [string, string][] = [
   ["#ff9a5a", "#e0653f"],
   ["#7c6cff", "#5b4bdb"],

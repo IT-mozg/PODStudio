@@ -1,19 +1,16 @@
 /* Money helpers: parsing/formatting the "$1.2M" / "60 214" shorthand the
- * mock repositories and shopDetail.ts use, plus formatPrice for the raw
- * amount/divisor/currency shape the Etsy API actually returns. */
+ * mock repositories use, plus formatPrice for the raw amount/divisor/currency
+ * shape the Etsy API actually returns.
+ *
+ * parseMoneyShorthand and avgUnitPrice used to live here too. Both existed to
+ * turn a formatted string back into a number so shopDetail.ts could derive an
+ * average price from it — and on real data that parse read "—" as 0, which is
+ * how #8 ended up showing a $20 price distribution for every shop. Deleted
+ * with that file: deriving money from a display string is the bug, not the
+ * helper. */
 
 export function parseCount(s: string): number {
   return Number(s.replace(/[^\d]/g, "")) || 0;
-}
-
-export function parseMoneyShorthand(s: string): number {
-  const m = s.match(/\$?([\d.]+)\s*(k|m)?/i);
-  if (!m) return 0;
-  let n = parseFloat(m[1]);
-  const unit = m[2]?.toLowerCase();
-  if (unit === "k") n *= 1_000;
-  if (unit === "m") n *= 1_000_000;
-  return n;
 }
 
 /** Renders a count the backend may have no real number for. `null` becomes
@@ -56,13 +53,4 @@ export function formatPrice(
     // the raw code rather than nothing.
     return `${value.toFixed(2)} ${currency}`;
   }
-}
-
-/** Average per-unit price implied by aggregate sales/revenue strings —
- *  used wherever a unit price needs deriving for something that only
- *  carries totals (a Listing has no `price` field of its own). */
-export function avgUnitPrice(sales: string, revenue: string): number {
-  const salesNum = parseCount(sales);
-  const revenueNum = parseMoneyShorthand(revenue);
-  return salesNum > 0 ? revenueNum / salesNum : 20;
 }

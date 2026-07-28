@@ -1,8 +1,14 @@
-/* Dependency Inversion: ShopsPage depends on this interface, never on
+/* Dependency Inversion: the shops pages depend on this interface, never on
    a concrete data source. Two implementations exist: the in-memory mock
-   below (still ShopDetailPage's default) and httpShopsRepository, backed by
-   the real Flask/Etsy API — ShopsPage swapped to it without a single change
-   to ShopsTable or any other component. */
+   below and httpShopsRepository, backed by the real Flask/Etsy API — both
+   ShopsPage and ShopDetailPage swapped to it without a single change to
+   ShopsTable, ShopDetailView or any other component.
+
+   Nothing injects the mock any more (#8 moved ShopDetailPage, the last
+   holdout, onto the HTTP one). It stays because it is the seam #31's first
+   repository-DI test injects, and because a mock that has rotted out of
+   sync with the interface is worse than no mock — the compiler keeps it
+   honest as long as it's here. Same arrangement as mockListingsRepository. */
 
 import type { Shop } from "./types";
 
@@ -28,17 +34,14 @@ export interface ShopsRepository {
   getTracked(): Promise<Shop[]>;
 }
 
-/* Sales/revenue kept internally consistent (revenue ÷ sales lands
-   around a plausible $18-28 POD price) — the shop detail view derives
-   average price straight from these two fields, so an unrealistic
-   ratio here (e.g. millions of "sales" against a six-figure revenue)
-   would silently produce a nonsense $0.30 average price downstream. */
+/* iconUrl is "" on every row on purpose: the mock should exercise the
+   initials fallback, which is what a shop with no Etsy icon renders. */
 const MOCK_SHOPS: Shop[] = [
-  { id: "ct", initials: "CT", name: "CatTeesShop", listings: 128, ageMonths: 34, niche: "funny cat", sales: "60 214", revenue: "$1.2M", rating: 4.83, reviews: "221.6k", growth: "+34%", tracked: true },
-  { id: "vg", initials: "VG", name: "VintageGlowPrints", listings: 312, ageMonths: 61, niche: "retro / vintage", sales: "15 230", revenue: "$420k", rating: 4.87, reviews: "42.5k", growth: "+21%", tracked: false },
-  { id: "kk", initials: "KK", name: "KrispKiwiStudio", listings: 94, ageMonths: 28, niche: "dog mom", sales: "7 640", revenue: "$190k", rating: 4.81, reviews: "22.4k", growth: "+18%", tracked: false },
-  { id: "os", initials: "OS", name: "OldSchoolCulture", listings: 201, ageMonths: 45, niche: "minimalist", sales: "91 320", revenue: "$2.1M", rating: 4.87, reviews: "119.4k", growth: "+11%", tracked: false },
-  { id: "mv", initials: "MV", name: "MugvoyageCo", listings: 76, ageMonths: 42, niche: "coffee / mugs", sales: "38 450", revenue: "$720k", rating: 4.79, reviews: "76.2k", growth: "+9%", tracked: false },
+  { id: "ct", initials: "CT", name: "CatTeesShop", listings: 128, ageMonths: 34, niche: "funny cat", sales: "60 214", revenue: "$1.2M", rating: 4.83, reviews: "221.6k", growth: "+34%", iconUrl: "", favorers: "8 412", etsyUrl: "https://www.etsy.com/shop/CatTeesShop", tracked: true },
+  { id: "vg", initials: "VG", name: "VintageGlowPrints", listings: 312, ageMonths: 61, niche: "retro / vintage", sales: "15 230", revenue: "$420k", rating: 4.87, reviews: "42.5k", growth: "+21%", iconUrl: "", favorers: "3 105", etsyUrl: "https://www.etsy.com/shop/VintageGlowPrints", tracked: false },
+  { id: "kk", initials: "KK", name: "KrispKiwiStudio", listings: 94, ageMonths: 28, niche: "dog mom", sales: "7 640", revenue: "$190k", rating: 4.81, reviews: "22.4k", growth: "+18%", iconUrl: "", favorers: "1 870", etsyUrl: "https://www.etsy.com/shop/KrispKiwiStudio", tracked: false },
+  { id: "os", initials: "OS", name: "OldSchoolCulture", listings: 201, ageMonths: 45, niche: "minimalist", sales: "91 320", revenue: "$2.1M", rating: 4.87, reviews: "119.4k", growth: "+11%", iconUrl: "", favorers: "12 940", etsyUrl: "https://www.etsy.com/shop/OldSchoolCulture", tracked: false },
+  { id: "mv", initials: "MV", name: "MugvoyageCo", listings: 76, ageMonths: 42, niche: "coffee / mugs", sales: "38 450", revenue: "$720k", rating: 4.79, reviews: "76.2k", growth: "+9%", iconUrl: "", favorers: "5 233", etsyUrl: "https://www.etsy.com/shop/MugvoyageCo", tracked: false },
 ];
 
 /** In-memory mock — mutates its own copy so the star toggle persists

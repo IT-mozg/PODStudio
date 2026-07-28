@@ -2,8 +2,8 @@ export interface Listing {
   id: string;
   title: string;
   /** Id of the shop this listing belongs to. Against the live backend this
-   *  is a real Etsy shop_id — but ShopDetailPage still resolves against the
-   *  mocks, so it is NOT rendered as a link yet (issue #8). */
+   *  is a real Etsy shop_id, which ShopDetailPage resolves against the same
+   *  backend (#8) — so wherever a caller wires onSelectShop, it links. */
   shopId: string;
   shopName: string;
   views: string;
