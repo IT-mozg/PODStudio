@@ -218,6 +218,19 @@ listing's bare `taxonomy_id` into a readable category path - one 365 KB
 `/seller-taxonomy/nodes` call cached for the whole process, and a failure
 there yields `""`/"—" rather than breaking the page.
 
+`models/fx_rates.py` (`container.fx_rates`) is reference data of the same
+kind, but *not* an Etsy call: ECB daily rates via Frankfurter, so a price can
+be converted to USD. It exists because the price→conversion-rate table in
+`etsy_conversion_research.md` is denominated in dollars and is a **step
+function** ($19.99→2.27%, $20.00→2.07%), while listings are priced in
+EUR/GBP/PLN too - looking a raw price up in that table would put a 45 PLN
+listing (~$11.82) in the $45 bucket. Cached a day in `fx_rates.json`
+(gitignored); an unreachable service serves stale rates indefinitely rather
+than none, and an empty cache yields `None`, never a 1:1 fallback. Two things
+the docs don't tell you are recorded in its docstring: `rates` is *units per
+USD* (converting to dollars is a division), and Cloudflare 403s urllib's
+default User-Agent. Nothing consumes it yet - #57 will.
+
 `container.listing_source` is just this `EtsyApiListingSource` instance -
 controllers/the generation queue talk to it only through the
 `ListingSource` interface, so adding a second source back = one new
