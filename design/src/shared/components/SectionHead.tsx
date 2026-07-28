@@ -23,7 +23,10 @@ export function SectionHead({ icon: Icon, title, linkText, onLinkClick, badge }:
         {badge}
       </div>
       {linkText && (
-        <span className={styles.link} onClick={onLinkClick}>
+        <span
+          className={onLinkClick ? `${styles.link} ${styles.clickable}` : styles.link}
+          onClick={onLinkClick}
+        >
           {linkText}
         </span>
       )}

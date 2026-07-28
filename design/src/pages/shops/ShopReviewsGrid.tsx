@@ -1,4 +1,5 @@
 import { NoDataNotice } from "../../shared/components/NoDataNotice";
+import { ISSUE_SHOP_REVIEWS } from "./shopTodoIssues";
 import { PREVIEW_REVIEWS } from "./previewData";
 import type { ShopReview } from "./types";
 import styles from "./ShopReviewsGrid.module.css";
@@ -19,7 +20,7 @@ export function ShopReviewsGrid({ reviews }: ShopReviewsGridProps) {
     return (
       <NoDataNotice preview={<ShopReviewsGrid reviews={PREVIEW_REVIEWS} />}>
         Відгуки Etsy віддає через окремий ендпоінт, який ще не підключено
-        (#92). Картки виглядатимуть так:
+        (#{ISSUE_SHOP_REVIEWS}). Картки виглядатимуть так:
       </NoDataNotice>
     );
   }

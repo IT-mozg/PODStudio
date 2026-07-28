@@ -21,6 +21,9 @@ import {
   ISSUE_SHOP_CATEGORY,
   ISSUE_SHOP_CONVERSION,
   ISSUE_SHOP_LISTINGS,
+  ISSUE_SHOP_MONTHLY_SALES,
+  ISSUE_SHOP_NICHE,
+  ISSUE_SHOP_REVENUE,
   ISSUE_SHOP_REVIEWS,
 } from "./shopTodoIssues";
 import {
@@ -96,14 +99,14 @@ export function ShopDetailView({ shop, onBack, onToggleTracked }: ShopDetailView
       icon: SearchIcon,
       value: NO_DATA,
       label: "Дохід усього",
-      badge: <TodoBadge issue={80} reason="Etsy не віддає дохід магазину — потрібна оцінка через середню ціну його лістингів" />,
+      badge: <TodoBadge issue={ISSUE_SHOP_REVENUE} reason="Etsy не віддає дохід магазину — потрібна оцінка через середню ціну його лістингів" />,
     },
     {
       id: "msales",
       icon: TrendUpIcon,
       value: NO_DATA,
       label: "Продажів / міс.",
-      badge: <TodoBadge issue={49} reason="Etsy дає лише лічильник продажів за весь час, без розбивки за місяцями" />,
+      badge: <TodoBadge issue={ISSUE_SHOP_MONTHLY_SALES} reason="Etsy дає лише лічильник продажів за весь час, без розбивки за місяцями" />,
     },
     {
       id: "conv",
@@ -141,7 +144,7 @@ export function ShopDetailView({ shop, onBack, onToggleTracked }: ShopDetailView
                     load (same rule as ShopsTable). */}
                 <span className={styles.metaTodo}>
                   Ніша: {NO_DATA}
-                  <TodoBadge issue={82} reason="Нішу треба виводити з тегів лістингів магазину — окремого поля в Etsy немає" />
+                  <TodoBadge issue={ISSUE_SHOP_NICHE} reason="Нішу треба виводити з тегів лістингів магазину — окремого поля в Etsy немає" />
                 </span>
                 <span>·</span>
                 <span className={styles.metaTodo}>
@@ -218,7 +221,7 @@ export function ShopDetailView({ shop, onBack, onToggleTracked }: ShopDetailView
                   }
                 >
                   Щоб порахувати ціни, треба список лістингів магазину — цей
-                  ендпоінт ще не підключено (#91). Блок виглядатиме так:
+                  ендпоінт ще не підключено (#{ISSUE_SHOP_LISTINGS}). Блок виглядатиме так:
                 </NoDataNotice>
 
                 {/* Half real: the average and the review count are Etsy's own
@@ -237,10 +240,26 @@ export function ShopDetailView({ shop, onBack, onToggleTracked }: ShopDetailView
                         <span className={styles.ratingBig}>{rated ? shop.rating!.toFixed(2) : NO_DATA}</span>
                         <span className={styles.ratingCount}>{shop.reviews} відгуків</span>
                       </div>
+                      {/* The copy branches with `rated` for the same reason
+                          the number does: "середній бал справжній" next to a
+                          "—" is not a statement about missing data, it's a
+                          contradiction. */}
                       <NoDataNotice preview={<RatingBars data={PREVIEW_RATING_BREAKDOWN} />}>
-                        Середній бал і кількість відгуків справжні, а розподіл
-                        по зірках — ні: його треба рахувати з ендпоінта
-                        відгуків (#92). Виглядатиме так:
+                        {rated ? (
+                          <>
+                            Середній бал і кількість відгуків справжні, а
+                            розподіл по зірках — ні: його треба рахувати з
+                            ендпоінта відгуків (#{ISSUE_SHOP_REVIEWS}).
+                            Виглядатиме так:
+                          </>
+                        ) : (
+                          <>
+                            У цього магазину ще немає жодного відгуку, тож і
+                            розподілу по зірках нема. Коли відгуки зʼявляться,
+                            їх треба буде дочитати з окремого ендпоінта
+                            (#{ISSUE_SHOP_REVIEWS}) — блок виглядатиме так:
+                          </>
+                        )}
                       </NoDataNotice>
                     </div>
                   </PanelCard>
@@ -251,7 +270,7 @@ export function ShopDetailView({ shop, onBack, onToggleTracked }: ShopDetailView
             <SectionHead
               icon={TrendUpIcon}
               title="Продажі за 12 місяців"
-              badge={<TodoBadge issue={49} reason="Etsy дає один лічильник за весь час — помісячна історія потребує щоденних знімків" />}
+              badge={<TodoBadge issue={ISSUE_SHOP_MONTHLY_SALES} reason="Etsy дає один лічильник за весь час — помісячна історія потребує щоденних знімків" />}
             />
             <NoDataNotice
               preview={
@@ -264,7 +283,8 @@ export function ShopDetailView({ shop, onBack, onToggleTracked }: ShopDetailView
             >
               Etsy віддає лише сумарний лічильник продажів за весь час, без
               розбивки за місяцями. Помісячну історію треба або накопичувати
-              щоденними знімками, або оцінювати з гістограми відгуків (#49).
+              щоденними знімками, або оцінювати з гістограми відгуків
+              (#{ISSUE_SHOP_MONTHLY_SALES}).
               Графік виглядатиме так:
             </NoDataNotice>
 
@@ -288,7 +308,7 @@ export function ShopDetailView({ shop, onBack, onToggleTracked }: ShopDetailView
               }
             >
               Найпродаваніші лістинги магазину зʼявляться тут разом з
-              ендпоінтом лістингів (#91):
+              ендпоінтом лістингів (#{ISSUE_SHOP_LISTINGS}):
             </NoDataNotice>
           </TwoColumnLayout>
         </>
@@ -312,7 +332,7 @@ export function ShopDetailView({ shop, onBack, onToggleTracked }: ShopDetailView
             }
           >
             Лістинги конкретного магазину Etsy віддає окремим ендпоінтом, який
-            ще не підключено (#91) — пошук у застосунку працює лише за
+            ще не підключено (#{ISSUE_SHOP_LISTINGS}) — пошук у застосунку працює лише за
             ключовими словами. Таблиця виглядатиме так:
           </NoDataNotice>
         </>

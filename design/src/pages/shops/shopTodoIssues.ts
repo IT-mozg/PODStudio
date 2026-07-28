@@ -12,6 +12,18 @@
  *  Backs the Лістинги tab and the price distribution. */
 export const ISSUE_SHOP_LISTINGS = 91;
 
+/** #80 — estimated shop revenue. Etsy exposes no revenue at all; it has to
+ *  be derived from the listings of #91 and their sales estimate (#57/#58). */
+export const ISSUE_SHOP_REVENUE = 80;
+
+/** #49 — the 12-month sales chart. Etsy gives one all-time counter, so the
+ *  history needs either daily snapshots or the review-histogram estimate. */
+export const ISSUE_SHOP_MONTHLY_SALES = 49;
+
+/** #82 — shop niche, derived from the tags of its listings. There is no
+ *  niche/category field on a shop record. Depends on #91. */
+export const ISSUE_SHOP_NICHE = 82;
+
 /** #92 — GET /api/shops/<id>/reviews. Backs the Відгуки tab and the
  *  5★…1★ histogram. */
 export const ISSUE_SHOP_REVIEWS = 92;

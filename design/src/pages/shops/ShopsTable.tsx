@@ -73,7 +73,12 @@ export const ShopsTable = memo(function ShopsTable({ shops, onToggleTracked, onS
                 <div className={styles.num}>{shop.revenue}</div>
               </td>
               <td>
-                <div className={styles.num}>{shop.rating ?? UNKNOWN}</div>
+                {/* toFixed(2), like ShopDetailView: this column is monospace
+                    and right-aligned, so a raw float would make one row read
+                    "4.9" and the next "4.8571" in a column meant to be
+                    scannable. Etsy sends one decimal today, but nothing in
+                    the API guarantees that. */}
+                <div className={styles.num}>{shop.rating?.toFixed(2) ?? UNKNOWN}</div>
                 <div className={styles.numSub}>{shop.reviews} відгуків</div>
               </td>
               <td>

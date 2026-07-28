@@ -96,9 +96,13 @@ export const PREVIEW_REVIEWS: ShopReview[] = [
 ];
 
 /** #91 — the shop's listings table. Two rows, same reasoning as the reviews
- *  above. `sales`/`revenue` here are illustrative like everything else in
- *  this file — on real data those columns are their own open question
- *  (#57/#58). */
+ *  above.
+ *
+ *  sales/revenue stay "—" rather than carrying illustrative numbers like the
+ *  rest of this file: #91 delivers the listings, but those two columns need
+ *  the sales estimate (#57/#58) and will still be empty after it lands. A
+ *  preview is meant to show what its own ticket will produce — filling them
+ *  in would promise a different ticket's work. */
 export const PREVIEW_SHOP_LISTINGS: Listing[] = [
   {
     id: "preview-1",
@@ -106,8 +110,8 @@ export const PREVIEW_SHOP_LISTINGS: Listing[] = [
     shopId: "preview",
     shopName: "ExampleShop",
     views: "24 800",
-    sales: "1 640",
-    revenue: "$38.9k",
+    sales: "—",
+    revenue: "—",
     ageMonths: 17,
     tags: ["retro", "sunset"],
     tracked: false,
@@ -119,8 +123,8 @@ export const PREVIEW_SHOP_LISTINGS: Listing[] = [
     shopId: "preview",
     shopName: "ExampleShop",
     views: "11 350",
-    sales: "780",
-    revenue: "$17.2k",
+    sales: "—",
+    revenue: "—",
     ageMonths: 8,
     tags: ["minimalist", "mountain"],
     tracked: false,
