@@ -117,7 +117,6 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
             <div className={styles.price}>{listing.price ?? NO_DATA}</div>
             <div className={styles.priceSub}>
               {listing.sales} продажів · {listing.revenue}
-              <TodoBadge issue={58} reason="Etsy API не віддає продажів/доходу лістинга — потрібна оцінка через конверсію" />
             </div>
           </div>
 

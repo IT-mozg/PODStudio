@@ -105,3 +105,35 @@ def conv_rate_pct(price_usd) -> float | None:
             break
         rate = bucket_rate
     return rate
+
+
+def est_sales(views, price_usd) -> int | None:
+    """Estimated lifetime sales for a listing with `views` lifetime views
+    priced `price_usd` dollars, or None when either input is unusable.
+
+    `round(views * conv_rate_pct(price) / 100)` - the one formula in
+    etsy_conversion_research.md that is *not* reverse-engineered guesswork:
+    it reproduced eRank's own number to within rounding on 19 of 19
+    listings checked. What stays a model is the conversion rate it
+    multiplies by, so everything conv_rate_pct's docstring says about
+    provenance applies here too.
+
+    Lifetime, not recent: Etsy's `views` counts every view since the
+    listing went up, so this is "sales since the listing was created", and
+    a listing that sold well two years ago outranks one selling today.
+
+    None - never 0 - whenever the rate or the view count is missing: zero
+    sales is a claim about the listing, and this function has no basis for
+    it. Callers that would rather show 0 have to make that substitution
+    themselves, in the open (see container.listings_payload).
+    """
+    rate = conv_rate_pct(price_usd)
+    if rate is None:
+        return None
+    # Same guards as above: bool is an int subclass, and NaN/inf survive an
+    # isinstance check only to blow up in round().
+    if isinstance(views, bool) or not isinstance(views, (int, float)):
+        return None
+    if not math.isfinite(views) or views < 0:
+        return None
+    return round(views * rate / 100)
