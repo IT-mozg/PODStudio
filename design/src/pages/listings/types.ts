@@ -46,15 +46,20 @@ export interface ListingTag {
   sparkline: number[] | null;
 }
 
-export type SeoCheckStatus = "ok" | "warn" | "bad";
+/** "unknown" is not a fourth grade — the check could not run at all. It must
+ *  never collapse into "ok", which reads as "checked and fine". */
+export type SeoCheckStatus = "ok" | "warn" | "bad" | "unknown";
 
-/** Populated by #85. Until then the checklist renders its empty state —
- *  the previous version generated these with a PRNG, so e.g. "keyword
- *  stuffing" was reported on every listing regardless of its description. */
+/** One line of the SEO checklist, built by seoChecks.ts. */
 export interface SeoCheckItem {
   status: SeoCheckStatus;
   title: string;
   detail: string;
+  /** One plain sentence on what to aim for, shown behind the row's "i" — not
+   *  the thresholds, which tell a seller nothing they can act on. */
+  why: string;
+  /** Only on "unknown": the issue that will make the check computable. */
+  todoIssue?: number;
 }
 
 export interface ScoreSub {
@@ -71,11 +76,11 @@ export interface ScoreBreakdown {
   description: ScoreSub;
 }
 
-/** A slice of the description with an optional problem flag. Flagging is
- *  #85; today the description arrives as a single unflagged segment. */
+/** A slice of the real description. `flag` says where the keyword came from —
+ *  a tag or a title word — not how bad it is; severity is the checklist's. */
 export interface DescriptionSegment {
   text: string;
-  flag?: "warn" | "bad";
+  flag?: "tag" | "title";
 }
 
 /** A listing plus everything only the detail route returns — Flask's

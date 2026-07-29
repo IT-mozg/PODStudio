@@ -1,0 +1,68 @@
+.wrap {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+}
+
+.button {
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+  background: transparent;
+  color: var(--text-2);
+  font-size: 10px;
+  font-weight: 700;
+  /* Upright: the body font italicises "i" into something that doesn't read
+     as the information glyph at this size. */
+  font-style: normal;
+  font-family: Georgia, "Times New Roman", serif;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.button:hover,
+.button:focus-visible,
+.button.open {
+  color: var(--text-0);
+  border-color: var(--accent);
+}
+
+.bubble {
+  position: absolute;
+  top: 100%;
+  right: -6px;
+  margin-top: 6px;
+  width: 230px;
+  z-index: 20;
+  background: var(--bg-0);
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 11.5px;
+  font-weight: 400;
+  font-style: normal;
+  line-height: 1.45;
+  color: var(--text-1);
+  text-align: left;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  user-select: text;
+  cursor: text;
+}
+
+/* Bridges the 6px gap to the button: the bubble is a descendant of .wrap, so
+   the pointer crossing this strip never leaves .wrap. Without it the bubble
+   closes mid-approach and can't be reached at all. */
+.bubble::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  height: 8px;
+}

@@ -2,27 +2,55 @@
   font-size: 13px;
   color: var(--text-1);
   line-height: 1.75;
-  /* Etsy descriptions are plain text carrying their own newlines - keep the
-     seller's paragraph breaks instead of collapsing them into one block. */
+  /* Etsy descriptions carry their own newlines - keep the seller's breaks. */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   margin: 0;
 }
 
-.warn {
-  background: rgba(251, 191, 36, 0.16);
-  color: #fbbf24;
+/* Color says where the keyword came from, not how bad it is. */
+.tag,
+.title {
   padding: 1px 3px;
   border-radius: 3px;
   text-decoration: underline;
   text-decoration-style: dotted;
 }
 
-.bad {
-  background: rgba(248, 113, 113, 0.16);
-  color: #f87171;
-  padding: 1px 3px;
+.tag {
+  background: var(--tone-warn-soft);
+  color: var(--tone-warn);
+}
+
+.title {
+  background: var(--accent-glow);
+  color: var(--text-0);
+}
+
+.legend {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+  font-size: 11.5px;
+  color: var(--text-2);
+}
+
+.swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
   border-radius: 3px;
-  text-decoration: underline;
-  text-decoration-style: dotted;
+  margin-right: 5px;
+  vertical-align: -1px;
+}
+
+.swatch.tagSwatch {
+  background: var(--tone-warn-soft);
+  border: 1px solid var(--tone-warn);
+}
+
+.swatch.titleSwatch {
+  background: var(--accent-glow);
+  border: 1px solid var(--accent);
 }
