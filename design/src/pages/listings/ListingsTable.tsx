@@ -49,7 +49,9 @@ export const ListingsTable = memo(function ListingsTable({ listings, onToggleTra
                 <div className={styles.thumb} style={{ background: `linear-gradient(135deg, ${listing.thumbGradient[0]}, ${listing.thumbGradient[1]})` }} />
                 <div className={styles.listingText}>
                   <div className={styles.listingTitle}>{listing.title}</div>
-                  <div className={styles.numSub}>{listing.ageMonths} міс. на Etsy</div>
+                  <div className={styles.numSub}>
+                    {listing.ageMonths === null ? "вік невідомий" : `${listing.ageMonths} міс. на Etsy`}
+                  </div>
                 </div>
               </div>
             </td>

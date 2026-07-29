@@ -41,9 +41,13 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
     {
       id: "views",
       icon: TrendUpIcon,
-      value: NO_DATA,
-      label: "Переглядів / міс.",
-      badge: <TodoBadge issue={87} reason="Etsy віддає перегляди лише сумарно за весь час, без розбивки за періодами" />,
+      value: listing.viewsPerMonth,
+      // With no creation date there is nothing to divide by, so the tile
+      // says what the number actually is instead of claiming a rate.
+      label: listing.ageMonths === null ? "Переглядів за весь час" : "Переглядів / міс.",
+      ...(listing.ageMonths === null
+        ? {}
+        : { delta: { text: "у середньому за весь час", tone: "neutral" as const } }),
     },
     {
       id: "conv",
@@ -97,7 +101,7 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
           </div>
 
           <div className={styles.metaLine}>
-            {listing.ageMonths} міс. на Etsy
+            {listing.ageMonths === null ? "вік невідомий" : `${listing.ageMonths} міс. на Etsy`}
             <span className={styles.sep}>·</span>
             {listing.views} переглядів за весь час
             <span className={styles.sep}>·</span>

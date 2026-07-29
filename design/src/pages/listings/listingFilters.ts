@@ -35,7 +35,11 @@ export function sortListings(listings: Listing[], filter: ListingFilter): Listin
           parseCount(b.views) - parseCount(a.views),
       );
     case "new":
-      return sorted.sort((a, b) => a.ageMonths - b.ageMonths);
+      // Unknown age sorts last rather than to the front, where a null
+      // coerced to 0 would put it among the newest.
+      return sorted.sort(
+        (a, b) => (a.ageMonths ?? Infinity) - (b.ageMonths ?? Infinity),
+      );
     case "trending":
       return sorted.sort((a, b) => parseCount(b.views) - parseCount(a.views));
     case "outliers":

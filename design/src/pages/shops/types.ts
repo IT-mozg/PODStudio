@@ -3,7 +3,8 @@ export interface Shop {
   initials: string;
   name: string;
   listings: number;
-  ageMonths: number;
+  /** `null` when Etsy gave no creation date. */
+  ageMonths: number | null;
   niche: string;
   sales: string;
   revenue: string;

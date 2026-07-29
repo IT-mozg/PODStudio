@@ -9,7 +9,9 @@ export interface Listing {
   views: string;
   sales: string;
   revenue: string;
-  ageMonths: number;
+  /** `null` when Etsy gave no creation date — not the same as 0, which
+   *  means the listing genuinely is under a month old. */
+  ageMonths: number | null;
   tags: string[];
   tracked: boolean;
   thumbGradient: [string, string];
@@ -104,4 +106,7 @@ export interface ListingDetail extends Listing {
    *  on screen from the real Etsy numbers beside it, so keep it in any new
    *  place this value gets rendered. */
   convRate: string | null;
+  /** Lifetime views averaged per month, formatted. Not a current rate —
+   *  Etsy exposes only a lifetime total (#87). */
+  viewsPerMonth: string;
 }

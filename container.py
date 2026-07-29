@@ -189,12 +189,15 @@ def ui_thumb(remote: str) -> str:
     return re.sub(r"il_(?:\d+x\d+|\d+xN|fullxfull)", "il_570xN", remote)
 
 
-def age_months(created_timestamp: int) -> int:
-    """Whole months since a listing's original creation date, or 0 if
-    created_timestamp isn't available. Floored, not rounded - a 20-day-old
-    listing is 0 months old, not 1."""
+def age_months(created_timestamp: int) -> int | None:
+    """Whole months since the original creation date, floored - a 20-day-old
+    listing is 0 months old, not 1.
+
+    None, not 0, when Etsy gave no creation date: 0 has to keep meaning
+    "really is under a month old". Collapsing the two made a dateless
+    listing's lifetime views render as its monthly rate (#87)."""
     if not created_timestamp:
-        return 0
+        return None
     return max(0, int((time.time() - created_timestamp) // 2629800))  # 2629800s = 1 average month
 
 

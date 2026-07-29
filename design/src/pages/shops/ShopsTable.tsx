@@ -58,7 +58,7 @@ export const ShopsTable = memo(function ShopsTable({ shops, onToggleTracked, onS
                   <div>
                     <div className={styles.shopCellName}>{shop.name}</div>
                     <div className={styles.shopCellAge}>
-                      {shop.listings} лістингів · {shop.ageMonths} міс.
+                      {shop.listings} лістингів{shop.ageMonths === null ? "" : ` · ${shop.ageMonths} міс.`}
                     </div>
                   </div>
                 </div>
