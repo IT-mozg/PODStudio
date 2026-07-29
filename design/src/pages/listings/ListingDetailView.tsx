@@ -52,16 +52,12 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
     {
       id: "conv",
       icon: SearchIcon,
+      // Carries its own "≈" (see listingMapper), which is the whole marking
+      // this tile gets — deliberately no delta caption and no tooltip, on the
+      // project owner's call. Etsy publishes no conversion rate at all; this
+      // is the price-bucket model in models/conversion_rate.py.
       value: listing.convRate ?? NO_DATA,
       label: "Конверсія",
-      // Etsy publishes no conversion rate, so this can only ever be an
-      // estimate — the price-bucket model in models/conversion_rate.py. The
-      // caption says so on the tile itself rather than hiding in a tooltip:
-      // an unlabelled percentage next to real Etsy figures reads as one of
-      // them. Tone "warn" for the same reason, not because low is bad.
-      delta: listing.convRate
-        ? { text: "оцінка за ціною, не дані Etsy", tone: "warn" as const }
-        : undefined,
     },
     {
       id: "tags",

@@ -89,7 +89,7 @@ class MockListingsRepository implements ListingsRepository {
       // What models/conversion_rate.py actually returns for the $24.99 above
       // (the [20, 25) bucket), so the mock stays consistent with the model
       // rather than inventing a nicer-looking number.
-      convRate: "2.07%",
+      convRate: "≈ 2,07%",
     };
   }
 
