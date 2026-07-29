@@ -52,9 +52,12 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
     {
       id: "conv",
       icon: SearchIcon,
-      value: NO_DATA,
+      // Carries its own "≈" (see listingMapper), which is the whole marking
+      // this tile gets — deliberately no delta caption and no tooltip, on the
+      // project owner's call. Etsy publishes no conversion rate at all; this
+      // is the price-bucket model in models/conversion_rate.py.
+      value: listing.convRate ?? NO_DATA,
       label: "Конверсія",
-      badge: <TodoBadge issue={57} reason="Etsy API не віддає конверсію — потрібна оцінка за ціною" />,
     },
     {
       id: "tags",

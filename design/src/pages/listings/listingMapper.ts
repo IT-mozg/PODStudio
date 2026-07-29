@@ -87,6 +87,10 @@ export interface ApiListingDetail extends ApiListing {
   has_variations: boolean;
   num_favorers: number;
   production_partners: { name: string; location: string }[];
+  // Estimated, not measured: Etsy exposes no conversion rate. Flask derives
+  // it from the price bucket (models/conversion_rate.py) after converting to
+  // USD, and sends null when it has no price or no exchange rate.
+  conv_rate_pct: number | null;
 }
 
 /** Etsy's enum values are API constants, not display text. Anything not
@@ -168,5 +172,20 @@ export function mapApiListingDetail(raw: ApiListingDetail): ListingDetail {
     attributes: attributesOf(raw),
     etsyUrl: raw.etsy_url,
     favorites: raw.num_favorers.toLocaleString("uk-UA"),
+    // "≈" is the only thing marking this as an estimate anywhere in the UI —
+    // the tile carries no caption and no tooltip — so it is part of the
+    // formatted value rather than something a caller has to remember to add.
+    //
+    // Two decimals because the model's own steps are that fine: 2,27% and
+    // 2,07% are adjacent buckets, and rounding to one would merge them.
+    // `null` stays `null` rather than becoming "0%", which would read as a
+    // measured zero.
+    convRate:
+      raw.conv_rate_pct === null
+        ? null
+        : `≈ ${raw.conv_rate_pct.toLocaleString("uk-UA", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}%`,
   };
 }

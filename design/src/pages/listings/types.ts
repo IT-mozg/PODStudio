@@ -94,4 +94,14 @@ export interface ListingDetail extends Listing {
    *  sales/revenue this one is real: it's the only public per-listing demand
    *  signal Etsy exposes. `0` here is a genuine zero, not missing data. */
   favorites: string;
+  /** Estimated conversion rate, already formatted with its leading "≈"
+   *  ("≈ 2,07%") — `null` when the listing has no price or its currency
+   *  couldn't be converted to USD.
+   *
+   *  **Not an Etsy figure.** Etsy publishes no conversion rate to anyone but
+   *  a shop's own owner; this is the reverse-engineered price-bucket model in
+   *  models/conversion_rate.py. That "≈" is the only thing distinguishing it
+   *  on screen from the real Etsy numbers beside it, so keep it in any new
+   *  place this value gets rendered. */
+  convRate: string | null;
 }
