@@ -16,6 +16,7 @@ import { TagsAuditTable } from "./TagsAuditTable";
 import { SeoChecklist } from "./SeoChecklist";
 import { buildSeoSignals } from "./seoSignals";
 import { buildDescriptionSegments, buildSeoChecks } from "./seoChecks";
+import { buildListingScore } from "./listingScore";
 import { FlaggedDescription } from "./FlaggedDescription";
 import { ListingScoreCard } from "./ListingScoreCard";
 import { SimilarListingsCarousel } from "./SimilarListingsCarousel";
@@ -51,6 +52,9 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
   );
   const seoChecks = useMemo(() => buildSeoChecks(seoSignals), [seoSignals]);
   const descriptionSegments = useMemo(() => buildDescriptionSegments(seoSignals), [seoSignals]);
+  // Off the same signals as the checklist, so the ring and the list below it
+  // can't grade one listing differently.
+  const score = useMemo(() => buildListingScore(seoSignals), [seoSignals]);
 
   const stats: StatDatum[] = [
     {
@@ -151,12 +155,8 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
 
       <StatGrid stats={stats} />
 
-      <SectionHead
-        icon={LightningIcon}
-        title="Listing Score"
-        badge={<TodoBadge issue={84} reason="Оцінка ще не рахується з реальних полів" />}
-      />
-      <ListingScoreCard score={null} />
+      <SectionHead icon={LightningIcon} title="Listing Score" />
+      <ListingScoreCard score={score} />
 
       <SectionHead
         icon={SearchIcon}

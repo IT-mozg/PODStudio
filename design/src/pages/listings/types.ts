@@ -67,7 +67,7 @@ export interface ScoreSub {
   note: string;
 }
 
-/** Populated by #84. */
+/** Computed by listingScore.ts off seoSignals — never fetched, never seeded. */
 export interface ScoreBreakdown {
   overall: number;
   title: ScoreSub;
