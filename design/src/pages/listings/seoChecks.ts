@@ -9,25 +9,12 @@
 import type { DescriptionSegment, SeoCheckItem } from "./types";
 import type { SeoSignals } from "./seoSignals";
 import { DESCRIPTION_HEAD_CHARS, ETSY_LIMITS, SEO_THRESHOLDS, TITLE_HEAD_CHARS } from "./seoLimits";
+import { chars, photoWord, plural, tagWord } from "./seoWording";
 
 // Caps and thresholds live in seoLimits.ts — edit them there, not here.
 const MAX_TITLE_CHARS = ETSY_LIMITS.titleChars;
 const MAX_TAGS = ETSY_LIMITS.tags;
 const MAX_PHOTOS = ETSY_LIMITS.photos;
-
-/** Ukrainian plural forms: 1 символ / 2 символи / 5 символів. */
-function plural(n: number, one: string, few: string, many: string): string {
-  const mod100 = n % 100;
-  if (mod100 >= 11 && mod100 <= 14) return many;
-  const mod10 = n % 10;
-  if (mod10 === 1) return one;
-  if (mod10 >= 2 && mod10 <= 4) return few;
-  return many;
-}
-
-const chars = (n: number) => `${n} ${plural(n, "символ", "символи", "символів")}`;
-const tagWord = (n: number) => `${n} ${plural(n, "тег", "теги", "тегів")}`;
-const photoWord = (n: number) => `${n} ${plural(n, "фото", "фото", "фото")}`;
 
 function titleCheck(s: SeoSignals): SeoCheckItem {
   const why = `Довший заголовок вміщує більше пошукових фраз, за якими покупець може знайти лістинг — Etsy дає на це до ${MAX_TITLE_CHARS} символів.`;

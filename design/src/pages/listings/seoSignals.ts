@@ -35,10 +35,20 @@ export interface SeoSignals {
   /** Characters Etsy's title cap dropped, 0 when it fit. Everything else
    *  measures the truncated title — the one Etsy shows. */
   titleOverLimitBy: number;
+  /** Where the earliest tag starts in the title, `null` when none occurs.
+   *  The score grades the position (char 12 beats char 55); the checklist
+   *  only asks whether it landed in the head, and reads it off the same
+   *  number so the two cannot disagree. */
+  tagTitleOffset: number | null;
   tagInTitleHead: string | null;
   tagCount: number;
   duplicateTags: string[];
   singleWordTags: string[];
+  /** Tag slots spending themselves on nothing: a repeat of a slot already
+   *  counted, a lone word the whole market bids on, or the swallowed half of
+   *  an overlapping pair. Slots, not names — a tag used twice wastes one slot
+   *  and keeps the other, which a set of names cannot express. */
+  weakTags: string[];
   /** Pairs where one tag's words are a subset of another's, e.g.
    *  ["floral tee", "floral tee women"] — they compete for one query. */
   overlappingTags: [string, string][];
@@ -51,6 +61,10 @@ export interface SeoSignals {
    *  found", and a check reading it must report `unknown`, not a pass. */
   keywordScanFailed: boolean;
   hasParagraphBreaks: boolean;
+  /** Paragraphs the description splits into, ignoring empty ones. 0 for an
+   *  empty description, 1 for a wall of text. `hasParagraphBreaks` is this
+   *  number, not a second test of the same thing. */
+  paragraphCount: number;
   tagsInFirst160: string[];
   keywordHits: KeywordHit[];
   /** Occurrences of the most-repeated keyword. 0 when none matched. */
@@ -182,8 +196,21 @@ export function buildSeoSignals(listing: SeoInput): SeoSignals {
   // another.
   const tags = (listing.tags ?? []).map((tag) => tag.trim()).filter(Boolean);
 
-  const titleHead = title.slice(0, TITLE_HEAD_CHARS);
-  const tagInTitleHead = tags.find((tag) => spansOf(titleHead, tag).length > 0) ?? null;
+  // Searched across the whole title rather than a sliced-off head: slicing
+  // put a string end mid-title, where a truncated tag has no right-hand
+  // neighbour to fail the boundary test and matches something it isn't.
+  let tagTitleOffset: number | null = null;
+  let earliestTag: string | null = null;
+  for (const tag of tags) {
+    const spans = spansOf(title, tag);
+    if (!spans.length) continue;
+    const start = spans[0][0];
+    if (tagTitleOffset === null || start < tagTitleOffset) {
+      tagTitleOffset = start;
+      earliestTag = tag;
+    }
+  }
+  const tagInTitleHead = tagTitleOffset !== null && tagTitleOffset < TITLE_HEAD_CHARS ? earliestTag : null;
 
   const descriptionHead = description.slice(0, DESCRIPTION_HEAD_CHARS);
   const tagsInFirst160 = tags.filter((tag) => spansOf(descriptionHead, tag).length > 0);
@@ -203,20 +230,41 @@ export function buildSeoSignals(listing: SeoInput): SeoSignals {
 
   const keywordHits = resolveOverlaps([...tagHits, ...titleHits]);
 
+  // One pass over the slots in order: the first use of a name is the one that
+  // works, every later one is the wasted slot.
+  const overlappingTags = findOverlaps(tags);
+  const swallowed = new Set(overlappingTags.map(([small]) => normalizeTag(small)));
+  const seenTags = new Set<string>();
+  const weakTags = tags.filter((tag) => {
+    const key = normalizeTag(tag);
+    const isRepeat = seenTags.has(key);
+    seenTags.add(key);
+    return isRepeat || words(key).length === 1 || swallowed.has(key);
+  });
+
+  const paragraphCount = description
+    .split(/\n\s*\n/)
+    .filter((part) => part.trim().length > 0).length;
+
   return {
     description,
     titleLength: title.length,
     titleOverLimitBy,
+    tagTitleOffset,
     tagInTitleHead,
     tagCount: tags.length,
     duplicateTags: findDuplicates(tags),
     singleWordTags: tags.filter((tag) => words(normalizeTag(tag)).length === 1),
-    overlappingTags: findOverlaps(tags),
+    weakTags,
+    overlappingTags,
     photoCount: (listing.photos ?? []).length,
     descriptionLength: description.length,
     hasDescription: description.trim().length > 0,
     keywordScanFailed,
-    hasParagraphBreaks: /\n\s*\n/.test(description),
+    // Off paragraphCount, so a trailing blank line can't make the checklist
+    // call a wall of text "split into paragraphs".
+    hasParagraphBreaks: paragraphCount > 1,
+    paragraphCount,
     tagsInFirst160,
     keywordHits,
     maxKeywordRepeats: keywordHits.reduce((max, hit) => Math.max(max, hit.spans.length), 0),

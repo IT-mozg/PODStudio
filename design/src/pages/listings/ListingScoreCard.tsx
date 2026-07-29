@@ -1,5 +1,3 @@
-import { NoDataNotice } from "../../shared/components/NoDataNotice";
-import { PREVIEW_SCORE } from "./previewData";
 import type { ScoreBreakdown } from "./types";
 import styles from "./ListingScoreCard.module.css";
 
@@ -22,24 +20,16 @@ const SUBSCORES: { key: keyof Omit<ScoreBreakdown, "overall">; label: string }[]
   { key: "description", label: "Опис" },
 ];
 
-/** The single "how am I doing overall" answer for the page — an
- *  overall ring plus the four sub-scores it's built from, so a low
- *  overall number always points straight at which section to fix.
+/** The single "how am I doing overall" answer for the page — an overall ring
+ *  plus the four sub-scores it's built from, so a low overall number always
+ *  points straight at which section to fix.
  *
- *  `null` until #84 computes it for real. Every number here — the ring and
- *  all four sub-scores — used to come out of a seeded PRNG, which made an
- *  invented verdict ("Сильний лістинг — тримайте курс") look like analysis. */
-export function ListingScoreCard({ score }: { score: ScoreBreakdown | null }) {
-  if (!score) {
-    return (
-      <NoDataNotice preview={<ListingScoreCard score={PREVIEW_SCORE} />}>
-        Оцінку ще не підключено. Вона рахуватиметься з реальних полів лістинга —
-        довжини заголовка, заповненості тегів, кількості фото та якості опису.
-        Нижче — як це має виглядати.
-      </NoDataNotice>
-    );
-  }
-
+ *  Purely presentational: every number arrives computed by listingScore.ts
+ *  (#84) off the listing's real fields. It used to come out of a seeded PRNG,
+ *  which made an invented verdict ("Сильний лістинг — тримайте курс") look
+ *  like analysis — hence each sub-score now carries a `note` naming what was
+ *  actually measured. */
+export function ListingScoreCard({ score }: { score: ScoreBreakdown }) {
   return (
     <div className={styles.card}>
       <div className={styles.overall}>

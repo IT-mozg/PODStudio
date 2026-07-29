@@ -19,18 +19,7 @@
  *     preview — a preview of a feature that already works is just a bug.
  */
 
-import type { Listing, ListingTag, ScoreBreakdown } from "./types";
-
-/** #84 — Listing Score. Shows the ring + the four sub-scores it breaks down
- *  into, so it's clear the score is meant to be explainable, not a single
- *  opaque number. */
-export const PREVIEW_SCORE: ScoreBreakdown = {
-  overall: 78,
-  title: { score: 88, note: "Ключове слово на початку, довжина в нормі." },
-  tags: { score: 64, note: "Кілька тегів варто замінити на менш конкурентні." },
-  photos: { score: 91, note: "Достатньо фото з різних ракурсів." },
-  description: { score: 62, note: "Є повтори ключових слів на початку тексту." },
-};
+import type { Listing, ListingTag } from "./types";
 
 /** #56 — the tags audit table. Only used to illustrate the metric columns;
  *  the real table already renders the listing's real tag names beside "—". */
