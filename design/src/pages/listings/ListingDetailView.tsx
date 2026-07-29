@@ -41,13 +41,9 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
     {
       id: "views",
       icon: TrendUpIcon,
-      // Etsy gives only a lifetime total, so this is an average over the
-      // whole life, not a current rate — hence the caption (#87).
       value: listing.viewsPerMonth,
-      // "(сер.)" in the label, like "(оц.)" on the tiles beside it — the
-      // delta alone would be the only hedge if the layout ever drops it.
-      label: "Переглядів / міс. (сер.)",
-      delta: { text: "за весь час життя", tone: "neutral" },
+      label: "Переглядів / міс.",
+      delta: { text: "у середньому за весь час", tone: "neutral" },
     },
     {
       id: "conv",

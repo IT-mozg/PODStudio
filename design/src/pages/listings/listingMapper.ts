@@ -162,9 +162,7 @@ function attributesOf(raw: ApiListingDetail): ListingAttribute[] {
   ];
 }
 
-/** Average views per month over the listing's whole life. age_months is
- *  floored by the backend, so anything under a month old is 0 — there the
- *  lifetime total *is* the month's total. */
+/** Lifetime views averaged per month. age_months is 0 under a month old. */
 function viewsPerMonth(views: number, ageMonths: number): number {
   return ageMonths < 1 ? views : Math.round(views / ageMonths);
 }
