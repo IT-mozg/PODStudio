@@ -12,7 +12,8 @@ export interface ApiShop {
   shop_id: string;
   name: string;
   listing_count: number;
-  age_months: number;
+  // null when Etsy gave no creation date — distinct from 0.
+  age_months: number | null;
   /** Real: Etsy's public transaction_sold_count (lifetime line items). */
   sales: number;
   review_average: number;

@@ -9,7 +9,9 @@ export interface Listing {
   views: string;
   sales: string;
   revenue: string;
-  ageMonths: number;
+  /** `null` when Etsy gave no creation date — not the same as 0, which
+   *  means the listing genuinely is under a month old. */
+  ageMonths: number | null;
   tags: string[];
   tracked: boolean;
   thumbGradient: [string, string];

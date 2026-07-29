@@ -24,7 +24,8 @@ export interface ApiListing {
   revenue: number;
   // Currency `revenue` is in: the listing's own, not USD.
   revenue_currency: string;
-  age_months: number;
+  // null when Etsy gave no creation date — distinct from 0, "under a month".
+  age_months: number | null;
   tags: string[];
   tracked: boolean;
 }
@@ -162,9 +163,12 @@ function attributesOf(raw: ApiListingDetail): ListingAttribute[] {
   ];
 }
 
-/** Lifetime views averaged per month. age_months is 0 under a month old. */
-function viewsPerMonth(views: number, ageMonths: number): number {
-  return ageMonths < 1 ? views : Math.round(views / ageMonths);
+/** Lifetime views averaged per month. Under a month old (0) or with no
+ *  creation date (null) there is nothing to divide by, so the lifetime total
+ *  stands — the tile relabels itself for the null case. */
+function viewsPerMonth(views: number, ageMonths: number | null): number {
+  if (ageMonths === null || ageMonths < 1) return views;
+  return Math.round(views / ageMonths);
 }
 
 export function mapApiListingDetail(raw: ApiListingDetail): ListingDetail {

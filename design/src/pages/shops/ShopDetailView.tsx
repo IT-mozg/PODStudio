@@ -90,7 +90,7 @@ export function ShopDetailView({ shop, onBack, onToggleTracked }: ShopDetailView
     {
       id: "age",
       icon: TrendUpIcon,
-      value: `${shop.ageMonths} міс.`,
+      value: shop.ageMonths === null ? NO_DATA : `${shop.ageMonths} міс.`,
       label: "Вік магазину",
       delta: { text: "від реєстрації на Etsy", tone: "neutral" },
     },

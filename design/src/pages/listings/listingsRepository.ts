@@ -2,6 +2,7 @@
    depends only on this interface. Swap in a real Etsy-API-backed
    implementation later without touching any component. */
 
+import { parseCount } from "../../shared/money";
 import type { Listing, ListingDetail } from "./types";
 
 export interface ListingsRepository {
@@ -70,7 +71,12 @@ class MockListingsRepository implements ListingsRepository {
         "Демонстраційний опис лістинга. Проти реального бекенду сюди " +
         "приходить справжній текст із Etsy.",
       price: "$24.99",
-      viewsPerMonth: "1 200",
+      // Derived from this fixture's own views/age, not a constant — a fixed
+      // number contradicted the "N міс. · M переглядів" line above it.
+      viewsPerMonth: (listing.ageMonths && listing.ageMonths >= 1
+        ? Math.round(parseCount(listing.views) / listing.ageMonths)
+        : parseCount(listing.views)
+      ).toLocaleString("uk-UA"),
       // No real imagery in the mock data — the detail view renders its
       // placeholder tile when this is empty.
       photos: [],
