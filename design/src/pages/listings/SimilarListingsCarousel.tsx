@@ -1,3 +1,4 @@
+import { useCallback, useState } from "react";
 import type { Listing } from "./types";
 import styles from "./SimilarListingsCarousel.module.css";
 
@@ -15,14 +16,30 @@ interface SimilarListingsCarouselProps {
  *  minted ids like "l1-sim0", which dead-ended on "Лістинг не знайдено" on
  *  every click. */
 export function SimilarListingsCarousel({ items, onSelect }: SimilarListingsCarouselProps) {
+  // Ids whose <img> failed to load. The gradient is not just the "no URL at
+  // all" case: container.ui_thumb rewrites Etsy's URL to the il_570xN
+  // rendition, which not every listing has, and the source's caches carry no
+  // TTL, so a URL cached hours ago can have rotated. Without this the card
+  // showed the browser's broken-image glyph instead of the placeholder.
+  const [failed, setFailed] = useState<Set<string>>(() => new Set());
+  const markFailed = useCallback((id: string) => {
+    setFailed((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+  }, []);
+
   if (!items.length) return null;
 
   return (
     <div className={styles.row}>
       {items.map((item) => (
         <div className={styles.card} key={item.id} onClick={() => onSelect(item.id)}>
-          {item.thumbUrl ? (
-            <img className={styles.thumb} src={item.thumbUrl} alt="" loading="lazy" />
+          {item.thumbUrl && !failed.has(item.id) ? (
+            <img
+              className={styles.thumb}
+              src={item.thumbUrl}
+              alt=""
+              loading="lazy"
+              onError={() => markFailed(item.id)}
+            />
           ) : (
             <div
               className={styles.thumb}

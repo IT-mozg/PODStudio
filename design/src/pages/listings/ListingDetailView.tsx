@@ -200,7 +200,14 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
       </TwoColumnLayout>
 
       <SectionHead icon={ListingsIcon} title="Схожі лістинги" />
+      {/* key=listing.id remounts the section on every navigation. Without
+          it the component survives the /listings/:listingId param change
+          with its "has been scrolled into view" flag still latched from the
+          previous listing, so the lazy fetch only ever stayed lazy for the
+          first listing of a session — every card click after that spent its
+          Etsy requests before the user could reach the block. */}
       <SimilarListingsSection
+        key={listing.id}
         listingId={listing.id}
         onSelect={onSelectListing}
         repository={repository}

@@ -67,7 +67,15 @@ export function SimilarListingsSection({
     <div className={styles.slot} ref={ref}>
       {error ? (
         <ErrorNotice message={error} onRetry={() => setReloadToken((n) => n + 1)} />
-      ) : !seen || !result ? (
+      ) : !seen ? (
+        // Nothing is happening yet, so nothing is announced: the slot just
+        // holds its height. A spinner here promised work that had not
+        // started, and when the observer never fires at all — a background
+        // tab reports every element as non-intersecting, whatever its
+        // coordinates — it span forever with no request, no error and no
+        // retry behind it.
+        null
+      ) : !result ? (
         <LoadingState />
       ) : !result.items.length ? (
         <NoDataNotice>
