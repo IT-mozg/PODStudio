@@ -104,4 +104,9 @@ export interface ListingDetail extends Listing {
    *  on screen from the real Etsy numbers beside it, so keep it in any new
    *  place this value gets rendered. */
   convRate: string | null;
+  /** Lifetime views divided by the listing's age in months, already
+   *  formatted. Not a current rate — Etsy exposes only a lifetime total
+   *  (#87), so an old listing with one early spike averages high forever.
+   *  Under a month old it's just the raw views. */
+  viewsPerMonth: string;
 }

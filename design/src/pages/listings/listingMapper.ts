@@ -162,9 +162,17 @@ function attributesOf(raw: ApiListingDetail): ListingAttribute[] {
   ];
 }
 
+/** Average views per month over the listing's whole life. age_months is
+ *  floored by the backend, so anything under a month old is 0 — there the
+ *  lifetime total *is* the month's total. */
+function viewsPerMonth(views: number, ageMonths: number): number {
+  return ageMonths < 1 ? views : Math.round(views / ageMonths);
+}
+
 export function mapApiListingDetail(raw: ApiListingDetail): ListingDetail {
   return {
     ...mapApiListing(raw),
+    viewsPerMonth: viewsPerMonth(raw.views, raw.age_months).toLocaleString("uk-UA"),
     description: raw.description,
     price: formatPrice(raw.price_amount, raw.price_divisor, raw.price_currency),
     photos: raw.photos,

@@ -70,6 +70,7 @@ class MockListingsRepository implements ListingsRepository {
         "Демонстраційний опис лістинга. Проти реального бекенду сюди " +
         "приходить справжній текст із Etsy.",
       price: "$24.99",
+      viewsPerMonth: "1 200",
       // No real imagery in the mock data — the detail view renders its
       // placeholder tile when this is empty.
       photos: [],

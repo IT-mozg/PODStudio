@@ -1,0 +1,1 @@
+import{d as e,x as t}from"./index-xA1_YPdJ.js";var n={badge:`_badge_fn7a3_1`},r=t();function i({value:t}){return(0,r.jsxs)(`div`,{className:n.badge,children:[(0,r.jsx)(e,{size:12}),t]})}export{i as t};
