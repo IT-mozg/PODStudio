@@ -73,16 +73,6 @@
   font-weight: 700;
 }
 
-.priceSub {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 6px;
-  font-size: 12px;
-  color: var(--text-2);
-  margin-top: 2px;
-}
-
 .actions {
   display: flex;
   align-items: center;

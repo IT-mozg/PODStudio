@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { TrendUpIcon, SearchIcon, ImageIcon, ListingsIcon, CheckShieldIcon, LightningIcon } from "../../shared/icons";
+import { TrendUpIcon, SearchIcon, ShopBagIcon, CalculatorIcon, ListingsIcon, CheckShieldIcon, LightningIcon } from "../../shared/icons";
 import { StatGrid, type StatDatum } from "../../shared/components/StatGrid";
 import { SectionHead } from "../../shared/components/SectionHead";
 import { PanelCard } from "../../shared/components/PanelCard";
@@ -18,10 +18,6 @@ import { FlaggedDescription } from "./FlaggedDescription";
 import { ListingScoreCard } from "./ListingScoreCard";
 import { SimilarListingsCarousel } from "./SimilarListingsCarousel";
 import styles from "./ListingDetailView.module.css";
-
-/** Etsy allows 13 tags per listing — the denominator sellers optimise
- *  against, so "9 / 13" is a real, actionable number. */
-const MAX_TAGS = 13;
 
 const NO_DATA = "—";
 
@@ -59,22 +55,19 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
       value: listing.convRate ?? NO_DATA,
       label: "Конверсія",
     },
+    // Formatted by listingMapper, in the listing's own currency. "(оц.)"
+    // because both come from #57's estimate, not from Etsy.
     {
-      id: "tags",
-      icon: ListingsIcon,
-      value: `${listing.tags.length} / ${MAX_TAGS}`,
-      label: "Тегів заповнено",
-      delta: {
-        text: listing.tags.length === MAX_TAGS ? "максимум" : "можна додати ще",
-        tone: listing.tags.length === MAX_TAGS ? "up" : "warn",
-      },
+      id: "sales",
+      icon: ShopBagIcon,
+      value: listing.sales,
+      label: "Продажів (оц.)",
     },
     {
-      id: "photos",
-      icon: ImageIcon,
-      value: String(listing.photos.length),
-      label: "Фото в лістингу",
-      delta: { text: listing.photos.length >= 6 ? "добре" : "у топів зазвичай 6+", tone: listing.photos.length >= 6 ? "up" : "warn" },
+      id: "revenue",
+      icon: CalculatorIcon,
+      value: listing.revenue,
+      label: "Дохід (оц.)",
     },
   ];
 
@@ -108,16 +101,13 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
             <span className={styles.sep}>·</span>
             {listing.views} переглядів за весь час
             <span className={styles.sep}>·</span>
-            {/* Real, unlike sales/revenue below - so no TODO badge, and a 0
-                here means genuinely nobody favourited it. */}
+            {/* Real, unlike the estimated sales/revenue - a 0 here means
+                genuinely nobody favourited it. */}
             {listing.favorites} в улюблених
           </div>
 
           <div className={styles.priceRow}>
             <div className={styles.price}>{listing.price ?? NO_DATA}</div>
-            <div className={styles.priceSub}>
-              {listing.sales} продажів · {listing.revenue}
-            </div>
           </div>
 
           <div className={styles.actions}>
