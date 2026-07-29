@@ -1,4 +1,5 @@
 import { TodoBadge } from "../../shared/components/TodoBadge";
+import { InfoHint } from "../../shared/components/InfoHint";
 import type { SeoCheckItem, SeoCheckStatus } from "./types";
 import styles from "./SeoChecklist.module.css";
 
@@ -25,11 +26,7 @@ export function SeoChecklist({ checks }: { checks: SeoCheckItem[] }) {
   return (
     <div className={styles.list}>
       {checks.map((check, i) => (
-        <div
-          className={`${styles.row} ${check.status === "unknown" ? styles.muted : ""}`}
-          key={i}
-          title={check.why}
-        >
+        <div className={`${styles.row} ${check.status === "unknown" ? styles.muted : ""}`} key={i}>
           <div className={`${styles.icon} ${styles[check.status]}`} aria-hidden="true">
             {ICON[check.status]}
           </div>
@@ -37,6 +34,7 @@ export function SeoChecklist({ checks }: { checks: SeoCheckItem[] }) {
             <div className={styles.title}>
               <span className={styles.srOnly}>{STATUS_LABEL[check.status]}</span>
               <span>{check.title}</span>
+              <InfoHint text={check.why} label={`Чому це важливо: ${check.title}`} />
               {check.todoIssue ? <TodoBadge issue={check.todoIssue} reason={check.why} /> : null}
             </div>
             <div className={styles.detail}>{check.detail}</div>

@@ -57,9 +57,10 @@ export interface SeoCheckItem {
   status: SeoCheckStatus;
   title: string;
   detail: string;
-  /** The rule that produced this verdict, shown on hover. The thresholds are
-   *  this project's judgement call, not something Etsy publishes — spelling
-   *  them out is what keeps the grade inspectable instead of oracular. */
+  /** One plain sentence on why this matters and what to aim for, shown
+   *  behind the row's "i". Deliberately not the numeric thresholds: those
+   *  are this project's judgement call, and reciting them ("менше 60 — bad")
+   *  told the seller nothing they could act on. */
   why: string;
   /** Set only on "unknown" checks: the issue that will make it computable. */
   todoIssue?: number;

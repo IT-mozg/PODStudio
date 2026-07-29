@@ -6,8 +6,10 @@
  * ticket that will make it computable.
  *
  * The thresholds are a judgement call, agreed with the project owner, not
- * something Etsy publishes. That is why every item carries a `why` line: the
- * user can see the rule that produced the verdict instead of trusting it.
+ * something Etsy publishes. Each item therefore carries a `why` — one plain
+ * sentence on what to aim for and what it buys the seller. It deliberately
+ * does not recite the thresholds: "менше 60 символів — bad" is our internal
+ * rule, unreadable, and nothing the seller can act on.
  */
 
 import type { DescriptionSegment, SeoCheckItem } from "./types";
@@ -33,7 +35,7 @@ const tagWord = (n: number) => `${n} ${plural(n, "тег", "теги", "тегі
 const photoWord = (n: number) => `${n} ${plural(n, "фото", "фото", "фото")}`;
 
 function titleCheck(s: SeoSignals): SeoCheckItem {
-  const why = `Правило: менше 60 символів — bad, 60–99 — warn, від 100 до ліміту Etsy у ${MAX_TITLE_CHARS} — ok. Довший заголовок вміщує більше запитів, за якими лістинг може знайтися.`;
+  const why = `Довший заголовок вміщує більше пошукових фраз, за якими покупець може знайти лістинг — Etsy дає на це до ${MAX_TITLE_CHARS} символів.`;
   if (s.titleLength < 60) {
     return {
       status: "bad",
@@ -59,7 +61,7 @@ function titleCheck(s: SeoSignals): SeoCheckItem {
 }
 
 function titleHeadCheck(s: SeoSignals): SeoCheckItem {
-  const why = `Правило: хоча б один тег лістинга має траплятися цілком у перших ${TITLE_HEAD_CHARS} символах заголовка — це приблизно те, що видно в пошуковій видачі Etsy.`;
+  const why = `У пошуковій видачі покупець бачить лише початок заголовка, тож головну фразу варто ставити в перші ${TITLE_HEAD_CHARS} символів.`;
   if (s.tagInTitleHead) {
     return {
       status: "ok",
@@ -77,7 +79,7 @@ function titleHeadCheck(s: SeoSignals): SeoCheckItem {
 }
 
 function tagCountCheck(s: SeoSignals): SeoCheckItem {
-  const why = `Правило: ${MAX_TAGS} із ${MAX_TAGS} — ok, 10–12 — warn, менше 10 — bad. Etsy дає рівно ${MAX_TAGS} слотів, і незаповнений слот — це запит, за яким лістинг не існує.`;
+  const why = `Etsy дає рівно ${MAX_TAGS} тегів безкоштовно, і кожен незаповнений — це запит, за яким лістинг просто не покажуть.`;
   const title = `Заповнено ${s.tagCount} із ${MAX_TAGS} тегів`;
   if (s.tagCount >= MAX_TAGS) {
     return { status: "ok", title, detail: "Усі слоти використано.", why };
@@ -89,7 +91,7 @@ function tagCountCheck(s: SeoSignals): SeoCheckItem {
 
 function tagQualityCheck(s: SeoSignals): SeoCheckItem {
   const why =
-    "Правило: точні дублікати (після trim + lowercase) — bad; більше половини односкладових тегів або теги, де слова одного повністю входять в інший, — warn.";
+    "Тег працює найкраще як окрема фраза з двох-трьох слів: повтори й однослівні теги витрачають слот на запит, за яким усе одно не пробитися.";
 
   if (s.duplicateTags.length) {
     return {
@@ -129,7 +131,7 @@ function tagQualityCheck(s: SeoSignals): SeoCheckItem {
 function photoCheck(s: SeoSignals): SeoCheckItem {
   // Etsy documents a cap of MAX_PHOTOS, but the API does return more on some
   // listings — so the cap is only mentioned while the listing is under it.
-  const why = `Правило: 7 і більше — ok, 5–6 — warn, менше 5 — bad. Орієнтир Etsy — до ${MAX_PHOTOS} фото на лістинг.`;
+  const why = `Що більше ракурсів, то менше сумнівів у покупця перед покупкою — Etsy показує до ${MAX_PHOTOS} фото.`;
   if (s.photoCount >= 7) {
     return {
       status: "ok",
@@ -147,7 +149,7 @@ function photoCheck(s: SeoSignals): SeoCheckItem {
 
 function stuffingCheck(s: SeoSignals): SeoCheckItem {
   const why =
-    "Правило: рахуються входження кожного тега й значущого слова заголовка в описі. 5 і більше повторів одного ключа — bad, 3–4 — warn, до 2 — нормальна густина тексту. Підсвічені місця в описі — це саме ці входження.";
+    "Ключове слово в описі має звучати природно: часті повтори читаються як спам і відлякують покупця. Підсвічене нижче — це його реальні входження.";
   // Named off the same number the signals already computed, so the wording
   // and the threshold can never disagree about which keyword is the worst.
   const worst = s.keywordHits.find((hit) => hit.spans.length === s.maxKeywordRepeats);
@@ -174,7 +176,7 @@ function stuffingCheck(s: SeoSignals): SeoCheckItem {
 
 function descriptionLengthCheck(s: SeoSignals): SeoCheckItem {
   const why =
-    "Правило: менше 300 символів — bad, 300–999 — warn, від 1000 — ok. Довший опис дає більше матеріалу і зовнішньому пошуку, і покупцеві.";
+    "Докладний опис знімає питання покупця ще до замовлення і дає більше тексту зовнішньому пошуку.";
   if (s.descriptionLength < 300) {
     return {
       status: "bad",
@@ -200,7 +202,7 @@ function descriptionLengthCheck(s: SeoSignals): SeoCheckItem {
 }
 
 function descriptionHeadCheck(s: SeoSignals): SeoCheckItem {
-  const why = `Правило: хоча б один тег має траплятися в перших ${DESCRIPTION_HEAD_CHARS} символах опису — приблизно стільки Google бере в meta description сторінки лістинга.`;
+  const why = `Перші ${DESCRIPTION_HEAD_CHARS} символів опису Google показує у своїй видачі — саме там варто мати ключову фразу.`;
   if (s.tagsInFirst160.length) {
     return {
       status: "ok",
@@ -218,7 +220,7 @@ function descriptionHeadCheck(s: SeoSignals): SeoCheckItem {
 }
 
 function descriptionStructureCheck(s: SeoSignals): SeoCheckItem {
-  const why = "Правило: опис без жодного порожнього рядка — warn. Суцільна стіна тексту на мобільному майже не читається.";
+  const why = "Порожні рядки розбивають опис на абзаци — суцільну стіну тексту з телефона майже ніхто не дочитує.";
   if (s.hasParagraphBreaks) {
     return { status: "ok", title: "Опис розбитий на абзаци", detail: "Текст читається з телефона.", why };
   }
@@ -237,7 +239,7 @@ function tagDemandCheck(): SeoCheckItem {
     status: "unknown",
     title: "Теги з низьким попитом",
     detail: "Потрібен обсяг пошуку — Etsy його не віддає, рушій ще не підключено.",
-    why: "Перевірка вимагає зовнішнього джерела пошукового попиту. Поки його немає, показувати тут будь-яке число означало б його вигадати.",
+    why: "Щоб сказати, чи є попит на тег, потрібне зовнішнє джерело обсягу пошуку — Etsy таких даних не дає, а вигадувати число тут не будемо.",
     todoIssue: 56,
   };
 }
@@ -260,7 +262,7 @@ export function buildSeoChecks(signals: SeoSignals): SeoCheckItem[] {
       status: "bad",
       title: "Опису немає",
       detail: "Etsy не повертає опису для цього лістинга, тож перевірки тексту пропущено.",
-      why: "Перевірки повторів, довжини й структури рахуються тільки коли є текст опису.",
+      why: "Без тексту опису немає чого перевіряти на повтори, довжину й структуру — почніть з того, щоб його додати.",
     });
   } else {
     checks.push(
