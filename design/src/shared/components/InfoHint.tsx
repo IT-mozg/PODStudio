@@ -50,7 +50,15 @@ export function InfoHint({ text, label = "Пояснення" }: { text: string;
         i
       </button>
       {open ? (
-        <span className={styles.bubble} id={id} role="tooltip">
+        <span
+          className={styles.bubble}
+          id={id}
+          role="tooltip"
+          // Without this, pressing the mouse on the bubble moves focus off the
+          // button, `onBlur` closes the hint, and the text disappears before a
+          // selection can start — it could never be copied.
+          onMouseDown={(event) => event.preventDefault()}
+        >
           {text}
         </span>
       ) : null}

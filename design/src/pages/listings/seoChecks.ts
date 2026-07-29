@@ -13,12 +13,14 @@
  */
 
 import type { DescriptionSegment, SeoCheckItem } from "./types";
-import { DESCRIPTION_HEAD_CHARS, TITLE_HEAD_CHARS, type SeoSignals } from "./seoSignals";
+import type { SeoSignals } from "./seoSignals";
+import { DESCRIPTION_HEAD_CHARS, ETSY_LIMITS, SEO_THRESHOLDS, TITLE_HEAD_CHARS } from "./seoLimits";
 
-/** Etsy's own caps — the thing several checks are measured against. */
-const MAX_TITLE_CHARS = 140;
-const MAX_TAGS = 13;
-const MAX_PHOTOS = 10;
+// Etsy's caps and every threshold live in seoLimits.ts — edit them there, not
+// here, so the wording below can't drift away from the rule it describes.
+const MAX_TITLE_CHARS = ETSY_LIMITS.titleChars;
+const MAX_TAGS = ETSY_LIMITS.tags;
+const MAX_PHOTOS = ETSY_LIMITS.photos;
 
 /** Ukrainian plural forms: 1 символ / 2 символи / 5 символів. */
 function plural(n: number, one: string, few: string, many: string): string {
@@ -36,7 +38,17 @@ const photoWord = (n: number) => `${n} ${plural(n, "фото", "фото", "фо
 
 function titleCheck(s: SeoSignals): SeoCheckItem {
   const why = `Довший заголовок вміщує більше пошукових фраз, за якими покупець може знайти лістинг — Etsy дає на це до ${MAX_TITLE_CHARS} символів.`;
-  if (s.titleLength < 60) {
+  // Etsy truncates past its cap; the audit measured the truncated title, so
+  // say what got cut instead of grading the part nobody will ever see.
+  if (s.titleOverLimitBy > 0) {
+    return {
+      status: "warn",
+      title: `Заголовок довший за ліміт на ${chars(s.titleOverLimitBy)}`,
+      detail: `Etsy показує лише перші ${MAX_TITLE_CHARS} символів — решту обрізано, і перевірки рахувалися саме по видимій частині.`,
+      why,
+    };
+  }
+  if (s.titleLength < SEO_THRESHOLDS.titleWarn) {
     return {
       status: "bad",
       title: `Заголовок закороткий — ${chars(s.titleLength)}`,
@@ -44,7 +56,7 @@ function titleCheck(s: SeoSignals): SeoCheckItem {
       why,
     };
   }
-  if (s.titleLength < 100) {
+  if (s.titleLength < SEO_THRESHOLDS.titleOk) {
     return {
       status: "warn",
       title: `Заголовок — ${chars(s.titleLength)}`,
@@ -80,13 +92,23 @@ function titleHeadCheck(s: SeoSignals): SeoCheckItem {
 
 function tagCountCheck(s: SeoSignals): SeoCheckItem {
   const why = `Etsy дає рівно ${MAX_TAGS} тегів безкоштовно, і кожен незаповнений — це запит, за яким лістинг просто не покажуть.`;
-  const title = `Заповнено ${s.tagCount} із ${MAX_TAGS} тегів`;
+  // Never phrased as "N із MAX" when N is above MAX — Etsy has raised its own
+  // caps before (photos went 10 → 20), and "15 із 13" reads as a bug.
   if (s.tagCount >= MAX_TAGS) {
-    return { status: "ok", title, detail: "Усі слоти використано.", why };
+    return {
+      status: "ok",
+      title: `Заповнено ${tagWord(s.tagCount)}`,
+      detail: `Усі ${MAX_TAGS} слотів використано.`,
+      why,
+    };
   }
   const free = MAX_TAGS - s.tagCount;
-  const detail = `${free} ${plural(free, "вільний слот", "вільні слоти", "вільних слотів")} — стільки ж втрачених запитів.`;
-  return { status: s.tagCount >= 10 ? "warn" : "bad", title, detail, why };
+  return {
+    status: s.tagCount >= SEO_THRESHOLDS.tagsWarn ? "warn" : "bad",
+    title: `Заповнено ${s.tagCount} із ${MAX_TAGS} тегів`,
+    detail: `${free} ${plural(free, "вільний слот", "вільні слоти", "вільних слотів")} — стільки ж втрачених запитів.`,
+    why,
+  };
 }
 
 function tagQualityCheck(s: SeoSignals): SeoCheckItem {
@@ -129,19 +151,17 @@ function tagQualityCheck(s: SeoSignals): SeoCheckItem {
 }
 
 function photoCheck(s: SeoSignals): SeoCheckItem {
-  // Etsy documents a cap of MAX_PHOTOS, but the API does return more on some
-  // listings — so the cap is only mentioned while the listing is under it.
   const why = `Що більше ракурсів, то менше сумнівів у покупця перед покупкою — Etsy показує до ${MAX_PHOTOS} фото.`;
-  if (s.photoCount >= 7) {
+  if (s.photoCount >= SEO_THRESHOLDS.photosOk) {
     return {
       status: "ok",
-      title: photoWord(s.photoCount),
+      title: s.photoCount >= MAX_PHOTOS ? photoWord(s.photoCount) : `${photoWord(s.photoCount)} із ${MAX_PHOTOS}`,
       detail: "Достатньо, щоб показати товар з різних боків.",
       why,
     };
   }
   const title = `${photoWord(s.photoCount)} із ${MAX_PHOTOS}`;
-  if (s.photoCount >= 5) {
+  if (s.photoCount >= SEO_THRESHOLDS.photosWarn) {
     return { status: "warn", title, detail: `Є місце ще для ${MAX_PHOTOS - s.photoCount} фото.`, why };
   }
   return { status: "bad", title, detail: "Мало ракурсів — покупцеві бракує підстав натиснути «купити».", why };
@@ -152,10 +172,21 @@ function stuffingCheck(s: SeoSignals): SeoCheckItem {
     "Ключове слово в описі має звучати природно: часті повтори читаються як спам і відлякують покупця. Підсвічене нижче — це його реальні входження.";
   // Named off the same number the signals already computed, so the wording
   // and the threshold can never disagree about which keyword is the worst.
+  // An empty result after a failed scan is "not measured", not "nothing
+  // found" — reporting ok here would be a pass nobody checked.
+  if (s.keywordScanFailed) {
+    return {
+      status: "unknown",
+      title: "Повтори ключів не перевірено",
+      detail: "Пошук ключових слів у тексті не вдалося виконати для цього лістинга.",
+      why,
+    };
+  }
+
   const worst = s.keywordHits.find((hit) => hit.spans.length === s.maxKeywordRepeats);
   const top = worst ? { keyword: worst.keyword, count: worst.spans.length } : null;
 
-  if (!top || s.maxKeywordRepeats < 3) {
+  if (!top || s.maxKeywordRepeats < SEO_THRESHOLDS.stuffingWarn) {
     return {
       status: "ok",
       title: "Опис без надмірних повторів",
@@ -167,7 +198,7 @@ function stuffingCheck(s: SeoSignals): SeoCheckItem {
   }
 
   return {
-    status: s.maxKeywordRepeats >= 5 ? "bad" : "warn",
+    status: s.maxKeywordRepeats >= SEO_THRESHOLDS.stuffingBad ? "bad" : "warn",
     title: `Повтор ключа в описі — ${top.count} ${plural(top.count, "раз", "рази", "разів")}`,
     detail: `«${top.keyword}» повторюється ${top.count} ${plural(top.count, "раз", "рази", "разів")} — підсвічено в тексті нижче.`,
     why,
@@ -177,7 +208,7 @@ function stuffingCheck(s: SeoSignals): SeoCheckItem {
 function descriptionLengthCheck(s: SeoSignals): SeoCheckItem {
   const why =
     "Докладний опис знімає питання покупця ще до замовлення і дає більше тексту зовнішньому пошуку.";
-  if (s.descriptionLength < 300) {
+  if (s.descriptionLength < SEO_THRESHOLDS.descriptionWarn) {
     return {
       status: "bad",
       title: `Опис закороткий — ${chars(s.descriptionLength)}`,
@@ -185,7 +216,7 @@ function descriptionLengthCheck(s: SeoSignals): SeoCheckItem {
       why,
     };
   }
-  if (s.descriptionLength < 1000) {
+  if (s.descriptionLength < SEO_THRESHOLDS.descriptionOk) {
     return {
       status: "warn",
       title: `Опис — ${chars(s.descriptionLength)}`,
@@ -255,9 +286,10 @@ export function buildSeoChecks(signals: SeoSignals): SeoCheckItem[] {
     photoCheck(signals),
   ];
 
-  if (signals.descriptionLength === 0) {
-    // Nothing to measure inside a description that doesn't exist. Saying
-    // "no keyword stuffing" here would read as a pass.
+  if (!signals.hasDescription) {
+    // Same test FlaggedDescription uses, so a whitespace-only description
+    // can't be graded here while the block beside it calls it missing.
+    // Saying "no keyword stuffing" about it would read as a pass.
     checks.push({
       status: "bad",
       title: "Опису немає",
@@ -278,11 +310,17 @@ export function buildSeoChecks(signals: SeoSignals): SeoCheckItem[] {
 }
 
 /** Cuts the description into segments along the keyword hits, so a
- *  highlighted piece is always literally the text at those offsets. A
- *  description with no matches comes back as one unflagged segment; an empty
- *  description comes back as an empty array (there is nothing to render, and
+ *  highlighted piece is always literally the text at those offsets.
+ *
+ *  Takes the description off the signals rather than as its own argument:
+ *  the offsets only mean anything against the exact string they were measured
+ *  on, and a second parameter let a caller pair them with a different one.
+ *
+ *  A description with no matches comes back as one unflagged segment; an
+ *  empty one comes back as an empty array (there is nothing to render, and
  *  FlaggedDescription shows its own empty state instead). */
-export function buildDescriptionSegments(description: string, signals: SeoSignals): DescriptionSegment[] {
+export function buildDescriptionSegments(signals: SeoSignals): DescriptionSegment[] {
+  const description = signals.description;
   if (!description) return [];
 
   const spans = signals.keywordHits

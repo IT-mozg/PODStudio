@@ -14,6 +14,9 @@
  */
 
 import type { ListingDetail } from "./types";
+import { DESCRIPTION_HEAD_CHARS, ETSY_LIMITS, TITLE_HEAD_CHARS } from "./seoLimits";
+
+export { DESCRIPTION_HEAD_CHARS, TITLE_HEAD_CHARS };
 
 /** Words too common to be worth flagging as a title keyword. Etsy titles are
  *  overwhelmingly English; a non-English word simply won't match this list
@@ -28,14 +31,6 @@ const STOP_WORDS = new Set([
   "every", "per", "via", "etc", "gift", "gifts",
 ]);
 
-/** How far into the title Etsy's own search result stops showing text. Used
- *  for "is a keyword up front", not as a length verdict. */
-export const TITLE_HEAD_CHARS = 60;
-
-/** Google lifts roughly this much of the description as the meta description
- *  of the listing page. */
-export const DESCRIPTION_HEAD_CHARS = 160;
-
 export interface KeywordHit {
   /** The keyword as it was searched for (a tag, or a word from the title). */
   keyword: string;
@@ -47,7 +42,14 @@ export interface KeywordHit {
 }
 
 export interface SeoSignals {
+  /** The exact description every span in `keywordHits` was measured against.
+   *  It travels with the signals so a caller cannot pair offsets with a
+   *  different string — the offsets are meaningless against anything else. */
+  description: string;
   titleLength: number;
+  /** How many characters Etsy's own title cap dropped, 0 when it fit. The
+   *  audit measures the truncated title, because that is the one Etsy shows. */
+  titleOverLimitBy: number;
   /** The first tag that occurs whole inside the title's opening
    *  TITLE_HEAD_CHARS characters, or null when none does. */
   tagInTitleHead: string | null;
@@ -60,6 +62,14 @@ export interface SeoSignals {
   overlappingTags: [string, string][];
   photoCount: number;
   descriptionLength: number;
+  /** False for an empty description *and* for one that is only whitespace —
+   *  the same test FlaggedDescription uses to show its empty state, so the
+   *  checklist can never grade text that the page reports as missing. */
+  hasDescription: boolean;
+  /** True when the keyword scan could not run (a pattern the engine rejected).
+   *  Then an empty `keywordHits` means "not measured", never "nothing found",
+   *  and any check reading it must report `unknown` instead of a pass. */
+  keywordScanFailed: boolean;
   /** Whether the description has at least one blank line, i.e. real
    *  paragraphs rather than one wall of text. */
   hasParagraphBreaks: boolean;
@@ -78,32 +88,44 @@ function escapeRegExp(value: string): string {
  *  the /u flag, and Etsy titles are not: "café", "Löwe" or a Cyrillic tag
  *  would silently lose its edge character to a `\W` trim, and the offsets
  *  built from it would then point at the wrong text. */
-const LETTER = "[\\p{L}\\p{N}]";
+const IS_LETTER = /[\p{L}\p{N}]/u;
 const EDGE_TRIM = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu;
 
 /** All positions of `needle` in `haystack`, case-insensitively, respecting
  *  word boundaries where the needle's own edges are letters or digits.
  *  Returns offsets into `haystack` as given — never into a normalized copy,
- *  because the caller slices the original text with them. */
-function findSpans(haystack: string, needle: string): [number, number][] {
+ *  because the caller slices the original text with them.
+ *
+ *  `null` means the scan could not run at all, which is not the same answer
+ *  as "no occurrences" and must not be reported as one.
+ *
+ *  The boundary is checked against the neighbouring characters rather than
+ *  written into the pattern: `\b` is ASCII-only even under /u (it would cut
+ *  "café" short), and the lookbehind that fixes that is unsupported in
+ *  Safari before 16.4, where every pattern would throw and the whole audit
+ *  would quietly report a clean description. */
+function findSpans(haystack: string, needle: string): [number, number][] | null {
   if (!needle) return [];
-  const escaped = escapeRegExp(needle);
-  // Lookarounds instead of \b so the boundary holds for any script.
-  const isLetter = new RegExp(`^${LETTER}$`, "u");
-  const leftBoundary = isLetter.test(needle[0]) ? `(?<!${LETTER})` : "";
-  const rightBoundary = isLetter.test(needle[needle.length - 1]) ? `(?!${LETTER})` : "";
   let re: RegExp;
   try {
-    re = new RegExp(`${leftBoundary}${escaped}${rightBoundary}`, "giu");
+    re = new RegExp(escapeRegExp(needle), "giu");
   } catch {
     // A tag can be any string Etsy accepted; if it somehow defeats the
-    // pattern, skip it rather than break the whole page.
-    return [];
+    // pattern, say so rather than pass an empty result off as a result.
+    return null;
   }
+
+  const needsLeftBoundary = IS_LETTER.test(needle[0]);
+  const needsRightBoundary = IS_LETTER.test(needle[needle.length - 1]);
   const spans: [number, number][] = [];
+
   for (const match of haystack.matchAll(re)) {
     if (match.index === undefined) continue;
-    spans.push([match.index, match.index + match[0].length]);
+    const start = match.index;
+    const end = start + match[0].length;
+    if (needsLeftBoundary && start > 0 && IS_LETTER.test(haystack[start - 1])) continue;
+    if (needsRightBoundary && end < haystack.length && IS_LETTER.test(haystack[end])) continue;
+    spans.push([start, end]);
   }
   return spans;
 }
@@ -176,21 +198,37 @@ export type SeoInput = Pick<ListingDetail, "title" | "tags" | "description" | "p
 /** Every measurement the SEO checklist (#85) and the Listing Score (#84)
  *  are built from. Pure: same fields in, same signals out. */
 export function buildSeoSignals(listing: SeoInput): SeoSignals {
-  const title = listing.title ?? "";
+  const rawTitle = listing.title ?? "";
+  // Etsy cuts the title at its cap, so the audit measures what Etsy actually
+  // shows. Anything past the cap is counted separately, not silently kept.
+  const title = rawTitle.slice(0, ETSY_LIMITS.titleChars);
+  const titleOverLimitBy = rawTitle.length - title.length;
   const description = listing.description ?? "";
+
+  // One flag for the whole scan: a pattern the engine rejects makes every
+  // keyword result untrustworthy, not just that keyword's.
+  let keywordScanFailed = false;
+  const spansOf = (haystack: string, needle: string): [number, number][] => {
+    const found = findSpans(haystack, needle);
+    if (found === null) {
+      keywordScanFailed = true;
+      return [];
+    }
+    return found;
+  };
   // Trimmed once, up front: everything below both searches with and reports
   // the same string, so a tag stored with stray spaces can't show up padded
   // in the checklist while matching unpadded in the text.
   const tags = (listing.tags ?? []).map((tag) => tag.trim()).filter(Boolean);
 
   const titleHead = title.slice(0, TITLE_HEAD_CHARS);
-  const tagInTitleHead = tags.find((tag) => findSpans(titleHead, tag).length > 0) ?? null;
+  const tagInTitleHead = tags.find((tag) => spansOf(titleHead, tag).length > 0) ?? null;
 
   const descriptionHead = description.slice(0, DESCRIPTION_HEAD_CHARS);
-  const tagsInFirst160 = tags.filter((tag) => findSpans(descriptionHead, tag).length > 0);
+  const tagsInFirst160 = tags.filter((tag) => spansOf(descriptionHead, tag).length > 0);
 
   const tagHits: KeywordHit[] = tags
-    .map((tag): KeywordHit => ({ keyword: tag, source: "tag", spans: findSpans(description, tag) }))
+    .map((tag): KeywordHit => ({ keyword: tag, source: "tag", spans: spansOf(description, tag) }))
     .filter((hit) => hit.spans.length > 0);
 
   // Title keywords are only interesting where a tag doesn't already cover
@@ -199,13 +237,15 @@ export function buildSeoSignals(listing: SeoInput): SeoSignals {
   const titleWords = [...new Set(words(title.toLowerCase()).map((word) => word.replace(EDGE_TRIM, "")))];
   const titleHits: KeywordHit[] = titleWords
     .filter((word) => word.length >= 4 && !STOP_WORDS.has(word) && !tagWords.has(word))
-    .map((word): KeywordHit => ({ keyword: word, source: "title", spans: findSpans(description, word) }))
+    .map((word): KeywordHit => ({ keyword: word, source: "title", spans: spansOf(description, word) }))
     .filter((hit) => hit.spans.length > 0);
 
   const keywordHits = resolveOverlaps([...tagHits, ...titleHits]);
 
   return {
+    description,
     titleLength: title.length,
+    titleOverLimitBy,
     tagInTitleHead,
     tagCount: tags.length,
     duplicateTags: findDuplicates(tags),
@@ -213,6 +253,8 @@ export function buildSeoSignals(listing: SeoInput): SeoSignals {
     overlappingTags: findOverlaps(tags),
     photoCount: (listing.photos ?? []).length,
     descriptionLength: description.length,
+    hasDescription: description.trim().length > 0,
+    keywordScanFailed,
     hasParagraphBreaks: /\n\s*\n/.test(description),
     tagsInFirst160,
     keywordHits,

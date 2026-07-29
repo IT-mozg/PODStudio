@@ -1,0 +1,1 @@
+import{E as e,T as t,x as n}from"./index-CHFd9g2_.js";var r=e(t(),1),i={pill:`_pill_1gm80_1`,sm:`_sm_1gm80_12`},a=n(),o=(0,r.memo)(function({children:e,size:t=`md`}){return(0,a.jsx)(`span`,{className:t===`sm`?`${i.pill} ${i.sm}`:i.pill,children:e})});export{o as t};

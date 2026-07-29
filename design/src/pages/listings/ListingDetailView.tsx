@@ -51,10 +51,7 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
     [listing.title, listing.tags, listing.description, listing.photos],
   );
   const seoChecks = useMemo(() => buildSeoChecks(seoSignals), [seoSignals]);
-  const descriptionSegments = useMemo(
-    () => buildDescriptionSegments(listing.description, seoSignals),
-    [listing.description, seoSignals],
-  );
+  const descriptionSegments = useMemo(() => buildDescriptionSegments(seoSignals), [seoSignals]);
 
   const stats: StatDatum[] = [
     {
