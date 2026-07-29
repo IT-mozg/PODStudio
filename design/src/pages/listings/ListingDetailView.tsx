@@ -52,9 +52,16 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
     {
       id: "conv",
       icon: SearchIcon,
-      value: NO_DATA,
+      value: listing.convRate ?? NO_DATA,
       label: "Конверсія",
-      badge: <TodoBadge issue={57} reason="Etsy API не віддає конверсію — потрібна оцінка за ціною" />,
+      // Etsy publishes no conversion rate, so this can only ever be an
+      // estimate — the price-bucket model in models/conversion_rate.py. The
+      // caption says so on the tile itself rather than hiding in a tooltip:
+      // an unlabelled percentage next to real Etsy figures reads as one of
+      // them. Tone "warn" for the same reason, not because low is bad.
+      delta: listing.convRate
+        ? { text: "оцінка за ціною, не дані Etsy", tone: "warn" as const }
+        : undefined,
     },
     {
       id: "tags",

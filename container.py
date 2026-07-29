@@ -14,6 +14,7 @@ from pathlib import Path
 
 from models import generate_designs as engine
 from models import json_store
+from models.conversion_rate import conv_rate_pct
 from models.design_generator import OpenAIDesignGenerator
 from models.etsy_api_client import EtsyApiClient
 from models.etsy_api_listing_source import EtsyApiListingSource
@@ -207,6 +208,20 @@ def effective_bg(lid: str) -> str:
     return ""
 
 
+def listing_price_usd(listing) -> float | None:
+    """A listing's price in USD, or None if it can't be established.
+
+    Two independent ways to get None, both of which must stay None rather
+    than becoming a number: the listing has no price at all, or the FX
+    service has never been reachable and the rate cache is empty (see
+    models/fx_rates.py). A 1:1 fallback would be indistinguishable from a
+    real conversion for a USD listing and silently wrong for every other."""
+    if listing.price_amount is None or not listing.price_divisor:
+        return None
+    return fx_rates.to_usd(listing.price_amount / listing.price_divisor,
+                           listing.price_currency)
+
+
 def listings_payload(found: dict) -> list:
     history = history_store.load()
     tracked = tracked_store.load()
@@ -285,6 +300,14 @@ def listing_detail_payload(listing) -> dict:
         # The only public per-listing demand signal Etsy exposes. Real, so it
         # is a number rather than the None that sales/revenue are.
         "num_favorers": listing.num_favorers,
+        # NOT an Etsy figure - Etsy publishes no conversion rate for anyone
+        # but a shop's own owner. This is the reverse-engineered price-bucket
+        # model from models/conversion_rate.py, converted to USD first
+        # because the buckets are dollar-denominated (#99 -> #57). None when
+        # the price or the FX rate is missing; the UI labels it as an
+        # estimate rather than passing it off as measured data. Detail only -
+        # listings_payload deliberately does not carry it (#57's scope).
+        "conv_rate_pct": conv_rate_pct(listing_price_usd(listing)),
         "production_partners": listing.production_partners,
     })
     return base
