@@ -1,0 +1,26 @@
+/* Reserves the carousel's height (110px thumb + ~55px body) before the data
+   arrives, so the spinner resolving into cards doesn't shove the rest of the
+   page around. */
+.slot {
+  min-height: 165px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* LoadingState is sized for a whole route (min-height: 320px). Inside a
+   section slot that made the spinner twice as tall as the cards it stands in
+   for, so the block visibly shrank the moment the data arrived. */
+.slot > :first-child {
+  min-height: 0;
+}
+
+.criterion {
+  font-size: 11px;
+  color: var(--text-2);
+  margin-bottom: 10px;
+}
+
+.query {
+  color: var(--text-1);
+}

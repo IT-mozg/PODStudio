@@ -69,6 +69,25 @@ class HttpListingsRepository implements ListingsRepository {
     }
   }
 
+  async getSimilar(listingId: string): Promise<{ query: string; items: Listing[] }> {
+    // Same numeric-id guard as getDetailById, for the same reason.
+    if (!/^\d+$/.test(listingId)) return { query: "", items: [] };
+    try {
+      const { listings, query } = await apiFetch<{ listings: ApiListing[]; query: string }>(
+        `/api/listings/${encodeURIComponent(listingId)}/similar`,
+      );
+      return { query, items: listings.map(mapApiListing) };
+    } catch (e) {
+      // The API's own 404 means the listing itself is gone — an empty
+      // carousel, not an error banner on a page that otherwise rendered.
+      // An inferred 404 (stale Flask, route not registered) still throws.
+      if (e instanceof ApiError && e.status === 404 && e.apiReported) {
+        return { query: "", items: [] };
+      }
+      throw e;
+    }
+  }
+
   async getTracked(): Promise<Listing[]> {
     const { listings } = await apiFetch<{ listings: ApiListing[] }>("/api/tracked");
     return listings.map(mapApiListing);

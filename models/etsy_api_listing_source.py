@@ -106,6 +106,7 @@ MAX_PAGES = 40  # a sane browsing depth cap - nobody needs to page to result #35
 PAGE_CACHE_SIZE = 8      # ~8 x 78 fully-populated listings
 ID_CACHE_SIZE = 500      # listings resolved by id outside any browsed page
 SHOP_NAME_CACHE_SIZE = 500  # shop_id -> shop_name, short strings
+SIMILAR_CACHE_SIZE = 32  # query -> the "similar listings" result for it
 BADGE_PERCENTILE = 0.15  # top ~15% of the calibration sample earns a badge
 SHOP_LOOKUP_BUDGET = 5  # max /shops/{id} fallback calls per batch (see
                         # _resolve_shop_name) - Etsy normally embeds the Shop
@@ -152,6 +153,12 @@ class EtsyApiListingSource(ListingSource):
         # request per distinct shop rather than one per listing.
         # Not cleared by search(): a shop's name doesn't change with the query.
         self._shop_name_cache: LruCache = LruCache(SHOP_NAME_CACHE_SIZE)
+        # query -> find_similar()'s result for it. Like _shop_name_cache and
+        # unlike the other two, search() does NOT clear this one: what a query
+        # matches doesn't depend on which search the user happens to be
+        # browsing, and the whole point of find_similar is to be independent
+        # of that state.
+        self._similar_cache: LruCache = LruCache(SIMILAR_CACHE_SIZE)
         self._total_count: int | None = None
         self._calibration: dict | None = None
         # Guards _page_cache/_total_count/_calibration AND is held across
@@ -251,6 +258,44 @@ class EtsyApiListingSource(ListingSource):
                 fetched.update(self._batch_fetch(missing[i:i + 100]))
             self._id_cache.update(fetched)
             return {**found, **fetched}
+
+    def find_similar(self, keywords: str, limit: int = 10,
+                     exclude: str = "") -> dict[str, Listing]:
+        """A one-off search that leaves this source's browsing state alone
+        (#86 - "similar listings").
+
+        Etsy has no similar/recommended endpoint of any kind, so "similar"
+        here is nothing more than a second relevance search, and the caller
+        is expected to label it as exactly that.
+
+        The state discipline is the whole point: search() would rewrite
+        self.keywords and wipe _page_cache/_calibration, so running this off
+        search() would silently reset whatever page the user has open on the
+        listings grid. Everything below reads only the arguments; the sole
+        writes are to _similar_cache and the caches _batch_fetch fills, none
+        of which belong to the active query.
+
+        exclude is dropped *after* caching so two different listings with the
+        same query share one cached result, and limit + 1 ids are requested so
+        dropping the listing itself still leaves `limit` cards."""
+        keywords = keywords.strip()
+        if not keywords or limit <= 0:
+            return {}
+        cache_key = f"{keywords}\x00{limit}"
+        with self._lock:
+            # `in` + `[key]` rather than .get(): a hit has to count as a use
+            # for the LRU ordering (see LruCache's docstring), and an empty
+            # result is a legitimate cached answer that .get() couldn't tell
+            # apart from a miss.
+            if cache_key in self._similar_cache:
+                found = self._similar_cache[cache_key]
+            else:
+                found, _ = self._search_ids(keywords, limit + 1, offset=0)
+                self._similar_cache[cache_key] = found
+        kept = {lid: listing for lid, listing in found.items() if lid != exclude}
+        # Etsy may not have returned the excluded listing at all, in which
+        # case the extra id fetched for it is one card too many.
+        return dict(list(kept.items())[:limit])
 
     # add_source is intentionally not overridden - "uploading a file" makes
     # no sense for an API-backed source, the base ListingSource.add_source()
@@ -422,10 +467,15 @@ class EtsyApiListingSource(ListingSource):
             )
         return listings
 
-    def _fetch(self, offset: int) -> tuple[dict[str, Listing], int]:
+    def _search_ids(self, keywords: str, limit: int,
+                    offset: int) -> tuple[dict[str, Listing], int]:
+        """The two-call search itself, with every input passed in rather than
+        read off self. Nothing here writes to self (beyond the caches
+        _batch_fetch fills), which is what lets find_similar() run a query of
+        its own without disturbing the search the user is browsing."""
         search_params = urllib.parse.urlencode({
-            "keywords": self.keywords,
-            "limit": self.page_size,
+            "keywords": keywords,
+            "limit": limit,
             "offset": offset,
             # Without an explicit sort, Etsy does NOT rank by relevance -
             # results include barely-related items (even digital downloads
@@ -443,7 +493,10 @@ class EtsyApiListingSource(ListingSource):
         # step 2: one batch call to get titles + images for exactly these ids,
         # keeping the ranked order from the search step
         by_id = self._batch_fetch(ids)
-        listings = {lid: by_id[lid] for lid in ids if lid in by_id}
+        return {lid: by_id[lid] for lid in ids if lid in by_id}, total
+
+    def _fetch(self, offset: int) -> tuple[dict[str, Listing], int]:
+        listings, total = self._search_ids(self.keywords, self.page_size, offset)
 
         # Badge calibration is computed once per search, from whichever page
         # is fetched first (in practice always page 0, since the UI always

@@ -21,6 +21,10 @@
 
 .thumb {
   height: 110px;
+  /* Applies to the <img> variant; the gradient <div> has no intrinsic size. */
+  width: 100%;
+  object-fit: cover;
+  display: block;
 }
 
 .body {

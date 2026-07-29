@@ -115,6 +115,7 @@ export const PREVIEW_SHOP_LISTINGS: Listing[] = [
     ageMonths: 17,
     tags: ["retro", "sunset"],
     tracked: false,
+    thumbUrl: "",
     thumbGradient: ["#ef7c4a", "#c2418e"],
   },
   {
@@ -128,6 +129,7 @@ export const PREVIEW_SHOP_LISTINGS: Listing[] = [
     ageMonths: 8,
     tags: ["minimalist", "mountain"],
     tracked: false,
+    thumbUrl: "",
     thumbGradient: ["#5ad1e0", "#2f95a3"],
   },
 ];

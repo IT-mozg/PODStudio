@@ -201,6 +201,65 @@ def age_months(created_timestamp: int) -> int | None:
     return max(0, int((time.time() - created_timestamp) // 2629800))  # 2629800s = 1 average month
 
 
+SIMILAR_QUERY_CHARS = 50
+SIMILAR_QUERY_MIN_WORDS = 3
+
+
+def similar_query(title: str) -> str:
+    """The search query used to find listings similar to this one (#86).
+
+    Etsy publishes no similar/recommended endpoint, so "similar" is a second
+    relevance search, and the query is the opening of the title - roughly the
+    part a shopper actually sees in Etsy's own search results, and the part
+    sellers front-load with their real keywords.
+
+    Words are never cut and never dropped: the word that crosses the
+    SIMILAR_QUERY_CHARS boundary is taken whole, so the query can run a little
+    past 50 characters. A truncated word ("vintag") would search for something
+    that isn't a word, and dropping it would throw away the term the seller
+    put there on purpose."""
+    words = title.split()
+    if not words:
+        return ""
+    out = [words[0]]
+    length = len(words[0])
+    for word in words[1:]:
+        if length >= SIMILAR_QUERY_CHARS:
+            break
+        length += 1 + len(word)
+        out.append(word)
+    return " ".join(out)
+
+
+def similar_query_ladder(title: str) -> list[str]:
+    """similar_query() plus progressively shorter fallbacks, widest last.
+
+    Measured against the live API, not assumed: Etsy's `keywords` behaves as
+    an AND over the terms, so the full 50-character opening of a real title
+    ("Legend Since 1961 T Shirt - Soft Cotton T-Shirt or") matched exactly
+    one listing - itself. The same title cut to its first three words matched
+    ten. A carousel that is empty on nearly every listing is not a feature,
+    so the caller walks this ladder and keeps the first rung that fills.
+
+    The 50-character query stays rung one - it is the most specific and gives
+    the best cards when it does match - and the caller reports back whichever
+    rung actually produced the results, so the UI never claims a narrower
+    criterion than the one it used. Three rungs at most: each costs 2 Etsy
+    requests against a 5 req/s key, and below three words the query stops
+    describing the listing at all."""
+    words = similar_query(title).split()
+    if not words:
+        return []
+    counts = [len(words), max(SIMILAR_QUERY_MIN_WORDS, len(words) // 2),
+              SIMILAR_QUERY_MIN_WORDS]
+    ladder = []
+    for n in counts:
+        query = " ".join(words[:n])
+        if query and query not in ladder:
+            ladder.append(query)
+    return ladder
+
+
 def effective_bg(lid: str) -> str:
     ref = engine.REFS_DIR / f"{lid}.jpg"
     if ref.exists():

@@ -1,5 +1,4 @@
-import { NoDataNotice } from "../../shared/components/NoDataNotice";
-import { PREVIEW_SIMILAR } from "./previewData";
+import { parseCount } from "../../shared/money";
 import type { Listing } from "./types";
 import styles from "./SimilarListingsCarousel.module.css";
 
@@ -8,30 +7,39 @@ interface SimilarListingsCarouselProps {
   onSelect: (id: string) => void;
 }
 
-/** Empty until #86. Etsy's API has no "similar listings" endpoint at all, so
- *  the previous version made the cards up — worse, it minted ids like
- *  "l1-sim0", which against real Etsy ids would have dead-ended on
- *  "Лістинг не знайдено" on every click. */
+/** Presentational only — every non-loaded state (not yet in view, loading,
+ *  failed, nothing found) belongs to SimilarListingsSection, which owns the
+ *  fetch. Rendering nothing here on an empty list keeps this component from
+ *  having an opinion about why the list is empty.
+ *
+ *  The cards carry real Etsy listing ids (#86): the version #78 removed
+ *  minted ids like "l1-sim0", which dead-ended on "Лістинг не знайдено" on
+ *  every click. */
 export function SimilarListingsCarousel({ items, onSelect }: SimilarListingsCarouselProps) {
-  if (!items.length) {
-    return (
-      <NoDataNotice
-        preview={<SimilarListingsCarousel items={PREVIEW_SIMILAR} onSelect={() => {}} />}
-      >
-        Etsy API не має ендпоінта «схожі лістинги» — підбір планується робити
-        пошуком за спільними тегами. Картки виглядатимуть так:
-      </NoDataNotice>
-    );
-  }
+  if (!items.length) return null;
 
   return (
     <div className={styles.row}>
       {items.map((item) => (
         <div className={styles.card} key={item.id} onClick={() => onSelect(item.id)}>
-          <div className={styles.thumb} style={{ background: `linear-gradient(135deg, ${item.thumbGradient[0]}, ${item.thumbGradient[1]})` }} />
+          {item.thumbUrl ? (
+            <img className={styles.thumb} src={item.thumbUrl} alt="" loading="lazy" />
+          ) : (
+            <div
+              className={styles.thumb}
+              style={{ background: `linear-gradient(135deg, ${item.thumbGradient[0]}, ${item.thumbGradient[1]})` }}
+            />
+          )}
           <div className={styles.body}>
             <div className={styles.title}>{item.title}</div>
-            <div className={styles.meta}>{item.sales} прод.</div>
+            {/* Etsy publishes no per-listing sales figure to anyone, so this
+                is models/conversion_rate.py's estimate and has to read as
+                one. The backend sends 0 where the model couldn't compute an
+                answer at all (no price, or no FX rate) — that is "unknown",
+                not a measured zero, so it renders as "—". */}
+            <div className={styles.meta}>
+              {parseCount(item.sales) === 0 ? "—" : `≈ ${item.sales} прод. (оцінка)`}
+            </div>
           </div>
         </div>
       ))}
