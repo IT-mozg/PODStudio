@@ -44,24 +44,25 @@ function clamp(value: number, cap: number): number {
   return Math.max(1, Math.min(value, cap));
 }
 
-/** Tunables the Listing Score (#84) needs and the checklist has no opinion on.
- *  Unlike the thresholds above, these bend a curve rather than flip a verdict,
- *  so they live apart — but still here, not inline in listingScore.ts. */
+/** Tunables only the Listing Score (#84) uses. These bend a curve rather than
+ *  flip a verdict, so they sit apart from the thresholds above. */
 export const SCORE_TUNING = {
-  /** Overflow, as a share of the title cap, at which the length score has
-   *  lost most of its value. */
+  /** Overflow, as a share of the title cap, at which the length score has lost
+   *  most of its value. */
   titleOverflowPenaltyAt: 0.25,
-  /** What a title keeps when no tag occurs in it at all. Placement scales the
-   *  length score between this and 1 — it can't rescue an unused title. */
+  /** What a title keeps when no tag occurs in it — placement scales the length
+   *  score between this and 1, it can't rescue an unused title. */
   titlePlacementFloor: 0.6,
   /** Tags in the description's head that count as a full result. */
   headTagsTarget: 3,
   /** A paragraph this long still reads comfortably on a phone. */
   comfortableParagraphChars: 500,
-  /** Past this, it's a wall of text whatever the writing is like. */
+  /** Past this it's a wall of text whatever the writing is like. */
   unreadableParagraphChars: 1500,
-  /** What a single-paragraph description keeps of the structure weight. */
-  wallOfTextFraction: 0.15,
+  /** What a description with no paragraph break keeps. Applied on top of the
+   *  size curve, not instead of it: the fault is the missing break, and how
+   *  bad it is still depends on the length. */
+  singleParagraphFraction: 0.7,
 } as const;
 
 export const SEO_THRESHOLDS = {

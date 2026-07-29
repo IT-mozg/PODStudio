@@ -25,10 +25,8 @@ const SUBSCORES: { key: keyof Omit<ScoreBreakdown, "overall">; label: string }[]
  *  points straight at which section to fix.
  *
  *  Purely presentational: every number arrives computed by listingScore.ts
- *  (#84) off the listing's real fields. It used to come out of a seeded PRNG,
- *  which made an invented verdict ("Сильний лістинг — тримайте курс") look
- *  like analysis — hence each sub-score now carries a `note` naming what was
- *  actually measured. */
+ *  (#84) off the listing's real fields. It used to come out of a seeded PRNG —
+ *  hence each sub-score now carries a `note` naming what was measured. */
 export function ListingScoreCard({ score }: { score: ScoreBreakdown }) {
   return (
     <div className={styles.card}>

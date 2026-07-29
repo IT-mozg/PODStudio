@@ -196,9 +196,9 @@ export function buildSeoSignals(listing: SeoInput): SeoSignals {
   // another.
   const tags = (listing.tags ?? []).map((tag) => tag.trim()).filter(Boolean);
 
-  // Searched across the whole title rather than a sliced-off head: slicing
-  // put a string end mid-title, where a truncated tag has no right-hand
-  // neighbour to fail the boundary test and matches something it isn't.
+  // The whole title, not a sliced-off head: the slice put a string end
+  // mid-title, where a truncated tag has no right-hand neighbour to fail the
+  // boundary test and matches something it isn't.
   let tagTitleOffset: number | null = null;
   let earliestTag: string | null = null;
   for (const tag of tags) {

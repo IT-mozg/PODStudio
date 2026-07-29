@@ -1,15 +1,14 @@
 /* The Listing Score (#84) — a verdict over seoSignals.ts, never a measurement
- * of its own. Same input as the SEO checklist (#85), which is what stops the
- * ring and the list below it disagreeing about one listing.
+ * of its own. Same input as the SEO checklist (#85), so the ring and the list
+ * below it cannot disagree about one listing.
  *
- * Every number is continuous, not stepped: 118 title characters is 0.92 of
- * what's possible, not "the same bracket as 100". Each signal goes through
- * ramp() — a piecewise-linear curve whose nodes are the thresholds from
- * seoLimits.ts, so a threshold bends the curve instead of cutting it.
+ * Continuous, not stepped: 118 title characters is 0.92 of what's possible,
+ * not "the same bracket as 100". Every signal goes through ramp(), whose nodes
+ * are the thresholds from seoLimits.ts — a threshold bends the curve instead
+ * of cutting it, and stays inside the range the checklist calls clean.
  *
- * 100 means Etsy's own maximum (140 characters, 13 tags, 20 photos), not our
- * "ok" threshold — that one sits at ~0.85, leaving headroom above a listing
- * that is merely fine.
+ * 100 means Etsy's own maximum (140 characters, 13 tags, 20 photos); our "ok"
+ * threshold sits at ~0.85, leaving headroom above a merely fine listing.
  *
  * No PRNG, no clock, no network: the same listing always scores the same. */
 
@@ -27,9 +26,9 @@ import { chars, photoWord, plural, tagWord } from "./seoWording";
 /** A node on a scoring curve: [raw measurement, fraction of the weight]. */
 type CurveNode = readonly [number, number];
 
-/** Piecewise-linear scale. Straight lines between the nodes, flat beyond the
- *  ends. Nodes must ascend by x; equal x values are allowed (a clamped
- *  threshold can collapse two into one) and resolve to the later node. */
+/** Piecewise-linear scale: straight lines between the nodes, flat beyond the
+ *  ends. Nodes ascend by x; equal x values (a clamped threshold can collapse
+ *  two into one) resolve to the later node. */
 function ramp(value: number, nodes: readonly CurveNode[]): number {
   if (value <= nodes[0][0]) return nodes[0][1];
   for (let i = 1; i < nodes.length; i += 1) {
@@ -49,12 +48,10 @@ function clamp01(value: number): number {
 
 interface Component {
   weight: number;
-  /** `null` means "not measured" — the component drops out of the weighting
-   *  rather than scoring zero. That is the one mechanism behind all three
-   *  cases: a failed keyword scan, structure on a description too short to
-   *  judge, and the tag-difficulty component #56 will fill in. Punishing what
-   *  nobody measured would be exactly the invented number this file exists to
-   *  avoid. */
+  /** `null` = not measured: the component drops out of the weighting instead
+   *  of scoring zero. One mechanism for all three cases — a failed keyword
+   *  scan, structure on a description too short to judge, and the
+   *  tag-difficulty component #56 will fill in. */
   fraction: number | null;
 }
 
@@ -66,9 +63,8 @@ function combine(components: readonly Component[]): number {
     weighted += weight * clamp01(fraction);
     total += weight;
   }
-  // Unreachable while every sub-score keeps one unconditional component, and
-  // a 0 here would be an invented verdict rather than a measured one — so it
-  // stays a guard, not a fallback anyone should rely on.
+  // Guard, not a fallback: unreachable while every sub-score keeps one
+  // unconditional component, and a 0 here would be an invented verdict.
   if (total === 0) return 0;
   return Math.round((weighted / total) * 100);
 }
@@ -99,12 +95,10 @@ const TAG_POSITION_CURVE: readonly CurveNode[] = [
   [ETSY_LIMITS.titleChars, 0.15],
 ];
 
-/** Length carries the sub-score and placement scales it, rather than the two
- *  splitting the weight between them. Additive weights got both ends wrong: a
- *  seven-character title scored half marks because its single word happened to
- *  be a tag, while a long, well-built title that never repeated one scored
- *  below it. Search space you didn't use can't be earned back by where you put
- *  the keyword. */
+/** Length carries the sub-score, placement scales it — search space you didn't
+ *  use can't be earned back by where you put the keyword. Splitting the weight
+ *  additively gave a seven-character title half marks for containing one tag,
+ *  above a long well-built title that repeated none. */
 function titleScore(s: SeoSignals): ScoreSub {
   const length = ramp(s.titleLength, TITLE_LENGTH_CURVE) * ramp(s.titleOverLimitBy, TITLE_OVERFLOW_CURVE);
   const placement = s.tagTitleOffset === null ? 0 : ramp(s.tagTitleOffset, TAG_POSITION_CURVE);
@@ -145,11 +139,14 @@ function tagScore(s: SeoSignals): ScoreSub {
     score: combine([
       { weight: 0.5, fraction: ramp(s.tagCount, TAG_SLOTS_CURVE) },
       { weight: 0.5, fraction: healthy / s.tagCount },
-      // #56 lands here: tag difficulty / search volume. Until then it is
-      // unmeasured, and the weighting above simply ignores it.
+      // #56 lands here: tag difficulty / search volume.
       { weight: 0.5, fraction: null },
     ]),
-    note: `${s.tagCount} із ${ETSY_LIMITS.tags} слотів, ${tagWord(healthy)} без повторів і перекриттів.`,
+    // Names all three reasons weakTags counts, or the note would contradict
+    // the checklist's "без дублікатів і перекриттів" on a single-word tag.
+    note: s.weakTags.length
+      ? `${s.tagCount} із ${ETSY_LIMITS.tags} слотів, ${tagWord(s.weakTags.length)} витрачено на повтори, перекриття чи одне слово.`
+      : `${s.tagCount} із ${ETSY_LIMITS.tags} слотів, кожен — окрема фраза.`,
   };
 }
 
@@ -192,16 +189,19 @@ const PARAGRAPH_SIZE_CURVE: readonly CurveNode[] = [
   [SCORE_TUNING.unreadableParagraphChars, 0.3],
 ];
 
+/** Flat until the last repeat the checklist still calls clean: interpolating
+ *  from zero docked a single, perfectly normal mention of the keyword while
+ *  the check beside it read "без надмірних повторів". */
 const STUFFING_CURVE: readonly CurveNode[] = [
   [0, 1],
-  [SEO_THRESHOLDS.stuffingWarn, 0.6],
+  [SEO_THRESHOLDS.stuffingWarn - 1, 1],
   [SEO_THRESHOLDS.stuffingBad, 0.2],
   [SEO_THRESHOLDS.stuffingBad * 2, 0],
 ];
 
 function descriptionScore(s: SeoSignals): ScoreSub {
-  // Same test FlaggedDescription and the checklist use, so a whitespace-only
-  // description can't be graded here while the page calls it missing.
+  // The checklist's own test, so a whitespace-only description can't be graded
+  // here while the page calls it missing.
   if (!s.hasDescription) {
     return { score: 0, note: "Опису немає — перевіряти нічого." };
   }
@@ -209,9 +209,12 @@ function descriptionScore(s: SeoSignals): ScoreSub {
   // Below the "too short" threshold there is nothing to structure, so a
   // single paragraph is not a fault worth deducting for.
   const gradeStructure = s.descriptionLength >= SEO_THRESHOLDS.descriptionWarn;
-  const structure = s.paragraphCount <= 1
-    ? SCORE_TUNING.wallOfTextFraction
-    : ramp(s.descriptionLength / s.paragraphCount, PARAGRAPH_SIZE_CURVE);
+  // The missing break is a flat penalty on top of the size curve, not instead
+  // of it: a 400-character block is not the wall of text a 3000-character one
+  // is, and one blank line must not swing the sub-score by a sixth.
+  const paragraphs = Math.max(1, s.paragraphCount);
+  const structure = ramp(s.descriptionLength / paragraphs, PARAGRAPH_SIZE_CURVE)
+    * (paragraphs === 1 ? SCORE_TUNING.singleParagraphFraction : 1);
 
   const parts = [
     chars(s.descriptionLength),
