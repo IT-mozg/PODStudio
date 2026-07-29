@@ -35,6 +35,7 @@ and would quietly corrupt every downstream estimate.
 """
 
 import json
+import math
 import threading
 import time
 import urllib.error
@@ -68,6 +69,21 @@ TTL_SECONDS = 24 * 60 * 60
 # stale-but-served rates beats a page that takes a quarter of a minute to
 # render.
 RETRY_COOLDOWN_SECONDS = 10 * 60
+
+
+def _is_usable_rate(value) -> bool:
+    """Whether `value` can be divided into 1.0 and yield a real rate.
+
+    The infinity check is not paranoia: Python's json.loads accepts the
+    non-standard `NaN`/`Infinity`/`-Infinity` literals by default, and neither
+    survives a plain `value <= 0` test - every comparison with NaN is False,
+    and `inf <= 0` is False too. `1.0 / inf` would then quietly produce 0.0,
+    which reads downstream as a perfectly ordinary "this costs $0.00" rather
+    than as the corrupt input it is. bool is excluded because it is a subclass
+    of int: JSON `true` would otherwise pass as the rate 1.0."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return False
+    return math.isfinite(value) and value > 0
 
 
 def _fetch_frankfurter() -> dict:
@@ -144,7 +160,10 @@ class FxRates:
 
         None means exactly that - not 1.0. A caller that treats a missing
         rate as parity turns "we don't know" into a confident wrong number."""
-        code = (currency or "").strip().upper()
+        # str() rather than trusting the annotation: every other bad input in
+        # this module degrades to None, and a caller passing something odd
+        # should not be the one case that raises AttributeError instead.
+        code = str(currency or "").strip().upper()
         if not code:
             return None
         # Answered without the lock, the network, or even the cache file: the
@@ -157,9 +176,7 @@ class FxRates:
             self._ensure_fresh()
             per_usd = (self._rates or {}).get(code)
 
-        # `per_usd <= 0` should be impossible, but it is the one value that
-        # would turn the division below into a crash or a nonsense rate.
-        if not isinstance(per_usd, (int, float)) or per_usd <= 0:
+        if not _is_usable_rate(per_usd):
             return None
         return 1.0 / float(per_usd)
 
@@ -169,12 +186,25 @@ class FxRates:
         if amount is None:
             return None
         r = self.rate(currency)
-        return None if r is None else float(amount) * r
+        if r is None:
+            return None
+        try:
+            return float(amount) * r
+        except (TypeError, ValueError):
+            # Same rule as everywhere else here: an input this module cannot
+            # make sense of becomes None, not an exception thrown at whatever
+            # is rendering the page.
+            return None
 
     def status(self) -> dict:
         """What the module currently knows, for diagnostics: which day's ECB
-        quote is loaded, how many currencies, and when it was fetched. Cheap
-        enough to call from a health endpoint."""
+        quote is loaded, how many currencies, when it was fetched, and why the
+        last refresh failed if it did.
+
+        Does no I/O of its own beyond reading the cache file once, but it does
+        take the same lock - so a call landing during a refresh waits out that
+        refresh, up to the fetch timeout. Fine for an occasional health check,
+        not for anything on a hot path."""
         with self._lock:
             self._load_cache_if_needed()
             return {
@@ -192,12 +222,20 @@ class FxRates:
             return
         cached = json_store.read_json(self._cache_path, {})
         rates = cached.get("rates") if isinstance(cached, dict) else None
-        if isinstance(rates, dict):
-            self._rates = {str(k).upper(): v for k, v in rates.items()}
-            self._fetched_at = float(cached.get("fetched_at") or 0.0)
-            self._date = str(cached.get("date") or "")
-        else:
+        if not isinstance(rates, dict):
             self._rates = {}
+            return
+
+        self._rates = {str(k).upper(): v for k, v in rates.items()}
+        self._date = str(cached.get("date") or "")
+        try:
+            self._fetched_at = float(cached.get("fetched_at") or 0.0)
+        except (TypeError, ValueError):
+            # A hand-edited or schema-drifted cache file must not take a page
+            # down: json_store already guarantees the file parses, but nothing
+            # guarantees the *fields* are what we last wrote. Treating the
+            # timestamp as absent just forces a refresh.
+            self._fetched_at = 0.0
 
     def _ensure_fresh(self) -> None:
         self._load_cache_if_needed()
@@ -210,7 +248,15 @@ class FxRates:
 
         try:
             payload = self._fetch()
-            rates = {str(k).upper(): float(v) for k, v in payload["rates"].items()}
+            # Unusable quotes are dropped here rather than at lookup time, so
+            # they never reach the cache file in the first place. If that
+            # leaves nothing at all, treat the whole response as a failure -
+            # otherwise an empty dict would count as a successful refresh and
+            # be re-fetched on every single call, cooldown reset each time.
+            rates = {str(k).upper(): float(v)
+                     for k, v in payload["rates"].items() if _is_usable_rate(v)}
+            if not rates:
+                raise ValueError("Frankfurter returned no usable rates")
         except Exception as e:
             # Deliberately broad, and deliberately silent about the old data:
             # whatever went wrong out there - no network, a 500, malformed

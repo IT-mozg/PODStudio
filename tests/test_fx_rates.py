@@ -19,10 +19,12 @@ Two of these guard properties that no amount of clicking would surface:
 Everything is injected (fetcher, clock), so the suite stays offline and
 instant."""
 
+import json
 import threading
 
 import pytest
 
+from models import fx_rates as fx_module
 from models.fx_rates import FxRates
 
 # Real shape of GET https://api.frankfurter.dev/v1/latest?base=USD, trimmed.
@@ -124,14 +126,130 @@ def test_failed_fetch_with_empty_cache_is_none(tmp_path):
     assert fx.to_usd(20, "EUR") is None
 
 
-def test_non_usd_base_is_rejected(tmp_path):
-    """A EUR-based response would make every conversion wrong by ~14% with no
-    error anywhere, so the fetcher's own validation must reject it. Here the
-    module-level guard is bypassed (fetcher is injected), so this checks the
-    other half: a payload without usable rates yields None, not garbage."""
-    fetcher = CountingFetcher(payload={"base": "EUR", "rates": {}})
+def test_payload_without_usable_rates_yields_none(tmp_path):
+    fetcher = CountingFetcher(payload={"base": "USD", "rates": {}})
     fx, _, _ = make(tmp_path, fetcher=fetcher)
     assert fx.rate("PLN") is None
+
+
+# ---- _fetch_frankfurter's own validation ----
+#
+# These call the real fetcher with urlopen stubbed. Everything above injects a
+# fetcher and therefore never exercises the guards inside it - which is how a
+# test named "non_usd_base_is_rejected" previously passed while asserting
+# nothing of the sort. Delete the base check in _fetch_frankfurter and
+# test_fetcher_rejects_a_non_usd_base is the one that fails.
+
+class FakeResponse:
+    def __init__(self, body: str):
+        self._body = body.encode("utf-8")
+
+    def read(self) -> bytes:
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return False
+
+
+@pytest.fixture
+def stub_urlopen(monkeypatch):
+    def install(body: str):
+        monkeypatch.setattr(fx_module.urllib.request, "urlopen",
+                            lambda *a, **kw: FakeResponse(body))
+    return install
+
+
+def test_fetcher_accepts_a_usd_quote(stub_urlopen):
+    stub_urlopen(json.dumps(SAMPLE))
+    assert fx_module._fetch_frankfurter()["rates"]["PLN"] == 3.8062
+
+
+def test_fetcher_rejects_a_non_usd_base(stub_urlopen):
+    """A EUR-based quote read as USD would make every conversion wrong by
+    ~14% with no error anywhere - the one corruption that looks entirely
+    plausible downstream."""
+    stub_urlopen(json.dumps({**SAMPLE, "base": "EUR"}))
+    with pytest.raises(ValueError, match="EUR"):
+        fx_module._fetch_frankfurter()
+
+
+def test_fetcher_rejects_an_empty_or_missing_rates_block(stub_urlopen):
+    stub_urlopen(json.dumps({"base": "USD", "rates": {}}))
+    with pytest.raises(ValueError):
+        fx_module._fetch_frankfurter()
+
+    stub_urlopen(json.dumps({"base": "USD"}))
+    with pytest.raises(ValueError):
+        fx_module._fetch_frankfurter()
+
+
+def test_fetcher_sends_a_user_agent(monkeypatch):
+    """Cloudflare 403s urllib's default UA, which cost a whole debugging
+    session the first time - the header must actually be on the request."""
+    seen = {}
+
+    def capture(req, *a, **kw):
+        seen["ua"] = req.get_header("User-agent")
+        return FakeResponse(json.dumps(SAMPLE))
+
+    monkeypatch.setattr(fx_module.urllib.request, "urlopen", capture)
+    fx_module._fetch_frankfurter()
+    assert seen["ua"] and "Python-urllib" not in seen["ua"]
+
+
+# ---- corrupt inputs must degrade, never raise ----
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf"), 0, -1, True, "3.8", None])
+def test_unusable_rate_values_are_refused(tmp_path, bad):
+    """NaN and inf are the dangerous ones: both slip past a plain `<= 0`
+    test, and `1.0 / inf` yields 0.0 - which reads downstream as an honest
+    "$0.00" rather than as corrupt input. json.loads parses the bare NaN and
+    Infinity literals by default, so this is reachable from the wire."""
+    fetcher = CountingFetcher(payload={"base": "USD", "rates": {"PLN": bad, "EUR": 0.9}})
+    fx, _, _ = make(tmp_path, fetcher=fetcher)
+    assert fx.rate("PLN") is None, f"{bad!r} must not be usable as a rate"
+    assert fx.rate("EUR") is not None, "one bad quote must not poison the rest"
+
+
+def test_unusable_rates_never_reach_the_cache_file(tmp_path):
+    fetcher = CountingFetcher(payload={"base": "USD", "rates": {"PLN": float("inf"), "EUR": 0.9}})
+    fx, _, _ = make(tmp_path, fetcher=fetcher)
+    fx.rate("EUR")
+    written = json.loads((tmp_path / "fx_rates.json").read_text(encoding="utf-8"))
+    assert "PLN" not in written["rates"]
+
+
+def test_corrupt_timestamp_in_cache_does_not_raise(tmp_path):
+    """The file parses as JSON but its fields are not what we last wrote -
+    a hand edit, or an older schema. json_store guarantees the former, never
+    the latter, and float("not-a-number") would otherwise escape from under
+    the lock and take the page with it."""
+    (tmp_path / "fx_rates.json").write_text(json.dumps({
+        "base": "USD", "date": "whenever",
+        "fetched_at": "not-a-number",
+        "rates": {"PLN": 3.8062},
+    }), encoding="utf-8")
+
+    fetcher = CountingFetcher(fail_with=OSError("offline"))
+    fx, _, _ = make(tmp_path, fetcher=fetcher)
+    # Unreadable timestamp reads as "never fetched", so it tries to refresh,
+    # fails, and falls back to the rates it already has.
+    assert fx.rate("PLN") == pytest.approx(1 / 3.8062)
+
+
+def test_non_string_currency_degrades_instead_of_raising(tmp_path):
+    fx, _, _ = make(tmp_path)
+    assert fx.rate(12345) is None
+    assert fx.to_usd(10, 12345) is None
+
+
+def test_non_numeric_amount_degrades_instead_of_raising(tmp_path):
+    fx, _, _ = make(tmp_path)
+    assert fx.to_usd("не число", "EUR") is None
+    assert fx.to_usd(0, "EUR") == 0.0, "zero is a real amount, not a missing one"
 
 
 # ---- caching ----
