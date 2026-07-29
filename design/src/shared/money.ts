@@ -44,7 +44,13 @@ export function formatPrice(
   currency: string,
 ): string | null {
   if (amount === null || !divisor) return null;
-  const value = amount / divisor;
+  return formatCurrency(amount / divisor, currency);
+}
+
+/** An already-divided amount in a named currency — 24.99 + "EUR" → "24,99 €".
+ *  Used for #58's estimated revenue, which arrives as a plain number rather
+ *  than Etsy's amount/divisor pair but still isn't always in dollars. */
+export function formatCurrency(value: number, currency: string): string {
   if (!currency) return value.toFixed(2);
   try {
     return new Intl.NumberFormat("uk-UA", { style: "currency", currency }).format(value);

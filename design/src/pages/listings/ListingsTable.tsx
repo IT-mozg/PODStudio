@@ -47,7 +47,7 @@ export const ListingsTable = memo(function ListingsTable({ listings, onToggleTra
             <td>
               <div className={styles.listingCell}>
                 <div className={styles.thumb} style={{ background: `linear-gradient(135deg, ${listing.thumbGradient[0]}, ${listing.thumbGradient[1]})` }} />
-                <div>
+                <div className={styles.listingText}>
                   <div className={styles.listingTitle}>{listing.title}</div>
                   <div className={styles.numSub}>{listing.ageMonths} міс. на Etsy</div>
                 </div>

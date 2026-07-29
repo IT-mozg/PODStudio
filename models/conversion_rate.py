@@ -105,3 +105,22 @@ def conv_rate_pct(price_usd) -> float | None:
             break
         rate = bucket_rate
     return rate
+
+
+def est_sales(views, price_usd) -> int | None:
+    """`round(views * conv_rate_pct(price_usd) / 100)`, or None when either
+    input is unusable.
+
+    Lifetime, like Etsy's own view count - not sales in any recent window.
+    The formula matched eRank on 19 of 19 listings; the rate it multiplies
+    by is still the model described above. None rather than 0 for the same
+    reason conv_rate_pct returns None.
+    """
+    rate = conv_rate_pct(price_usd)
+    if rate is None:
+        return None
+    if isinstance(views, bool) or not isinstance(views, (int, float)):
+        return None
+    if not math.isfinite(views) or views < 0:
+        return None
+    return round(views * rate / 100)

@@ -3,7 +3,7 @@
    pure function — see httpListingsRepository.ts, ListingsPage's default
    repository, for where it's used against the live backend. */
 
-import { formatCount, formatPrice, formatRevenue } from "../../shared/money";
+import { formatCount, formatCurrency, formatPrice } from "../../shared/money";
 import { mulberry32, seedFromString } from "../../shared/prng";
 import type { Listing, ListingAttribute, ListingDetail } from "./types";
 
@@ -18,8 +18,12 @@ export interface ApiListing {
   shop_id: string;
   shop_name: string;
   views: number;
-  sales: number | null;
-  revenue: number | null;
+  // Modelled, not measured (#57/#58). Never null — the backend sends 0 when
+  // it can't compute them.
+  sales: number;
+  revenue: number;
+  // Currency `revenue` is in: the listing's own, not USD.
+  revenue_currency: string;
   age_months: number;
   tags: string[];
   tracked: boolean;
@@ -42,11 +46,6 @@ function thumbGradientFor(id: string): [string, string] {
   return GRADIENTS[Math.floor(rand() * GRADIENTS.length)];
 }
 
-/** sales/revenue arrive as `null` whenever the backend has no real number
- *  for them (currently: always — Etsy's API exposes neither per listing;
- *  estimating them is issue #57/#58). formatCount/formatRevenue in
- *  shared/money.ts render that as "—" rather than "0"/"$NaN", and the shop
- *  mapper needs the same treatment, which is why they live there. */
 export function mapApiListing(raw: ApiListing): Listing {
   return {
     id: raw.lid,
@@ -55,7 +54,7 @@ export function mapApiListing(raw: ApiListing): Listing {
     shopName: raw.shop_name,
     views: raw.views.toLocaleString("uk-UA"),
     sales: formatCount(raw.sales),
-    revenue: formatRevenue(raw.revenue),
+    revenue: formatCurrency(raw.revenue, raw.revenue_currency),
     ageMonths: raw.age_months,
     tags: raw.tags,
     tracked: raw.tracked,

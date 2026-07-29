@@ -14,7 +14,7 @@ from pathlib import Path
 
 from models import generate_designs as engine
 from models import json_store
-from models.conversion_rate import conv_rate_pct
+from models.conversion_rate import conv_rate_pct, est_sales
 from models.design_generator import OpenAIDesignGenerator
 from models.etsy_api_client import EtsyApiClient
 from models.etsy_api_listing_source import EtsyApiListingSource
@@ -228,6 +228,10 @@ def listings_payload(found: dict) -> list:
     out = []
     for lid, listing in found.items():
         ref_exists = (engine.REFS_DIR / f"{lid}.jpg").exists()
+        sales_est = est_sales(listing.views, listing_price_usd(listing))
+        unit_price = (listing.price_amount / listing.price_divisor
+                      if listing.price_amount is not None and listing.price_divisor
+                      else None)
         bg = effective_bg(lid) if ref_exists else ""
         saved_prompt = (history.get(lid) or {}).get("prompt")
         out.append({
@@ -245,14 +249,16 @@ def listings_payload(found: dict) -> list:
             "tags": listing.tags,
             "views": listing.views,
             "age_months": age_months(listing.created_timestamp),
-            # Etsy's public API exposes no per-listing sales/revenue figures
-            # other than for the authenticated user's own shop - there is no
-            # endpoint or field that provides them, so these stay None
-            # rather than shipping a made-up number. Estimating them from
-            # views x price-based conversion rate is issues #57/#58; see
-            # etsy_conversion_research.md for the method.
-            "sales": None,
-            "revenue": None,
+            # Not Etsy figures - the model from models/conversion_rate.py
+            # (#57/#58). The 0 where it returns None is the project owner's
+            # call, not an honest zero.
+            "sales": sales_est if sales_est is not None else 0,
+            "revenue": (round(sales_est * unit_price, 2)
+                        if sales_est is not None and unit_price is not None
+                        else 0),
+            # Revenue is in the listing's own currency; the USD conversion
+            # only serves the dollar-denominated rate table.
+            "revenue_currency": listing.price_currency,
             "tracked": lid in tracked,
         })
     return out

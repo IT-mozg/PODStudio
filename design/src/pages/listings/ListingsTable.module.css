@@ -58,6 +58,12 @@
   flex-shrink: 0;
 }
 
+/* Without min-width:0 a flex item never shrinks below its content, so
+   .listingTitle's ellipsis below has nothing to clip. */
+.listingText {
+  min-width: 0;
+}
+
 .listingTitle {
   font-weight: 600;
   color: var(--text-0);
