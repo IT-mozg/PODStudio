@@ -15,6 +15,9 @@ import type { Listing, ListingAttribute, ListingDetail } from "./types";
 export interface ApiListing {
   lid: string;
   title: string;
+  /** Etsy's own thumbnail (or a locally saved reference image). "" when the
+   *  backend had no URL — see container.ui_thumb. */
+  thumb: string;
   shop_id: string;
   shop_name: string;
   views: number;
@@ -59,6 +62,7 @@ export function mapApiListing(raw: ApiListing): Listing {
     ageMonths: raw.age_months,
     tags: raw.tags,
     tracked: raw.tracked,
+    thumbUrl: raw.thumb ?? "",
     thumbGradient: thumbGradientFor(raw.lid),
   };
 }

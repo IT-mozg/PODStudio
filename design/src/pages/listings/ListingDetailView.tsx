@@ -19,7 +19,8 @@ import { buildDescriptionSegments, buildSeoChecks } from "./seoChecks";
 import { buildListingScore } from "./listingScore";
 import { FlaggedDescription } from "./FlaggedDescription";
 import { ListingScoreCard } from "./ListingScoreCard";
-import { SimilarListingsCarousel } from "./SimilarListingsCarousel";
+import { SimilarListingsSection } from "./SimilarListingsSection";
+import type { ListingsRepository } from "./listingsRepository";
 import styles from "./ListingDetailView.module.css";
 
 const NO_DATA = "—";
@@ -30,9 +31,14 @@ interface ListingDetailViewProps {
   onToggleTracked: (listingId: string) => void;
   onSelectListing: (listingId: string) => void;
   onSelectShop: (shopId: string) => void;
+  /** Passed straight through to SimilarListingsSection, which is the one
+   *  block here that fetches on its own (lazily, on scroll). Kept as a prop
+   *  rather than letting that component reach for the http repository itself
+   *  so this view stays injectable end to end — same DI seam as the pages. */
+  repository?: ListingsRepository;
 }
 
-export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectListing, onSelectShop }: ListingDetailViewProps) {
+export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectListing, onSelectShop, repository }: ListingDetailViewProps) {
   // Tag names are real; every metric beside them needs the search-volume
   // engine (#54/#56) and stays null so the table renders "—".
   const tags: ListingTag[] = useMemo(
@@ -193,12 +199,19 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
         </PanelCard>
       </TwoColumnLayout>
 
-      <SectionHead
-        icon={ListingsIcon}
-        title="Схожі лістинги"
-        badge={<TodoBadge issue={86} reason="Etsy API не має ендпоінта «схожі лістинги»" />}
+      <SectionHead icon={ListingsIcon} title="Схожі лістинги" />
+      {/* key=listing.id remounts the section on every navigation. Without
+          it the component survives the /listings/:listingId param change
+          with its "has been scrolled into view" flag still latched from the
+          previous listing, so the lazy fetch only ever stayed lazy for the
+          first listing of a session — every card click after that spent its
+          Etsy requests before the user could reach the block. */}
+      <SimilarListingsSection
+        key={listing.id}
+        listingId={listing.id}
+        onSelect={onSelectListing}
+        repository={repository}
       />
-      <SimilarListingsCarousel items={[]} onSelect={onSelectListing} />
     </div>
   );
 }

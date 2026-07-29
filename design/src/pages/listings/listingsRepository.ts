@@ -18,6 +18,14 @@ export interface ListingsRepository {
    *  serves them from separate endpoints on purpose: the search grid must
    *  not carry 78 descriptions it never renders. */
   getDetailById(listingId: string): Promise<ListingDetail | null>;
+  /** Listings similar to this one, for the detail page's carousel (#86).
+   *  Deliberately not expressed as search(): search() repoints the backend's
+   *  shared listing source and wipes its page cache, so calling it from the
+   *  detail page would reset the grid the user came from. `query` is the
+   *  criterion actually used, and the UI has to show it — Etsy has no
+   *  similar/recommended endpoint, so this is a second keyword search and
+   *  must not be presented as anything more. */
+  getSimilar(listingId: string): Promise<{ query: string; items: Listing[] }>;
   /** Every tracked listing, independent of the current search — a
    *  bookmark outlives the query it was made under, so this can't be a
    *  filter over the last search's results. */
@@ -25,11 +33,11 @@ export interface ListingsRepository {
 }
 
 const MOCK_LISTINGS: Listing[] = [
-  { id: "l1", title: "Funny cat vintage tee", shopId: "ct", shopName: "CatTeesShop", views: "987,976", sales: "12,942", revenue: "$198.1k", ageMonths: 38, tags: ["funny cat", "t-shirt"], tracked: true, thumbGradient: ["#ff9a5a", "#e0653f"] },
-  { id: "l2", title: "Retro surf van sunset poster", shopId: "vg", shopName: "VintageGlowPrints", views: "120,696", sales: "50,287", revenue: "$420k", ageMonths: 64, tags: ["retro", "wall art"], tracked: false, thumbGradient: ["#7c6cff", "#5b4bdb"] },
-  { id: "l3", title: "Dog mom era typography sweatshirt", shopId: "kk", shopName: "KrispKiwiStudio", views: "18,163", sales: "1,245", revenue: "$29.4k", ageMonths: 21, tags: ["dog mom", "sweatshirt"], tracked: false, thumbGradient: ["#4ade80", "#22916a"] },
-  { id: "l4", title: "Minimalist mountain line art print", shopId: "os", shopName: "OldSchoolCulture", views: "3,912", sales: "287", revenue: "$6.1k", ageMonths: 12, tags: ["minimalist", "line art"], tracked: false, thumbGradient: ["#f472b6", "#c2418e"] },
-  { id: "l5", title: "Coffee lover mug — custom name", shopId: "mv", shopName: "MugvoyageCo", views: "45,230", sales: "3,108", revenue: "$36.7k", ageMonths: 29, tags: ["coffee", "mug", "personalized"], tracked: false, thumbGradient: ["#ef7c4a", "#b3552c"] },
+  { id: "l1", title: "Funny cat vintage tee", shopId: "ct", shopName: "CatTeesShop", views: "987,976", sales: "12,942", revenue: "$198.1k", ageMonths: 38, tags: ["funny cat", "t-shirt"], tracked: true, thumbUrl: "", thumbGradient: ["#ff9a5a", "#e0653f"] },
+  { id: "l2", title: "Retro surf van sunset poster", shopId: "vg", shopName: "VintageGlowPrints", views: "120,696", sales: "50,287", revenue: "$420k", ageMonths: 64, tags: ["retro", "wall art"], tracked: false, thumbUrl: "", thumbGradient: ["#7c6cff", "#5b4bdb"] },
+  { id: "l3", title: "Dog mom era typography sweatshirt", shopId: "kk", shopName: "KrispKiwiStudio", views: "18,163", sales: "1,245", revenue: "$29.4k", ageMonths: 21, tags: ["dog mom", "sweatshirt"], tracked: false, thumbUrl: "", thumbGradient: ["#4ade80", "#22916a"] },
+  { id: "l4", title: "Minimalist mountain line art print", shopId: "os", shopName: "OldSchoolCulture", views: "3,912", sales: "287", revenue: "$6.1k", ageMonths: 12, tags: ["minimalist", "line art"], tracked: false, thumbUrl: "", thumbGradient: ["#f472b6", "#c2418e"] },
+  { id: "l5", title: "Coffee lover mug — custom name", shopId: "mv", shopName: "MugvoyageCo", views: "45,230", sales: "3,108", revenue: "$36.7k", ageMonths: 29, tags: ["coffee", "mug", "personalized"], tracked: false, thumbUrl: "", thumbGradient: ["#ef7c4a", "#b3552c"] },
 ];
 
 class MockListingsRepository implements ListingsRepository {
@@ -55,6 +63,20 @@ class MockListingsRepository implements ListingsRepository {
 
   async getById(listingId: string): Promise<Listing | null> {
     return this.resolve(listingId);
+  }
+
+  /** Mirrors the backend's rule (container.similar_query): the query is the
+   *  opening of the title, and every other fixture is a candidate. Sorted
+   *  the same way the route sorts — by the sales estimate, descending. */
+  async getSimilar(listingId: string): Promise<{ query: string; items: Listing[] }> {
+    const listing = await this.resolve(listingId);
+    if (!listing) return { query: "", items: [] };
+    const query = listing.title.split(" ").slice(0, 3).join(" ");
+    const items = this.listings
+      .filter((l) => l.id !== listingId)
+      .map((l) => ({ ...l }))
+      .sort((a, b) => parseCount(b.sales) - parseCount(a.sales));
+    return { query, items };
   }
 
   /** Demo detail data, written out by hand rather than generated. The

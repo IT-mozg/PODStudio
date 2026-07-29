@@ -105,6 +105,18 @@ class ListingSource(ABC):
         wanted = set(lids)
         return {lid: listing for lid, listing in self.get_all().items() if lid in wanted}
 
+    def find_similar(self, keywords: str, limit: int = 10,
+                     exclude: str = "") -> dict[str, Listing]:
+        """Listings matching a one-off query, without disturbing whatever
+        this source is currently pointed at (#86).
+
+        Default: an empty result, i.e. "this source can't answer that" - a
+        source with no free-text query of its own has nothing honest to
+        return here, and the UI renders the empty case explicitly rather
+        than filling it in. Override where a query is actually possible
+        (see EtsyApiListingSource)."""
+        return {}
+
     def is_popular(self, listing: Listing) -> bool:
         """Whether this listing deserves a "Популярне" badge. Default: no
         engagement data available, so always False - override where the

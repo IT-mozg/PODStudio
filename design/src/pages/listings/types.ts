@@ -14,6 +14,10 @@ export interface Listing {
   ageMonths: number | null;
   tags: string[];
   tracked: boolean;
+  /** The listing's real Etsy thumbnail. Empty string when the backend had
+   *  no image URL for it (and always empty in the mock fixtures), in which
+   *  case thumbGradient is what gets rendered. */
+  thumbUrl: string;
   thumbGradient: [string, string];
 }
 

@@ -4,6 +4,7 @@
 from flask import Blueprint, jsonify, request
 
 import container
+from models.conversion_rate import est_sales
 from models.etsy_api_client import EtsyApiError
 
 listings_bp = Blueprint("listings", __name__, url_prefix="/api")
@@ -88,6 +89,71 @@ def api_listing(lid):
     if not listing:
         return jsonify({"error": "Лістинг не знайдено"}), 404
     return jsonify({"listings": [container.listing_detail_payload(listing)]})
+
+
+SIMILAR_LIMIT = 10
+
+
+@listings_bp.get("/listings/<int:lid>/similar")
+def api_similar_listings(lid):
+    """Listings similar to this one, for the detail page's carousel (#86).
+
+    "Similar" is a second Etsy relevance search on the opening of this
+    listing's title - Etsy exposes no similar/recommended endpoint at all -
+    so the response carries the `query` it used and the UI states it
+    verbatim rather than presenting the result as Etsy's own recommendation.
+
+    Uses find_similar, never search(): search() would repoint the shared
+    listing source and wipe the page cache, resetting the grid the user has
+    open in the other tab of the same app.
+
+    Cost: 2 Etsy requests per ladder rung tried, so 2 in the common case and
+    6 in the worst one (a title so specific that only the widest rung
+    matches - the exact case similar_query_ladder exists for). That upper
+    bound is why the section is fetched lazily and why every rung is cached
+    per query: a re-open of the same listing costs nothing."""
+    try:
+        found = container.listing_source.get_by_ids([str(lid)])
+        listing = found.get(str(lid))
+        if not listing:
+            return jsonify({"error": "Лістинг не знайдено"}), 404
+        # Walk the query ladder widest-last, keeping the best rung. A shorter
+        # query is strictly broader, so in practice the first full rung wins
+        # or the last one does - but "best so far" is what the UI promises,
+        # and it costs nothing to actually guarantee it.
+        ladder = container.similar_query_ladder(listing.title)
+        query, similar = "", {}
+        for rung in ladder:
+            found = container.listing_source.find_similar(
+                rung, limit=SIMILAR_LIMIT, exclude=str(lid))
+            if len(found) > len(similar):
+                query, similar = rung, found
+            if len(similar) >= SIMILAR_LIMIT:
+                break
+        if not similar and ladder:
+            # No rung matched anything. `query` is still "" because 0 > 0 is
+            # false, and an empty query would reach the UI as the sentence
+            # "за запитом «» нічого не знайшлося". Report the broadest rung
+            # actually tried instead - that is the honest answer to "what did
+            # you search for", and it is the one whose emptiness is
+            # meaningful.
+            query = ladder[-1]
+    except EtsyApiError as e:
+        return jsonify({"error": str(e)}), 502
+
+    # Ranked by the modelled sales estimate, per the project owner's call -
+    # Etsy publishes no per-listing sales figure to anyone. Sorted on the
+    # estimate computed here rather than on the payload's "sales", because
+    # listings_payload flattens est_sales()'s None to 0 (see its comment);
+    # sorting on that would rank "couldn't be computed" as if it were a
+    # measured zero instead of putting it last.
+    def rank(item) -> float:
+        est = est_sales(item.views, container.listing_price_usd(item))
+        return -1 if est is None else est
+
+    ordered = sorted(similar.values(), key=rank, reverse=True)
+    rows = container.listings_payload({item.lid: item for item in ordered})
+    return jsonify({"listings": rows, "query": query})
 
 
 @listings_bp.post("/listings/<lid>/track")
