@@ -48,13 +48,29 @@
   color: var(--tone-none);
 }
 
+/* Takes the rest of the row so the hint below can sit against its right
+   edge instead of trailing the text. */
+.body {
+  flex: 1;
+  min-width: 0;
+}
+
 .title {
   font-size: 12.5px;
   font-weight: 600;
   display: flex;
   gap: 6px;
   align-items: center;
-  flex-wrap: wrap;
+}
+
+.titleText {
+  min-width: 0;
+}
+
+.hint {
+  margin-left: auto;
+  padding-left: 6px;
+  display: inline-flex;
 }
 
 .row.muted .title {

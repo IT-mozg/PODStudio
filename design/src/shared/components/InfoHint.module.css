@@ -5,15 +5,18 @@
 }
 
 .button {
-  width: 14px;
-  height: 14px;
+  width: 15px;
+  height: 15px;
   border-radius: 50%;
   border: 1px solid var(--border-strong);
   background: transparent;
   color: var(--text-2);
-  font-size: 9px;
-  font-weight: 800;
-  font-style: italic;
+  font-size: 10px;
+  font-weight: 700;
+  /* Upright, not italic: the page's body font italicises "i" into something
+     that doesn't read as the information glyph at this size. */
+  font-style: normal;
+  font-family: Georgia, "Times New Roman", serif;
   line-height: 1;
   display: flex;
   align-items: center;

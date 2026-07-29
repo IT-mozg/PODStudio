@@ -30,12 +30,14 @@ export function SeoChecklist({ checks }: { checks: SeoCheckItem[] }) {
           <div className={`${styles.icon} ${styles[check.status]}`} aria-hidden="true">
             {ICON[check.status]}
           </div>
-          <div>
+          <div className={styles.body}>
             <div className={styles.title}>
               <span className={styles.srOnly}>{STATUS_LABEL[check.status]}</span>
-              <span>{check.title}</span>
-              <InfoHint text={check.why} label={`Чому це важливо: ${check.title}`} />
+              <span className={styles.titleText}>{check.title}</span>
               {check.todoIssue ? <TodoBadge issue={check.todoIssue} reason={check.why} /> : null}
+              <span className={styles.hint}>
+                <InfoHint text={check.why} label={`Чому це важливо: ${check.title}`} />
+              </span>
             </div>
             <div className={styles.detail}>{check.detail}</div>
           </div>
