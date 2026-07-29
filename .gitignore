@@ -41,6 +41,12 @@ browser_profile/
 # binaries, platform-specific - not something to commit.
 vendor/
 
+# fx_rates.json - кеш курсів валют з Frankfurter (models/fx_rates.py). Не
+# секрет і не особисті дані, просто кеш: видалив - відновиться одним запитом.
+# У репозиторії був би ще й шкідливий, бо застарілі курси перекривали б свіжі
+# у кожного, хто зробить pull.
+fx_rates.json
+
 # --- службове ---
 __pycache__/
 *.pyc

@@ -19,6 +19,7 @@ from models.etsy_api_client import EtsyApiClient
 from models.etsy_api_listing_source import EtsyApiListingSource
 from models.etsy_api_shop_source import EtsyApiShopSource
 from models.etsy_taxonomy import EtsyTaxonomy
+from models.fx_rates import FxRates
 from models.generation_queue import GenerationQueue, ReferenceResolver
 from models.history_store import HistoryStore
 from models.shop_source import Shop
@@ -139,6 +140,13 @@ shop_source = EtsyApiShopSource(
 # bare taxonomy_id into a readable category path. Its own client instance
 # because it belongs to neither source.
 taxonomy = EtsyTaxonomy(EtsyApiClient(get_etsy_api_key, get_etsy_shared_secret))
+# Same category as taxonomy: marketplace-independent reference data, not a
+# listing or shop port. Needed because the price -> conversion-rate table
+# (etsy_conversion_research.md) is denominated in dollars while listings are
+# priced in EUR/GBP/PLN too - see #99, consumed by #57. Nothing reads it yet.
+# Not an Etsy call at all, so it takes no Etsy credentials and counts against
+# no Etsy rate limit.
+fx_rates = FxRates(BASE / "fx_rates.json")
 design_generator = OpenAIDesignGenerator(api_key_provider=get_api_key)
 
 history_store = HistoryStore(engine.HISTORY_FILE)
