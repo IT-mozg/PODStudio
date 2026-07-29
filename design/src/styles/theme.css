@@ -21,6 +21,18 @@
   --danger: #f87171;
   --danger-soft: rgba(248, 113, 113, 0.1);
   --danger-border: rgba(248, 113, 113, 0.32);
+  /* Verdict tones: the SEO checklist (#85), the description highlighting and
+     the Listing Score (#84) all grade the same listing, so they must speak
+     the same three colors. --tone-none is for a check that could not run at
+     all - deliberately grey, never green. */
+  --tone-ok: #4ade80;
+  --tone-ok-soft: rgba(74, 222, 128, 0.16);
+  --tone-warn: #fbbf24;
+  --tone-warn-soft: rgba(251, 191, 36, 0.16);
+  --tone-bad: #f87171;
+  --tone-bad-soft: rgba(248, 113, 113, 0.16);
+  --tone-none: #6b7280;
+  --tone-none-soft: rgba(107, 114, 128, 0.16);
   --radius: 14px;
   --radius-sm: 10px;
 

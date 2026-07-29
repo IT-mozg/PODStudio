@@ -14,6 +14,8 @@ import type { ListingDetail, ListingTag } from "./types";
 import { PhotoSlider } from "./PhotoSlider";
 import { TagsAuditTable } from "./TagsAuditTable";
 import { SeoChecklist } from "./SeoChecklist";
+import { buildSeoSignals } from "./seoSignals";
+import { buildDescriptionSegments, buildSeoChecks } from "./seoChecks";
 import { FlaggedDescription } from "./FlaggedDescription";
 import { ListingScoreCard } from "./ListingScoreCard";
 import { SimilarListingsCarousel } from "./SimilarListingsCarousel";
@@ -35,6 +37,15 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
   const tags: ListingTag[] = useMemo(
     () => listing.tags.map((tag) => ({ tag, volume: null, competition: null, kd: null, sparkline: null })),
     [listing.tags],
+  );
+
+  // One pass over the listing's real fields feeds both the checklist and the
+  // description highlighting — and, once #84 lands, the Listing Score too.
+  const seoSignals = useMemo(() => buildSeoSignals(listing), [listing]);
+  const seoChecks = useMemo(() => buildSeoChecks(seoSignals), [seoSignals]);
+  const descriptionSegments = useMemo(
+    () => buildDescriptionSegments(listing.description, seoSignals),
+    [listing.description, seoSignals],
   );
 
   const stats: StatDatum[] = [
@@ -163,13 +174,9 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
       <TwoColumnLayout
         aside={
           <>
-            <SectionHead
-              icon={CheckShieldIcon}
-              title="SEO — що перевірено"
-              badge={<TodoBadge issue={85} reason="Перевірки ще не виводяться з реальних полів лістинга" />}
-            />
+            <SectionHead icon={CheckShieldIcon} title="SEO — що перевірено" />
             <PanelCard>
-              <SeoChecklist checks={[]} />
+              <SeoChecklist checks={seoChecks} />
             </PanelCard>
           </>
         }
@@ -178,7 +185,7 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
             beside the gallery, where a product page expects them. */}
         <SectionHead icon={ListingsIcon} title="Опис" />
         <PanelCard>
-          <FlaggedDescription text={listing.description} segments={null} />
+          <FlaggedDescription text={listing.description} segments={descriptionSegments} />
         </PanelCard>
       </TwoColumnLayout>
 

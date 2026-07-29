@@ -46,15 +46,23 @@ export interface ListingTag {
   sparkline: number[] | null;
 }
 
-export type SeoCheckStatus = "ok" | "warn" | "bad";
+/** "unknown" is not a fourth grade — it means the check could not be run at
+ *  all because its data source doesn't exist yet. It must never collapse
+ *  into "ok", which would read as "checked and fine". */
+export type SeoCheckStatus = "ok" | "warn" | "bad" | "unknown";
 
-/** Populated by #85. Until then the checklist renders its empty state —
- *  the previous version generated these with a PRNG, so e.g. "keyword
- *  stuffing" was reported on every listing regardless of its description. */
+/** One line of the SEO checklist, built by seoChecks.ts from the real
+ *  measurements in seoSignals.ts. */
 export interface SeoCheckItem {
   status: SeoCheckStatus;
   title: string;
   detail: string;
+  /** The rule that produced this verdict, shown on hover. The thresholds are
+   *  this project's judgement call, not something Etsy publishes — spelling
+   *  them out is what keeps the grade inspectable instead of oracular. */
+  why: string;
+  /** Set only on "unknown" checks: the issue that will make it computable. */
+  todoIssue?: number;
 }
 
 export interface ScoreSub {
@@ -71,11 +79,13 @@ export interface ScoreBreakdown {
   description: ScoreSub;
 }
 
-/** A slice of the description with an optional problem flag. Flagging is
- *  #85; today the description arrives as a single unflagged segment. */
+/** A slice of the real description text, cut along the keyword occurrences
+ *  seoSignals.ts found. `flag` says where the keyword came from — the
+ *  listing's own tags or a significant word of its title — not how bad it
+ *  is; severity lives in the checklist, which counts the repetitions. */
 export interface DescriptionSegment {
   text: string;
-  flag?: "warn" | "bad";
+  flag?: "tag" | "title";
 }
 
 /** A listing plus everything only the detail route returns — Flask's

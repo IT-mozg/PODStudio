@@ -1,0 +1,302 @@
+/* Verdicts built on top of seoSignals.ts (#85).
+ *
+ * Every check below reads one or more real fields of the listing. There is no
+ * PRNG here and no default value: a check that cannot be computed is not
+ * emitted as "ok" — it is emitted with status "unknown" and the number of the
+ * ticket that will make it computable.
+ *
+ * The thresholds are a judgement call, agreed with the project owner, not
+ * something Etsy publishes. That is why every item carries a `why` line: the
+ * user can see the rule that produced the verdict instead of trusting it.
+ */
+
+import type { DescriptionSegment, SeoCheckItem } from "./types";
+import { DESCRIPTION_HEAD_CHARS, TITLE_HEAD_CHARS, type SeoSignals } from "./seoSignals";
+
+/** Etsy's own caps — the thing several checks are measured against. */
+const MAX_TITLE_CHARS = 140;
+const MAX_TAGS = 13;
+const MAX_PHOTOS = 10;
+
+/** Ukrainian plural forms: 1 символ / 2 символи / 5 символів. */
+function plural(n: number, one: string, few: string, many: string): string {
+  const mod100 = n % 100;
+  if (mod100 >= 11 && mod100 <= 14) return many;
+  const mod10 = n % 10;
+  if (mod10 === 1) return one;
+  if (mod10 >= 2 && mod10 <= 4) return few;
+  return many;
+}
+
+const chars = (n: number) => `${n} ${plural(n, "символ", "символи", "символів")}`;
+const tagWord = (n: number) => `${n} ${plural(n, "тег", "теги", "тегів")}`;
+const photoWord = (n: number) => `${n} ${plural(n, "фото", "фото", "фото")}`;
+
+function titleCheck(s: SeoSignals): SeoCheckItem {
+  const why = `Правило: менше 60 символів — bad, 60–99 — warn, від 100 до ліміту Etsy у ${MAX_TITLE_CHARS} — ok. Довший заголовок вміщує більше запитів, за якими лістинг може знайтися.`;
+  if (s.titleLength < 60) {
+    return {
+      status: "bad",
+      title: `Заголовок закороткий — ${chars(s.titleLength)}`,
+      detail: `Ліміт Etsy — ${MAX_TITLE_CHARS}; невикористані символи це запити, за якими лістинг не показується.`,
+      why,
+    };
+  }
+  if (s.titleLength < 100) {
+    return {
+      status: "warn",
+      title: `Заголовок — ${chars(s.titleLength)}`,
+      detail: `Є запас до ${MAX_TITLE_CHARS} символів, куди можна додати ще ключових фраз.`,
+      why,
+    };
+  }
+  return {
+    status: "ok",
+    title: `Заголовок — ${chars(s.titleLength)}`,
+    detail: `Ліміт Etsy (${MAX_TITLE_CHARS}) використано майже повністю.`,
+    why,
+  };
+}
+
+function titleHeadCheck(s: SeoSignals): SeoCheckItem {
+  const why = `Правило: хоча б один тег лістинга має траплятися цілком у перших ${TITLE_HEAD_CHARS} символах заголовка — це приблизно те, що видно в пошуковій видачі Etsy.`;
+  if (s.tagInTitleHead) {
+    return {
+      status: "ok",
+      title: "Ключове слово на початку заголовка",
+      detail: `Тег «${s.tagInTitleHead}» стоїть у перших ${TITLE_HEAD_CHARS} символах.`,
+      why,
+    };
+  }
+  return {
+    status: "warn",
+    title: "На початку заголовка немає тега",
+    detail: `Жоден із тегів не трапляється в перших ${TITLE_HEAD_CHARS} символах — саме їх бачить покупець у видачі.`,
+    why,
+  };
+}
+
+function tagCountCheck(s: SeoSignals): SeoCheckItem {
+  const why = `Правило: ${MAX_TAGS} із ${MAX_TAGS} — ok, 10–12 — warn, менше 10 — bad. Etsy дає рівно ${MAX_TAGS} слотів, і незаповнений слот — це запит, за яким лістинг не існує.`;
+  const title = `Заповнено ${s.tagCount} із ${MAX_TAGS} тегів`;
+  if (s.tagCount >= MAX_TAGS) {
+    return { status: "ok", title, detail: "Усі слоти використано.", why };
+  }
+  const free = MAX_TAGS - s.tagCount;
+  const detail = `${free} ${plural(free, "вільний слот", "вільні слоти", "вільних слотів")} — стільки ж втрачених запитів.`;
+  return { status: s.tagCount >= 10 ? "warn" : "bad", title, detail, why };
+}
+
+function tagQualityCheck(s: SeoSignals): SeoCheckItem {
+  const why =
+    "Правило: точні дублікати (після trim + lowercase) — bad; більше половини односкладових тегів або теги, де слова одного повністю входять в інший, — warn.";
+
+  if (s.duplicateTags.length) {
+    return {
+      status: "bad",
+      title: `Дублікати серед тегів: ${tagWord(s.duplicateTags.length)}`,
+      detail: `Повторюються: ${s.duplicateTags.map((tag) => `«${tag}»`).join(", ")}. Кожен дублікат марно займає слот.`,
+      why,
+    };
+  }
+
+  const problems: string[] = [];
+  if (s.tagCount > 0 && s.singleWordTags.length * 2 > s.tagCount) {
+    problems.push(`${tagWord(s.singleWordTags.length)} складаються з одного слова — вони конкурують з усім ринком`);
+  }
+  if (s.overlappingTags.length) {
+    const sample = s.overlappingTags.slice(0, 2).map(([a, b]) => `«${a}» ↔ «${b}»`).join(", ");
+    problems.push(`є теги, що поглинають один одного: ${sample}`);
+  }
+
+  if (problems.length) {
+    return {
+      status: "warn",
+      title: "Теги перекриваються або надто загальні",
+      detail: `${problems.join("; ")}.`,
+      why,
+    };
+  }
+
+  return {
+    status: "ok",
+    title: "Теги без дублікатів і перекриттів",
+    detail: "Кожен тег — окрема фраза, жоден слот не витрачено двічі.",
+    why,
+  };
+}
+
+function photoCheck(s: SeoSignals): SeoCheckItem {
+  // Etsy documents a cap of MAX_PHOTOS, but the API does return more on some
+  // listings — so the cap is only mentioned while the listing is under it.
+  const why = `Правило: 7 і більше — ok, 5–6 — warn, менше 5 — bad. Орієнтир Etsy — до ${MAX_PHOTOS} фото на лістинг.`;
+  if (s.photoCount >= 7) {
+    return {
+      status: "ok",
+      title: photoWord(s.photoCount),
+      detail: "Достатньо, щоб показати товар з різних боків.",
+      why,
+    };
+  }
+  const title = `${photoWord(s.photoCount)} із ${MAX_PHOTOS}`;
+  if (s.photoCount >= 5) {
+    return { status: "warn", title, detail: `Є місце ще для ${MAX_PHOTOS - s.photoCount} фото.`, why };
+  }
+  return { status: "bad", title, detail: "Мало ракурсів — покупцеві бракує підстав натиснути «купити».", why };
+}
+
+function stuffingCheck(s: SeoSignals): SeoCheckItem {
+  const why =
+    "Правило: рахуються входження кожного тега й значущого слова заголовка в описі. 5 і більше повторів одного ключа — bad, 3–4 — warn, до 2 — нормальна густина тексту. Підсвічені місця в описі — це саме ці входження.";
+  // Named off the same number the signals already computed, so the wording
+  // and the threshold can never disagree about which keyword is the worst.
+  const worst = s.keywordHits.find((hit) => hit.spans.length === s.maxKeywordRepeats);
+  const top = worst ? { keyword: worst.keyword, count: worst.spans.length } : null;
+
+  if (!top || s.maxKeywordRepeats < 3) {
+    return {
+      status: "ok",
+      title: "Опис без надмірних повторів",
+      detail: top
+        ? `Найчастіший ключ — «${top.keyword}», ${top.count} ${plural(top.count, "входження", "входження", "входжень")}.`
+        : "Жоден тег не повторюється в описі.",
+      why,
+    };
+  }
+
+  return {
+    status: s.maxKeywordRepeats >= 5 ? "bad" : "warn",
+    title: `Повтор ключа в описі — ${top.count} ${plural(top.count, "раз", "рази", "разів")}`,
+    detail: `«${top.keyword}» повторюється ${top.count} ${plural(top.count, "раз", "рази", "разів")} — підсвічено в тексті нижче.`,
+    why,
+  };
+}
+
+function descriptionLengthCheck(s: SeoSignals): SeoCheckItem {
+  const why =
+    "Правило: менше 300 символів — bad, 300–999 — warn, від 1000 — ok. Довший опис дає більше матеріалу і зовнішньому пошуку, і покупцеві.";
+  if (s.descriptionLength < 300) {
+    return {
+      status: "bad",
+      title: `Опис закороткий — ${chars(s.descriptionLength)}`,
+      detail: "Такий опис не відповідає на питання покупця і не дає тексту зовнішньому пошуку.",
+      why,
+    };
+  }
+  if (s.descriptionLength < 1000) {
+    return {
+      status: "warn",
+      title: `Опис — ${chars(s.descriptionLength)}`,
+      detail: "Є куди рости: розділи, догляд, розміри, відповіді на часті питання.",
+      why,
+    };
+  }
+  return {
+    status: "ok",
+    title: `Опис — ${chars(s.descriptionLength)}`,
+    detail: "Достатньо тексту, щоб покрити і запити, і питання покупця.",
+    why,
+  };
+}
+
+function descriptionHeadCheck(s: SeoSignals): SeoCheckItem {
+  const why = `Правило: хоча б один тег має траплятися в перших ${DESCRIPTION_HEAD_CHARS} символах опису — приблизно стільки Google бере в meta description сторінки лістинга.`;
+  if (s.tagsInFirst160.length) {
+    return {
+      status: "ok",
+      title: "Ключові слова на початку опису",
+      detail: `У перших ${DESCRIPTION_HEAD_CHARS} символах: ${s.tagsInFirst160.slice(0, 3).map((tag) => `«${tag}»`).join(", ")}.`,
+      why,
+    };
+  }
+  return {
+    status: "warn",
+    title: "На початку опису немає тегів",
+    detail: `Перші ${DESCRIPTION_HEAD_CHARS} символів потрапляють у видачу Google — там варто мати ключову фразу.`,
+    why,
+  };
+}
+
+function descriptionStructureCheck(s: SeoSignals): SeoCheckItem {
+  const why = "Правило: опис без жодного порожнього рядка — warn. Суцільна стіна тексту на мобільному майже не читається.";
+  if (s.hasParagraphBreaks) {
+    return { status: "ok", title: "Опис розбитий на абзаци", detail: "Текст читається з телефона.", why };
+  }
+  return {
+    status: "warn",
+    title: "Опис — суцільний текст",
+    detail: "Жодного порожнього рядка: на мобільному це стіна тексту.",
+    why,
+  };
+}
+
+/** Blocked by #56 — the search-volume engine. Shown, not hidden, so it is
+ *  clear the check exists and why it has no answer; never given a number. */
+function tagDemandCheck(): SeoCheckItem {
+  return {
+    status: "unknown",
+    title: "Теги з низьким попитом",
+    detail: "Потрібен обсяг пошуку — Etsy його не віддає, рушій ще не підключено.",
+    why: "Перевірка вимагає зовнішнього джерела пошукового попиту. Поки його немає, показувати тут будь-яке число означало б його вигадати.",
+    todoIssue: 56,
+  };
+}
+
+/** The full checklist for one listing, in reading order: title, tags,
+ *  photos, description. */
+export function buildSeoChecks(signals: SeoSignals): SeoCheckItem[] {
+  const checks: SeoCheckItem[] = [
+    titleCheck(signals),
+    titleHeadCheck(signals),
+    tagCountCheck(signals),
+    tagQualityCheck(signals),
+    photoCheck(signals),
+  ];
+
+  if (signals.descriptionLength === 0) {
+    // Nothing to measure inside a description that doesn't exist. Saying
+    // "no keyword stuffing" here would read as a pass.
+    checks.push({
+      status: "bad",
+      title: "Опису немає",
+      detail: "Etsy не повертає опису для цього лістинга, тож перевірки тексту пропущено.",
+      why: "Перевірки повторів, довжини й структури рахуються тільки коли є текст опису.",
+    });
+  } else {
+    checks.push(
+      descriptionLengthCheck(signals),
+      descriptionHeadCheck(signals),
+      descriptionStructureCheck(signals),
+      stuffingCheck(signals),
+    );
+  }
+
+  checks.push(tagDemandCheck());
+  return checks;
+}
+
+/** Cuts the description into segments along the keyword hits, so a
+ *  highlighted piece is always literally the text at those offsets. A
+ *  description with no matches comes back as one unflagged segment; an empty
+ *  description comes back as an empty array (there is nothing to render, and
+ *  FlaggedDescription shows its own empty state instead). */
+export function buildDescriptionSegments(description: string, signals: SeoSignals): DescriptionSegment[] {
+  if (!description) return [];
+
+  const spans = signals.keywordHits
+    .flatMap((hit) => hit.spans.map(([start, end]) => ({ start, end, flag: hit.source })))
+    .sort((a, b) => a.start - b.start);
+
+  if (!spans.length) return [{ text: description }];
+
+  const segments: DescriptionSegment[] = [];
+  let cursor = 0;
+  for (const span of spans) {
+    if (span.start > cursor) segments.push({ text: description.slice(cursor, span.start) });
+    segments.push({ text: description.slice(span.start, span.end), flag: span.flag });
+    cursor = span.end;
+  }
+  if (cursor < description.length) segments.push({ text: description.slice(cursor) });
+
+  return segments;
+}

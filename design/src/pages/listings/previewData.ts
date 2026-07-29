@@ -19,7 +19,7 @@
  *     preview — a preview of a feature that already works is just a bug.
  */
 
-import type { Listing, ListingTag, ScoreBreakdown, SeoCheckItem } from "./types";
+import type { Listing, ListingTag, ScoreBreakdown } from "./types";
 
 /** #84 — Listing Score. Shows the ring + the four sub-scores it breaks down
  *  into, so it's clear the score is meant to be explainable, not a single
@@ -31,16 +31,6 @@ export const PREVIEW_SCORE: ScoreBreakdown = {
   photos: { score: 91, note: "Достатньо фото з різних ракурсів." },
   description: { score: 62, note: "Є повтори ключових слів на початку тексту." },
 };
-
-/** #85 — SEO checklist. Each item here is deliberately one that IS derivable
- *  from a real field (title length, tag count, photo count, tag repetition in
- *  the description), so the preview doubles as the spec for what to compute. */
-export const PREVIEW_SEO_CHECKS: SeoCheckItem[] = [
-  { status: "ok", title: "Заголовок — довжина в нормі", detail: "118 символів, ключове слово стоїть на початку." },
-  { status: "bad", title: "Повтор тегів в описі", detail: "Перші два речення — перелік тегів без звʼязного тексту." },
-  { status: "warn", title: "Заповнено 7 із 13 тегів", detail: "Шість вільних слотів — це шість втрачених запитів." },
-  { status: "ok", title: "6 фото", detail: "Достатньо, щоб показати товар з різних боків." },
-];
 
 /** #56 — the tags audit table. Only used to illustrate the metric columns;
  *  the real table already renders the listing's real tag names beside "—". */

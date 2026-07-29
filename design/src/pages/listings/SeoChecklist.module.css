@@ -29,23 +29,36 @@
 }
 
 .icon.ok {
-  background: rgba(74, 222, 128, 0.16);
-  color: #4ade80;
+  background: var(--tone-ok-soft);
+  color: var(--tone-ok);
 }
 
 .icon.warn {
-  background: rgba(251, 191, 36, 0.16);
-  color: #fbbf24;
+  background: var(--tone-warn-soft);
+  color: var(--tone-warn);
 }
 
 .icon.bad {
-  background: rgba(248, 113, 113, 0.16);
-  color: #f87171;
+  background: var(--tone-bad-soft);
+  color: var(--tone-bad);
+}
+
+.icon.unknown {
+  background: var(--tone-none-soft);
+  color: var(--tone-none);
 }
 
 .title {
   font-size: 12.5px;
   font-weight: 600;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.row.muted .title {
+  color: var(--tone-none);
 }
 
 .detail {
@@ -53,4 +66,15 @@
   color: var(--text-2);
   margin-top: 2px;
   line-height: 1.4;
+}
+
+/* The status is carried by an icon and a color, neither of which a screen
+   reader announces - this repeats it as text. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
 }
