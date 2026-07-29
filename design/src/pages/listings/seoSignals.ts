@@ -167,9 +167,15 @@ function resolveOverlaps(hits: KeywordHit[]): KeywordHit[] {
   return kept.sort((a, b) => a.spans[0][0] - b.spans[0][0]);
 }
 
+/** Exactly the fields the audit reads. Narrower than ListingDetail on
+ *  purpose: the caller can then memoize on these four instead of on the
+ *  whole listing, which changes identity on every unrelated update (a
+ *  "track" toggle, say). */
+export type SeoInput = Pick<ListingDetail, "title" | "tags" | "description" | "photos">;
+
 /** Every measurement the SEO checklist (#85) and the Listing Score (#84)
- *  are built from. Pure: same listing in, same signals out. */
-export function buildSeoSignals(listing: ListingDetail): SeoSignals {
+ *  are built from. Pure: same fields in, same signals out. */
+export function buildSeoSignals(listing: SeoInput): SeoSignals {
   const title = listing.title ?? "";
   const description = listing.description ?? "";
   // Trimmed once, up front: everything below both searches with and reports

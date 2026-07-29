@@ -25,8 +25,12 @@ const STATUS_LABEL: Record<SeoCheckStatus, string> = {
 export function SeoChecklist({ checks }: { checks: SeoCheckItem[] }) {
   return (
     <div className={styles.list}>
-      {checks.map((check, i) => (
-        <div className={`${styles.row} ${check.status === "unknown" ? styles.muted : ""}`} key={i}>
+      {/* Keyed by title, not by index: each row owns an InfoHint with its own
+          open/pinned state, and an index key would hand a pinned hint over to
+          whatever check happens to land at that position on the next
+          listing. */}
+      {checks.map((check) => (
+        <div className={`${styles.row} ${check.status === "unknown" ? styles.muted : ""}`} key={check.title}>
           <div className={`${styles.icon} ${styles[check.status]}`} aria-hidden="true">
             {ICON[check.status]}
           </div>

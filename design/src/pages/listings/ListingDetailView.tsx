@@ -41,7 +41,15 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
 
   // One pass over the listing's real fields feeds both the checklist and the
   // description highlighting — and, once #84 lands, the Listing Score too.
-  const seoSignals = useMemo(() => buildSeoSignals(listing), [listing]);
+  const seoSignals = useMemo(
+    () => buildSeoSignals({
+      title: listing.title,
+      tags: listing.tags,
+      description: listing.description,
+      photos: listing.photos,
+    }),
+    [listing.title, listing.tags, listing.description, listing.photos],
+  );
   const seoChecks = useMemo(() => buildSeoChecks(seoSignals), [seoSignals]);
   const descriptionSegments = useMemo(
     () => buildDescriptionSegments(listing.description, seoSignals),
