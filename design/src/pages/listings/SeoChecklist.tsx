@@ -5,8 +5,7 @@ import styles from "./SeoChecklist.module.css";
 
 const ICON: Record<SeoCheckStatus, string> = { ok: "✓", warn: "~", bad: "!", unknown: "—" };
 
-/** Repeated as text for screen readers, which get neither the glyph nor the
- *  color. */
+/** For screen readers, which get neither the glyph nor the color. */
 const STATUS_LABEL: Record<SeoCheckStatus, string> = {
   ok: "Гаразд:",
   warn: "Попередження:",
@@ -14,21 +13,18 @@ const STATUS_LABEL: Record<SeoCheckStatus, string> = {
   unknown: "Немає даних:",
 };
 
-/** Every row is derived from a real field of the listing (seoChecks.ts on top
- *  of seoSignals.ts) — #85. The version before that generated the rows with a
- *  PRNG, so "keyword stuffing" was reported on every listing regardless of
- *  what its description actually said.
+/** Every row comes from a real field of the listing (seoChecks.ts) — #85. The
+ *  version before generated them with a PRNG, so "keyword stuffing" was
+ *  reported on every listing regardless of its description.
  *
- *  A check whose data source doesn't exist yet arrives as `unknown` with the
- *  ticket that will fill it in — it is shown greyed out rather than dropped,
- *  so it is clear the check exists and why it has no answer. */
+ *  A check with no data source yet arrives as `unknown` and is greyed out
+ *  rather than dropped, so it's clear it exists and why it has no answer. */
 export function SeoChecklist({ checks }: { checks: SeoCheckItem[] }) {
   return (
     <div className={styles.list}>
-      {/* Keyed by title, not by index: each row owns an InfoHint with its own
-          open/pinned state, and an index key would hand a pinned hint over to
-          whatever check happens to land at that position on the next
-          listing. */}
+      {/* Keyed by title, not index: each row owns an InfoHint with its own
+          open state, and an index key would hand a pinned hint to whatever
+          check lands at that position on the next listing. */}
       {checks.map((check) => (
         <div className={`${styles.row} ${check.status === "unknown" ? styles.muted : ""}`} key={check.title}>
           <div className={`${styles.icon} ${styles[check.status]}`} aria-hidden="true">

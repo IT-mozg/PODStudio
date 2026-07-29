@@ -13,8 +13,8 @@
   color: var(--text-2);
   font-size: 10px;
   font-weight: 700;
-  /* Upright, not italic: the page's body font italicises "i" into something
-     that doesn't read as the information glyph at this size. */
+  /* Upright: the body font italicises "i" into something that doesn't read
+     as the information glyph at this size. */
   font-style: normal;
   font-family: Georgia, "Times New Roman", serif;
   line-height: 1;
@@ -55,9 +55,9 @@
   cursor: text;
 }
 
-/* Bridges the 6px gap to the button. The bubble is a descendant of .wrap, so
-   the pointer crossing this strip never leaves .wrap and the hint stays open
-   long enough to reach it — without it the bubble closes mid-approach. */
+/* Bridges the 6px gap to the button: the bubble is a descendant of .wrap, so
+   the pointer crossing this strip never leaves .wrap. Without it the bubble
+   closes mid-approach and can't be reached at all. */
 .bubble::before {
   content: "";
   position: absolute;

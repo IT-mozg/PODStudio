@@ -2,15 +2,13 @@
   font-size: 13px;
   color: var(--text-1);
   line-height: 1.75;
-  /* Etsy descriptions are plain text carrying their own newlines - keep the
-     seller's paragraph breaks instead of collapsing them into one block. */
+  /* Etsy descriptions carry their own newlines - keep the seller's breaks. */
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   margin: 0;
 }
 
-/* Color says where the keyword came from, not how bad it is: .tag for the
-   listing's own tags, .title for a significant word of its title. */
+/* Color says where the keyword came from, not how bad it is. */
 .tag,
 .title {
   padding: 1px 3px;

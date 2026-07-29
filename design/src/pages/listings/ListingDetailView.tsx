@@ -39,8 +39,7 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
     [listing.tags],
   );
 
-  // One pass over the listing's real fields feeds both the checklist and the
-  // description highlighting — and, once #84 lands, the Listing Score too.
+  // One pass feeds both the checklist and the description highlighting.
   const seoSignals = useMemo(
     () => buildSeoSignals({
       title: listing.title,

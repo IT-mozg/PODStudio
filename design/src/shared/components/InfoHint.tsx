@@ -1,23 +1,20 @@
 import { useId, useState } from "react";
 import styles from "./InfoHint.module.css";
 
-/** A small "i" that explains the thing next to it — on hover, on keyboard
- *  focus, or on click. The click branch is what makes it usable on a touch
- *  screen, where there is no hover at all; a native `title` attribute would
- *  simply never appear there.
+/** A small "i" explaining the thing next to it — on hover, keyboard focus, or
+ *  click. Click is what makes it work on touch, where there is no hover and a
+ *  native `title` would never appear.
  *
- *  Stays on the tooltip pattern (`role="tooltip"` + `aria-describedby` +
- *  Escape) rather than the disclosure one — no `aria-expanded`, which would
- *  announce the button as expandable and contradict the tooltip role. */
+ *  Tooltip pattern (`role="tooltip"` + `aria-describedby` + Escape), not
+ *  disclosure — `aria-expanded` would contradict the tooltip role. */
 export function InfoHint({ text, label = "Пояснення" }: { text: string; label?: string }) {
   const [hovered, setHovered] = useState(false);
   const [pinned, setPinned] = useState(false);
   const id = useId();
   const open = hovered || pinned;
 
-  // The click has to clear `hovered` as well, or it can never close what it
-  // opened: a tap focuses the button first, and a focused button stays
-  // "hovered" on a touch screen, where mouseleave is never delivered.
+  // Must clear `hovered` too, or it can never close what it opened: a tap
+  // focuses the button first, and touch never delivers mouseleave.
   const toggle = () => {
     setPinned((was) => !was);
     setHovered(false);
@@ -54,9 +51,9 @@ export function InfoHint({ text, label = "Пояснення" }: { text: string;
           className={styles.bubble}
           id={id}
           role="tooltip"
-          // Without this, pressing the mouse on the bubble moves focus off the
-          // button, `onBlur` closes the hint, and the text disappears before a
-          // selection can start — it could never be copied.
+          // Without this, pressing the mouse here moves focus off the button,
+          // `onBlur` closes the hint, and the text vanishes before it can be
+          // selected — it could never be copied.
           onMouseDown={(event) => event.preventDefault()}
         >
           {text}

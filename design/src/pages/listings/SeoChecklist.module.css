@@ -48,8 +48,7 @@
   color: var(--tone-none);
 }
 
-/* Takes the rest of the row so the hint below can sit against its right
-   edge instead of trailing the text. */
+/* Takes the rest of the row so the hint can sit against its right edge. */
 .body {
   flex: 1;
   min-width: 0;
@@ -84,8 +83,7 @@
   line-height: 1.4;
 }
 
-/* The status is carried by an icon and a color, neither of which a screen
-   reader announces - this repeats it as text. */
+/* A screen reader announces neither the icon nor the color. */
 .srOnly {
   position: absolute;
   width: 1px;

@@ -46,23 +46,19 @@ export interface ListingTag {
   sparkline: number[] | null;
 }
 
-/** "unknown" is not a fourth grade — it means the check could not be run at
- *  all because its data source doesn't exist yet. It must never collapse
- *  into "ok", which would read as "checked and fine". */
+/** "unknown" is not a fourth grade — the check could not run at all. It must
+ *  never collapse into "ok", which reads as "checked and fine". */
 export type SeoCheckStatus = "ok" | "warn" | "bad" | "unknown";
 
-/** One line of the SEO checklist, built by seoChecks.ts from the real
- *  measurements in seoSignals.ts. */
+/** One line of the SEO checklist, built by seoChecks.ts. */
 export interface SeoCheckItem {
   status: SeoCheckStatus;
   title: string;
   detail: string;
-  /** One plain sentence on why this matters and what to aim for, shown
-   *  behind the row's "i". Deliberately not the numeric thresholds: those
-   *  are this project's judgement call, and reciting them ("менше 60 — bad")
-   *  told the seller nothing they could act on. */
+  /** One plain sentence on what to aim for, shown behind the row's "i" — not
+   *  the thresholds, which tell a seller nothing they can act on. */
   why: string;
-  /** Set only on "unknown" checks: the issue that will make it computable. */
+  /** Only on "unknown": the issue that will make the check computable. */
   todoIssue?: number;
 }
 
@@ -80,10 +76,8 @@ export interface ScoreBreakdown {
   description: ScoreSub;
 }
 
-/** A slice of the real description text, cut along the keyword occurrences
- *  seoSignals.ts found. `flag` says where the keyword came from — the
- *  listing's own tags or a significant word of its title — not how bad it
- *  is; severity lives in the checklist, which counts the repetitions. */
+/** A slice of the real description. `flag` says where the keyword came from —
+ *  a tag or a title word — not how bad it is; severity is the checklist's. */
 export interface DescriptionSegment {
   text: string;
   flag?: "tag" | "title";

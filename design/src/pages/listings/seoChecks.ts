@@ -1,23 +1,16 @@
-/* Verdicts built on top of seoSignals.ts (#85).
+/* Verdicts on top of seoSignals.ts (#85). No PRNG and no defaults: a check
+ * that cannot be computed is emitted as "unknown" with the ticket that will
+ * make it computable, never as "ok".
  *
- * Every check below reads one or more real fields of the listing. There is no
- * PRNG here and no default value: a check that cannot be computed is not
- * emitted as "ok" — it is emitted with status "unknown" and the number of the
- * ticket that will make it computable.
- *
- * The thresholds are a judgement call, agreed with the project owner, not
- * something Etsy publishes. Each item therefore carries a `why` — one plain
- * sentence on what to aim for and what it buys the seller. It deliberately
- * does not recite the thresholds: "менше 60 символів — bad" is our internal
- * rule, unreadable, and nothing the seller can act on.
- */
+ * Each item's `why` is one plain sentence on what to aim for — deliberately
+ * not the thresholds, which are our internal rule and nothing a seller can
+ * act on. */
 
 import type { DescriptionSegment, SeoCheckItem } from "./types";
 import type { SeoSignals } from "./seoSignals";
 import { DESCRIPTION_HEAD_CHARS, ETSY_LIMITS, SEO_THRESHOLDS, TITLE_HEAD_CHARS } from "./seoLimits";
 
-// Etsy's caps and every threshold live in seoLimits.ts — edit them there, not
-// here, so the wording below can't drift away from the rule it describes.
+// Caps and thresholds live in seoLimits.ts — edit them there, not here.
 const MAX_TITLE_CHARS = ETSY_LIMITS.titleChars;
 const MAX_TAGS = ETSY_LIMITS.tags;
 const MAX_PHOTOS = ETSY_LIMITS.photos;
@@ -38,8 +31,7 @@ const photoWord = (n: number) => `${n} ${plural(n, "фото", "фото", "фо
 
 function titleCheck(s: SeoSignals): SeoCheckItem {
   const why = `Довший заголовок вміщує більше пошукових фраз, за якими покупець може знайти лістинг — Etsy дає на це до ${MAX_TITLE_CHARS} символів.`;
-  // Etsy truncates past its cap; the audit measured the truncated title, so
-  // say what got cut instead of grading the part nobody will ever see.
+  // Say what got cut instead of grading a length Etsy will truncate.
   if (s.titleOverLimitBy > 0) {
     return {
       status: "warn",
@@ -92,8 +84,8 @@ function titleHeadCheck(s: SeoSignals): SeoCheckItem {
 
 function tagCountCheck(s: SeoSignals): SeoCheckItem {
   const why = `Etsy дає рівно ${MAX_TAGS} тегів безкоштовно, і кожен незаповнений — це запит, за яким лістинг просто не покажуть.`;
-  // Never phrased as "N із MAX" when N is above MAX — Etsy has raised its own
-  // caps before (photos went 10 → 20), and "15 із 13" reads as a bug.
+  // Never "N із MAX" when N is above MAX — Etsy has raised its own caps
+  // before, and "15 із 13" reads as a bug.
   if (s.tagCount >= MAX_TAGS) {
     return {
       status: "ok",
@@ -170,10 +162,8 @@ function photoCheck(s: SeoSignals): SeoCheckItem {
 function stuffingCheck(s: SeoSignals): SeoCheckItem {
   const why =
     "Ключове слово в описі має звучати природно: часті повтори читаються як спам і відлякують покупця. Підсвічене нижче — це його реальні входження.";
-  // Named off the same number the signals already computed, so the wording
-  // and the threshold can never disagree about which keyword is the worst.
-  // An empty result after a failed scan is "not measured", not "nothing
-  // found" — reporting ok here would be a pass nobody checked.
+  // After a failed scan an empty result is "not measured" — reporting ok
+  // would be a pass nobody checked.
   if (s.keywordScanFailed) {
     return {
       status: "unknown",
@@ -183,6 +173,7 @@ function stuffingCheck(s: SeoSignals): SeoCheckItem {
     };
   }
 
+  // Off the same number the threshold uses, so the two can't disagree.
   const worst = s.keywordHits.find((hit) => hit.spans.length === s.maxKeywordRepeats);
   const top = worst ? { keyword: worst.keyword, count: worst.spans.length } : null;
 
@@ -263,8 +254,8 @@ function descriptionStructureCheck(s: SeoSignals): SeoCheckItem {
   };
 }
 
-/** Blocked by #56 — the search-volume engine. Shown, not hidden, so it is
- *  clear the check exists and why it has no answer; never given a number. */
+/** Blocked by #56. Shown rather than hidden, so it's clear the check exists
+ *  and why it has no answer — never given a number. */
 function tagDemandCheck(): SeoCheckItem {
   return {
     status: "unknown",
@@ -275,8 +266,7 @@ function tagDemandCheck(): SeoCheckItem {
   };
 }
 
-/** The full checklist for one listing, in reading order: title, tags,
- *  photos, description. */
+/** The full checklist, in reading order: title, tags, photos, description. */
 export function buildSeoChecks(signals: SeoSignals): SeoCheckItem[] {
   const checks: SeoCheckItem[] = [
     titleCheck(signals),
@@ -289,7 +279,6 @@ export function buildSeoChecks(signals: SeoSignals): SeoCheckItem[] {
   if (!signals.hasDescription) {
     // Same test FlaggedDescription uses, so a whitespace-only description
     // can't be graded here while the block beside it calls it missing.
-    // Saying "no keyword stuffing" about it would read as a pass.
     checks.push({
       status: "bad",
       title: "Опису немає",
@@ -309,16 +298,13 @@ export function buildSeoChecks(signals: SeoSignals): SeoCheckItem[] {
   return checks;
 }
 
-/** Cuts the description into segments along the keyword hits, so a
- *  highlighted piece is always literally the text at those offsets.
+/** Cuts the description along the keyword hits, so a highlighted piece is
+ *  always literally the text at those offsets. Reads the description off the
+ *  signals rather than as its own argument — a second parameter let a caller
+ *  pair the offsets with a different string.
  *
- *  Takes the description off the signals rather than as its own argument:
- *  the offsets only mean anything against the exact string they were measured
- *  on, and a second parameter let a caller pair them with a different one.
- *
- *  A description with no matches comes back as one unflagged segment; an
- *  empty one comes back as an empty array (there is nothing to render, and
- *  FlaggedDescription shows its own empty state instead). */
+ *  No matches → one unflagged segment; empty description → empty array, and
+ *  FlaggedDescription shows its own empty state. */
 export function buildDescriptionSegments(signals: SeoSignals): DescriptionSegment[] {
   const description = signals.description;
   if (!description) return [];
