@@ -71,9 +71,24 @@ export function SimilarListingsSection({
         <LoadingState />
       ) : !result.items.length ? (
         <NoDataNotice>
-          Etsy не має ендпоінта «схожі лістинги», тож підбір робиться пошуком за
-          назвою цього лістинга — і за запитом «{result.query}» нічого, крім
-          нього самого, не знайшлося.
+          {/* Only quote a query when there actually was one. The backend
+              sends "" when the title had no usable words, and getSimilar
+              sends "" when no search ran at all (the listing is gone from
+              Etsy, or the id isn't numeric) — claiming a search came back
+              empty would be wrong in both cases. */}
+          {result.query ? (
+            <>
+              Etsy не має ендпоінта «схожі лістинги», тож підбір робиться
+              пошуком за назвою цього лістинга — і за запитом «{result.query}»
+              нічого, крім нього самого, не знайшлося.
+            </>
+          ) : (
+            <>
+              Etsy не має ендпоінта «схожі лістинги», тож підбір робиться
+              пошуком за назвою цього лістинга — а тут виконати такий пошук не
+              вдалося.
+            </>
+          )}
         </NoDataNotice>
       ) : (
         <>

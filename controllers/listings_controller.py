@@ -105,7 +105,13 @@ def api_similar_listings(lid):
 
     Uses find_similar, never search(): search() would repoint the shared
     listing source and wipe the page cache, resetting the grid the user has
-    open in the other tab of the same app."""
+    open in the other tab of the same app.
+
+    Cost: 2 Etsy requests per ladder rung tried, so 2 in the common case and
+    6 in the worst one (a title so specific that only the widest rung
+    matches - the exact case similar_query_ladder exists for). That upper
+    bound is why the section is fetched lazily and why every rung is cached
+    per query: a re-open of the same listing costs nothing."""
     try:
         found = container.listing_source.get_by_ids([str(lid)])
         listing = found.get(str(lid))
@@ -115,14 +121,23 @@ def api_similar_listings(lid):
         # query is strictly broader, so in practice the first full rung wins
         # or the last one does - but "best so far" is what the UI promises,
         # and it costs nothing to actually guarantee it.
+        ladder = container.similar_query_ladder(listing.title)
         query, similar = "", {}
-        for rung in container.similar_query_ladder(listing.title):
+        for rung in ladder:
             found = container.listing_source.find_similar(
                 rung, limit=SIMILAR_LIMIT, exclude=str(lid))
             if len(found) > len(similar):
                 query, similar = rung, found
             if len(similar) >= SIMILAR_LIMIT:
                 break
+        if not similar and ladder:
+            # No rung matched anything. `query` is still "" because 0 > 0 is
+            # false, and an empty query would reach the UI as the sentence
+            # "за запитом «» нічого не знайшлося". Report the broadest rung
+            # actually tried instead - that is the honest answer to "what did
+            # you search for", and it is the one whose emptiness is
+            # meaningful.
+            query = ladder[-1]
     except EtsyApiError as e:
         return jsonify({"error": str(e)}), 502
 

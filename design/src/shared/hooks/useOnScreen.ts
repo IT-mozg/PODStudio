@@ -3,9 +3,10 @@ import { useEffect, useRef, useState } from "react";
 /** Reports whether an element has ever been scrolled into view.
  *
  *  Written for the detail page's "similar listings" section (#86), whose data
- *  costs two Etsy requests against a 5 req/s, 5000/day key — fetching it for
- *  every listing anyone opens, including the ones nobody scrolls down to,
- *  spends that budget on nothing.
+ *  costs 2 Etsy requests per query rung the backend has to try — 2 in the
+ *  common case, up to 6 in the worst — against a 5 req/s, 5000/day key.
+ *  Fetching that for every listing anyone opens, including the ones nobody
+ *  scrolls down to, spends the budget on nothing.
  *
  *  Latches on purpose: once seen, it stays true even after the element
  *  scrolls back out. Toggling would re-trigger the effect that reads it and

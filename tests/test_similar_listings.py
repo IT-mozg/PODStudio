@@ -13,7 +13,10 @@ Also covered: the per-query cache, since without it every re-open of the same
 listing costs another 2 requests against a 5 req/s, 5000/day key.
 """
 
+import dataclasses
 import threading
+
+import flask
 
 import container
 from models.etsy_api_listing_source import EtsyApiListingSource
@@ -167,3 +170,66 @@ def test_query_ladder_has_no_duplicate_rungs():
     rather than paying 2 Etsy requests to ask the same thing twice."""
     assert container.similar_query_ladder("Legend Since 1961") == ["Legend Since 1961"]
     assert container.similar_query_ladder("") == []
+
+# ---------------- the route (GET /api/listings/<lid>/similar) ----------------
+#
+# The first Flask route test in this repo, and it exists for one reason: the
+# response's `query` is quoted verbatim by the UI ("за запитом «…» нічого не
+# знайшлося"), so an empty one renders as a sentence with empty quotes.
+
+
+def build_client(monkeypatch, listing_title: str, similar_by_query: dict):
+    """A Flask test client whose listing source answers from a dict of
+    {query: {lid: Listing}} instead of the network."""
+    import container as c
+    from controllers.listings_controller import listings_bp
+
+    source, _ = build_source()
+    listing = source._batch_fetch(["77"])["77"]
+    listing = dataclasses.replace(listing, title=listing_title)
+
+    class FakeSource:
+        def get_by_ids(self, lids):
+            return {"77": listing} if "77" in lids else {}
+
+        def find_similar(self, keywords, limit=10, exclude=""):
+            return similar_by_query.get(keywords, {})
+
+    monkeypatch.setattr(c, "listing_source", FakeSource())
+    app = flask.Flask(__name__)
+    app.register_blueprint(listings_bp)
+    return app.test_client()
+
+
+def test_route_names_the_broadest_query_it_tried_when_nothing_matched(monkeypatch):
+    """The regression: `query` stayed "" because the loop only assigns it
+    inside `len(found) > len(similar)`, and 0 > 0 is false."""
+    title = "Legend Since 1961 T Shirt - Soft Cotton T-Shirt or Hoodie"
+    client = build_client(monkeypatch, title, {})   # no rung matches anything
+
+    body = client.get("/api/listings/77/similar").get_json()
+
+    assert body["listings"] == []
+    assert body["query"] == container.similar_query_ladder(title)[-1] != ""
+
+
+def test_route_reports_the_rung_that_actually_produced_the_cards(monkeypatch):
+    """Not the most specific rung tried - the one the cards came from, since
+    that is what the UI tells the user it searched for."""
+    title = "Legend Since 1961 T Shirt - Soft Cotton T-Shirt or Hoodie"
+    ladder = container.similar_query_ladder(title)
+    source, _ = build_source()
+    hits = source._batch_fetch(["1", "2"])
+    client = build_client(monkeypatch, title, {ladder[-1]: hits})
+
+    body = client.get("/api/listings/77/similar").get_json()
+
+    assert body["query"] == ladder[-1]
+    assert {r["lid"] for r in body["listings"]} == {"1", "2"}
+
+
+def test_route_404s_on_an_unknown_listing(monkeypatch):
+    client = build_client(monkeypatch, "whatever", {})
+    response = client.get("/api/listings/99/similar")
+    assert response.status_code == 404
+    assert response.get_json()["error"]
