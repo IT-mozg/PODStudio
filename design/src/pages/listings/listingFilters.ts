@@ -21,8 +21,10 @@ export const LISTING_FILTERS: FilterOption<ListingFilter>[] = [
  *
  *  These are approximations over whatever real fields exist, not the
  *  product-defined semantics for each chip. "top" sorts by the #58 sales
- *  estimate (views weighted by price, not a measured count), falling back
- *  to views where that estimate is 0. */
+ *  estimate (views weighted by price, not a measured count); views only
+ *  break ties. A listing whose currency has no ECB rate - VND and MAD are
+ *  the two Etsy sells in that ECB doesn't quote - estimates as 0 and sorts
+ *  last no matter its views. Known and accepted: ~1 listing in 600. */
 export function sortListings(listings: Listing[], filter: ListingFilter): Listing[] {
   const sorted = [...listings];
   switch (filter) {
