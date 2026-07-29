@@ -138,30 +138,22 @@ def test_rates_never_increase_with_price():
 # ---- est_sales: round(views * rate / 100) ----
 
 def test_est_sales_is_views_times_the_rate():
-    """The one formula here that is measured rather than modelled: it
-    reproduced eRank's own Est. Sales on 19 of 19 listings. 10 000 views at
-    $19.00 (2.27%) is 227 sales."""
+    """The measured part of the feature: matched eRank on 19 of 19 listings."""
     assert est_sales(10_000, 19.00) == 227
 
 
 def test_est_sales_rounds_rather_than_truncates():
-    """1 234 x 2.27% = 28.0118 -> 28, and 1 000 x 2.51% = 25.1 -> 25.
-    Truncation would quietly under-report every listing."""
     assert est_sales(1_234, 19.00) == 28
     assert est_sales(1_000, 12.00) == 25
 
 
 def test_est_sales_follows_the_price_step():
-    """A one-cent price change moves the estimate, because the rate it
-    multiplies by is a step function - same view count, different answer."""
+    """Same views, one cent apart - the estimate moves with the bucket."""
     assert est_sales(10_000, 19.99) == 227
     assert est_sales(10_000, 20.00) == 207
 
 
 def test_est_sales_is_none_when_the_price_is_unusable():
-    """No price, no rate, no estimate. None rather than 0: "sold nothing" is
-    a claim about the listing that this function has no basis for. Callers
-    that display a 0 anyway have to substitute it themselves."""
     for price in (None, 0, -5.0, float("nan"), float("inf"), "19.00", True):
         assert est_sales(10_000, price) is None, price
 
@@ -172,6 +164,5 @@ def test_est_sales_is_none_when_views_are_unusable():
 
 
 def test_zero_views_is_a_real_zero():
-    """Unlike a missing price, 0 views is a fact Etsy reported - a listing
-    nobody has opened really has sold nothing, so this 0 is honest."""
+    """Unlike a missing price, 0 views is a fact Etsy reported."""
     assert est_sales(0, 19.00) == 0

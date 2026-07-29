@@ -18,13 +18,11 @@ export interface ApiListing {
   shop_id: string;
   shop_name: string;
   views: number;
-  // Modelled, not measured: views x the price-based conversion rate, and that
-  // count times the listing's unit price (#57/#58, container.listings_payload).
-  // The backend substitutes 0 when it cannot compute them, so unlike every
-  // other Etsy-less field here these never arrive as null.
+  // Modelled, not measured (#57/#58). Never null — the backend sends 0 when
+  // it can't compute them.
   sales: number;
   revenue: number;
-  // Currency `revenue` is denominated in — the listing's own, not USD.
+  // Currency `revenue` is in: the listing's own, not USD.
   revenue_currency: string;
   age_months: number;
   tags: string[];
@@ -48,11 +46,6 @@ function thumbGradientFor(id: string): [string, string] {
   return GRADIENTS[Math.floor(rand() * GRADIENTS.length)];
 }
 
-/** sales/revenue are the estimate from #57/#58, computed backend-side, and
- *  come through as plain numbers — including the 0 the backend uses when it
- *  has no price, no FX rate or no view count to work from. Hence
- *  formatCount/formatRevenue's null branch (which renders "—") is no longer
- *  reachable from this mapper; the shop mapper still relies on it. */
 export function mapApiListing(raw: ApiListing): Listing {
   return {
     id: raw.lid,

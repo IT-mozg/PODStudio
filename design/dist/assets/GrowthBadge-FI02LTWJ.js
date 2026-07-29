@@ -1,1 +1,0 @@
-import{b as e,u as t}from"./index-BQEUTrFG.js";var n={badge:`_badge_fn7a3_1`},r=e();function i({value:e}){return(0,r.jsxs)(`div`,{className:n.badge,children:[(0,r.jsx)(t,{size:12}),e]})}export{i as t};

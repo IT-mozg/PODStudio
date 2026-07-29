@@ -20,10 +20,9 @@ export const LISTING_FILTERS: FilterOption<ListingFilter>[] = [
  *  — that also keeps a filter change from costing a network round trip.
  *
  *  These are approximations over whatever real fields exist, not the
- *  product-defined semantics for each chip. "top" now sorts by the #58
- *  sales estimate — which is views weighted by the listing's price bucket,
- *  not a measured sales count — and keeps the views tiebreaker for the rows
- *  where that estimate is 0 because the price or the FX rate was missing. */
+ *  product-defined semantics for each chip. "top" sorts by the #58 sales
+ *  estimate (views weighted by price, not a measured count), falling back
+ *  to views where that estimate is 0. */
 export function sortListings(listings: Listing[], filter: ListingFilter): Listing[] {
   const sorted = [...listings];
   switch (filter) {

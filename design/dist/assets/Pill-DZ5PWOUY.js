@@ -1,0 +1,1 @@
+import{T as e,b as t,w as n}from"./index-ClyTVvMx.js";var r=e(n(),1),i={pill:`_pill_1gm80_1`,sm:`_sm_1gm80_12`},a=t(),o=(0,r.memo)(function({children:e,size:t=`md`}){return(0,a.jsx)(`span`,{className:t===`sm`?`${i.pill} ${i.sm}`:i.pill,children:e})});export{o as t};

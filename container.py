@@ -228,11 +228,6 @@ def listings_payload(found: dict) -> list:
     out = []
     for lid, listing in found.items():
         ref_exists = (engine.REFS_DIR / f"{lid}.jpg").exists()
-        # Est. Sales / revenue (#58). Both are computed here rather than in
-        # listing_detail_payload because the grid renders them in every row.
-        # Costs no extra Etsy request and no network call at all: the price
-        # rides along in the same /listings/batch response, and fx_rates
-        # serves a day-cached ECB quote from memory.
         sales_est = est_sales(listing.views, listing_price_usd(listing))
         unit_price = (listing.price_amount / listing.price_divisor
                       if listing.price_amount is not None and listing.price_divisor
@@ -254,26 +249,15 @@ def listings_payload(found: dict) -> list:
             "tags": listing.tags,
             "views": listing.views,
             "age_months": age_months(listing.created_timestamp),
-            # NOT Etsy figures. Etsy's public API exposes no per-listing
-            # sales or revenue outside the authenticated user's own shop, so
-            # both of these are the model from models/conversion_rate.py:
-            # views x price-based conversion rate (#57/#58), then that count
-            # times the listing's own unit price. See
-            # etsy_conversion_research.md for how the rate was derived.
-            #
-            # The 0 fallback is the project owner's explicit call (#58): when
-            # the price, the FX rate or the view count is missing, the model
-            # returns None and these render as a plain 0. That 0 is
-            # indistinguishable from a listing that genuinely sold nothing -
-            # deliberately so, per that decision.
+            # Not Etsy figures - the model from models/conversion_rate.py
+            # (#57/#58). The 0 where it returns None is the project owner's
+            # call, not an honest zero.
             "sales": sales_est if sales_est is not None else 0,
             "revenue": (round(sales_est * unit_price, 2)
                         if sales_est is not None and unit_price is not None
                         else 0),
-            # Revenue is denominated in the listing's own currency (not USD -
-            # the USD conversion exists only to look the rate up in a
-            # dollar-denominated table). The grid needs the code to format it;
-            # the full price fields stay detail-only.
+            # Revenue is in the listing's own currency; the USD conversion
+            # only serves the dollar-denominated rate table.
             "revenue_currency": listing.price_currency,
             "tracked": lid in tracked,
         })

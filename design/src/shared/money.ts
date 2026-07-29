@@ -47,11 +47,9 @@ export function formatPrice(
   return formatCurrency(amount / divisor, currency);
 }
 
-/** An already-divided amount in a named currency — "24.99" + "EUR" → "24,99 €".
- *  Split out of formatPrice because a listing's estimated revenue (#58) is
- *  derived on the backend and arrives as a plain number, not as Etsy's
- *  amount/divisor pair, but has to carry the listing's own currency for
- *  exactly the same reason: those listings are not all priced in dollars. */
+/** An already-divided amount in a named currency — 24.99 + "EUR" → "24,99 €".
+ *  Used for #58's estimated revenue, which arrives as a plain number rather
+ *  than Etsy's amount/divisor pair but still isn't always in dollars. */
 export function formatCurrency(value: number, currency: string): string {
   if (!currency) return value.toFixed(2);
   try {

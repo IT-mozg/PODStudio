@@ -58,11 +58,8 @@
   flex-shrink: 0;
 }
 
-/* The ellipsis on .listingTitle below only works because of this line. A flex
-   item defaults to min-width:auto, i.e. "never shrink below your content", so
-   without it this wrapper stretches to the full title width, .listingCell's
-   max-width is overrun, and the title paints straight over the "Магазин"
-   column instead of being clipped. */
+/* Without min-width:0 a flex item never shrinks below its content, so
+   .listingTitle's ellipsis below has nothing to clip. */
 .listingText {
   min-width: 0;
 }
