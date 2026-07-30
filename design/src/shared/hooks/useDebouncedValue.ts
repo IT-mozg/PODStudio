@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 
-/** Returns `value`, but delayed by `delayMs` after the last change —
- *  so a search effect keyed on the debounced value doesn't re-fire on
- *  every keystroke. Harmless against the in-memory mock repositories
- *  today, but this is the seam that matters once `search()` becomes a
- *  real network call. */
-export function useDebouncedValue<T>(value: T, delayMs = 300): T {
+/** Long enough to swallow a burst of typing, short enough not to feel laggy. */
+const DEFAULT_DELAY_MS = 300;
+
+/** Returns `value` delayed until `delayMs` after the last change, so a search
+ *  effect keyed on it doesn't fire once per keystroke. */
+export function useDebouncedValue<T>(value: T, delayMs = DEFAULT_DELAY_MS): T {
   const [debounced, setDebounced] = useState(value);
 
   useEffect(() => {

@@ -9,13 +9,9 @@ interface StarToggleButtonProps {
   onClick: (e: MouseEvent<HTMLDivElement>) => void;
 }
 
-/** The small square star toggle at the end of a results row — same
- *  look on Лістинги, Магазини, Ключові слова and the listing's tags
- *  table, so a style change never has to be repeated four times.
- *  Owns its own right-aligned cell wrapper, so callers just drop it
- *  straight into a <td>. Memoized because it sits inside table rows —
- *  a table re-render shouldn't repaint every star unless its own
- *  props actually changed. */
+/** Star toggle at the end of a results row. Owns its right-aligned cell
+ *  wrapper, so callers drop it straight into a <td>. Memoized: a table
+ *  re-render shouldn't repaint every star. */
 export const StarToggleButton = memo(function StarToggleButton({ active, activeTitle, inactiveTitle, onClick }: StarToggleButtonProps) {
   return (
     <div className={styles.actions}>

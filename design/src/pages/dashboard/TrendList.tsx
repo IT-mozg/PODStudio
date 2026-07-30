@@ -5,9 +5,8 @@ import styles from "./TrendList.module.css";
 
 interface TrendListProps {
   items: TrendItemData[];
-  /** Optional — omitted by callers whose ids the detail page can't resolve.
-   *  Rows then render non-navigable rather than dead-ending, the same rule
-   *  ListingsTable follows. */
+  /** Omit for callers whose ids the detail page can't resolve — rows then
+   *  render non-navigable rather than dead-ending. */
   onSelect?: (listingId: string) => void;
 }
 

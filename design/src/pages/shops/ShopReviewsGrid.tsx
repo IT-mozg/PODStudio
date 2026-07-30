@@ -8,13 +8,11 @@ interface ShopReviewsGridProps {
   reviews: ShopReview[];
 }
 
-/** The Відгуки tab's card grid. Owns its own empty state — same shape as
- *  SimilarListingsCarousel on the listings side, so ShopDetailView never has
- *  to branch on emptiness.
+/** The Відгуки tab's card grid. Owns its empty state, so ShopDetailView
+ *  never branches on emptiness.
  *
- *  Empty is the only state it has today: nothing fetches reviews yet, and
- *  the four cards it used to show came from shopDetail.ts's PRNG, complete
- *  with the same hardcoded date on every one. */
+ *  Empty is its only state today: nothing fetches reviews yet, and the four
+ *  cards it used to show were PRNG output with the same date on each. */
 export function ShopReviewsGrid({ reviews }: ShopReviewsGridProps) {
   if (!reviews.length) {
     return (

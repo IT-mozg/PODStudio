@@ -7,10 +7,8 @@ import styles from "./ListingsTable.module.css";
 interface ListingsTableProps {
   listings: Listing[];
   onToggleTracked: (listingId: string) => void;
-  /** Omit to make rows non-navigable — for callers whose ids the detail
-   *  pages can't resolve yet (see ListingsPage against the real Etsy
-   *  repository). Rows then render without a pointer cursor rather than
-   *  clicking through to a "not found" page. */
+  /** Omit to make rows non-navigable, for callers whose ids the detail pages
+   *  can't resolve — no pointer cursor instead of a "not found" page. */
   onSelectListing?: (listing: Listing) => void;
   /** Same, for the shop-name cell. */
   onSelectShop?: (shopId: string) => void;
@@ -18,11 +16,8 @@ interface ListingsTableProps {
 
 const MAX_VISIBLE_TAGS = 2;
 
-/** Same shape as ShopsTable, but the leading cell is a product thumbnail
- *  + title (a listing, not a shop), and rows carry tags instead of a
- *  single niche — the two real differences the source is about.
- *  Memoized: pair with useCallback'd handlers in the caller so an
- *  unrelated re-render upstream doesn't repaint the whole table. */
+/** ShopsTable's shape with a thumbnail + title lead cell and tags instead of
+ *  a niche. Memoized — pair with useCallback'd handlers in the caller. */
 export const ListingsTable = memo(function ListingsTable({ listings, onToggleTracked, onSelectListing, onSelectShop }: ListingsTableProps) {
   return (
     <table className={styles.table}>

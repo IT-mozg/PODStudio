@@ -5,16 +5,14 @@
 import { formatCount, formatRevenue } from "../../shared/money";
 import type { Shop } from "./types";
 
-/** Shape actually returned by Flask's shops_payload() (container.py) —
- *  snake_case, verbatim from the backend, not the frontend's camelCase
- *  Shop. */
+/** Verbatim from container.shops_payload() — snake_case, not camelCase. */
 export interface ApiShop {
   shop_id: string;
   name: string;
   listing_count: number;
   // null when Etsy gave no creation date — distinct from 0.
   age_months: number | null;
-  /** Real: Etsy's public transaction_sold_count (lifetime line items). */
+  /** Etsy's public transaction_sold_count (lifetime line items). */
   sales: number;
   review_average: number;
   review_count: number;
@@ -28,10 +26,9 @@ export interface ApiShop {
   tracked: boolean;
 }
 
-/** Two-letter avatar label. Etsy shop names are camel-cased far more often
- *  than they are spaced ("CatTeesShop", "OldRetroTees"), so the capitals
- *  carry the initials; a lowercase name ("cathynichols") falls back to its
- *  first two letters rather than rendering a single letter. */
+/** Etsy shop names are camel-cased far more often than spaced, so the
+ *  capitals carry the initials. A lowercase name falls back to its first two
+ *  letters rather than rendering one. */
 export function initialsFor(name: string): string {
   const capitals = name.replace(/[^A-Za-zА-Яа-яІЇЄҐіїєґ]/g, "").match(/[A-ZА-ЯІЇЄҐ]/g);
   if (capitals && capitals.length >= 2) return capitals.slice(0, 2).join("");
@@ -46,14 +43,12 @@ export function mapApiShop(raw: ApiShop): Shop {
     name: raw.name,
     listings: raw.listing_count,
     ageMonths: raw.age_months,
-    // "—" and not "" so the Pill in ShopsTable keeps its shape while the
-    // niche is unknown (#82).
+    // "—", not "", so the Pill keeps its shape while the niche is unknown.
     niche: raw.niche ?? "—",
     sales: formatCount(raw.sales),
     revenue: formatRevenue(raw.revenue),
-    // Etsy sends review_average: 0.0 for a shop nobody has reviewed yet,
-    // which is not the same statement as "rated 0.00". Null here so every
-    // consumer renders "—" instead of libelling a new shop.
+    // Etsy sends review_average: 0.0 for an unreviewed shop, which is not
+    // "rated 0.00" — null so consumers render "—" instead.
     rating: raw.review_count > 0 ? raw.review_average : null,
     reviews: formatCount(raw.review_count),
     growth: raw.growth === null ? "—" : `${raw.growth > 0 ? "+" : ""}${raw.growth}%`,

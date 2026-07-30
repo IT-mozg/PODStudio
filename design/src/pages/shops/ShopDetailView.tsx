@@ -48,8 +48,7 @@ const NO_DATA = "—";
 export function ShopDetailView({ shop, onBack, onToggleTracked }: ShopDetailViewProps) {
   const [tab, setTab] = useState<DetailTab>("overview");
 
-  // null means Etsy has no reviews for this shop at all, not a rating of
-  // zero — see Shop.rating. Every block that shows a rating branches on it.
+  // null means no reviews at all, not a rating of zero — see Shop.rating.
   const rated = shop.rating !== null;
 
   /* Real tiles first, then the three Etsy can't answer. Each of those carries

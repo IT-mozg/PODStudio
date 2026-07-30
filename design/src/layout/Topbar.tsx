@@ -7,12 +7,9 @@ interface TopbarProps {
   onMenuClick: () => void;
 }
 
-/** Breadcrumb label comes straight from the URL match — a detail
- *  route like /shops/ct123 still reports "Магазини" here (the page
- *  itself shows the specific name in its own header). The hamburger
- *  button only renders visibly below the sidebar-drawer breakpoint
- *  (CSS-hidden above it) — `onMenuClick` still fires either way, it's
- *  just never clicked on a wide screen. */
+/** The breadcrumb comes from the URL match, so /shops/ct123 still reads
+ *  "Магазини" — the page shows the specific name in its own header. The
+ *  hamburger is CSS-hidden above the drawer breakpoint. */
 export function Topbar({ onMenuClick }: TopbarProps) {
   const location = useLocation();
   const label = findNavItemForPath(location.pathname)?.label ?? "";

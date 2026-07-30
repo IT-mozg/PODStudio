@@ -18,10 +18,9 @@ interface ShopsResponse {
 }
 
 class HttpShopsRepository implements ShopsRepository {
-  /** Etsy can only look shops up by name — there is no way to list or rank
-   *  shops by sales/rating/age (see models/etsy_api_shop_source.py), so an
-   *  empty query has nothing to ask for. Rows come back in the backend's
-   *  name-relevance order; the filter chips re-sort them client-side. */
+  /** Etsy looks shops up by name only — no listing, no ranking by
+   *  sales/rating/age (models/etsy_api_shop_source.py) — so an empty query has
+   *  nothing to ask for. Rows arrive in name-relevance order. */
   async search(query: string): Promise<ShopSearchResult> {
     if (!query.trim()) return { shops: [], total: 0 };
     const { shops, count } = await apiFetch<ShopsResponse>(
@@ -36,29 +35,21 @@ class HttpShopsRepository implements ShopsRepository {
   }
 
   async getById(shopId: string): Promise<Shop | null> {
-    // Etsy shop ids are always numeric, and the Flask route is registered as
-    // <int:shop_id>. A non-numeric id therefore can never resolve - it's a
-    // mock id (the dashboard's "ct"/"vg"/...) or a typo'd URL - and letting
-    // it through produces Flask's own HTML 404, which apiFetch (correctly,
-    // for a genuinely absent route) reports as "перезапусти python3 app.py"
-    // on a perfectly healthy server. Answering "not found" here is the
-    // truthful result; this is id validation, not swallowing an error. Same
-    // guard as httpListingsRepository.getDetailById.
+    // The Flask route is <int:shop_id>, so a non-numeric id (a mock "ct", a
+    // typo'd URL) can never resolve. Letting it through produces Flask's HTML
+    // 404, reported as "перезапусти python3 app.py" on a healthy server. Id
+    // validation, not a swallowed error — same guard as the listings side.
     if (!/^\d+$/.test(shopId)) return null;
 
     try {
       const { shops } = await apiFetch<ShopsResponse>(`/api/shops/${encodeURIComponent(shopId)}`);
       return shops[0] ? mapApiShop(shops[0]) : null;
     } catch (e) {
-      // "No such shop" is a value here, not a failure - the page renders
-      // "не знайдено" for null. Everything else must keep propagating so it
-      // reaches an ErrorNotice: a missing Etsy key, a rate limit and a dead
-      // connection all arrive here too, and answering them with `null` would
-      // report them as "магазин не знайдено".
-      //
-      // Only the API's *own* 404 means the record is missing. A 404 the app
-      // inferred is the route being absent (a Flask process running old
-      // code), which is a broken setup, not an unknown shop.
+      // "No such shop" is a value, not a failure. Everything else must keep
+      // propagating to an ErrorNotice — a missing key, a rate limit and a
+      // dead connection all land here, and `null` would report them as
+      // "магазин не знайдено". Only the API's *own* 404 means the record is
+      // missing; an inferred one is a stale Flask process.
       if (e instanceof ApiError && e.status === 404 && e.apiReported) return null;
       throw e;
     }

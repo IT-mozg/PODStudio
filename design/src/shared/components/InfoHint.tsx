@@ -1,9 +1,9 @@
 import { useId, useState } from "react";
 import styles from "./InfoHint.module.css";
 
-/** A small "i" explaining the thing next to it — on hover, keyboard focus, or
- *  click. Click is what makes it work on touch, where there is no hover and a
- *  native `title` would never appear.
+/** A small "i" explaining the thing next to it — hover, focus, or click.
+ *  Click is what makes it work on touch, where a native `title` never
+ *  appears.
  *
  *  Tooltip pattern (`role="tooltip"` + `aria-describedby` + Escape), not
  *  disclosure — `aria-expanded` would contradict the tooltip role. */
@@ -13,8 +13,8 @@ export function InfoHint({ text, label = "Пояснення" }: { text: string;
   const id = useId();
   const open = hovered || pinned;
 
-  // Must clear `hovered` too, or it can never close what it opened: a tap
-  // focuses the button first, and touch never delivers mouseleave.
+  // Must clear `hovered` too: a tap focuses first, and touch never delivers
+  // mouseleave, so it could never close what it opened.
   const toggle = () => {
     setPinned((was) => !was);
     setHovered(false);
@@ -51,9 +51,8 @@ export function InfoHint({ text, label = "Пояснення" }: { text: string;
           className={styles.bubble}
           id={id}
           role="tooltip"
-          // Without this, pressing the mouse here moves focus off the button,
-          // `onBlur` closes the hint, and the text vanishes before it can be
-          // selected — it could never be copied.
+          // Otherwise the press moves focus off the button, `onBlur` closes
+          // the hint, and the text vanishes before it can be selected.
           onMouseDown={(event) => event.preventDefault()}
         >
           {text}

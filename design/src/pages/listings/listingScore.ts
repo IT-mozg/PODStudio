@@ -5,10 +5,8 @@
  * Continuous, not stepped: 118 title characters is 0.92 of what's possible,
  * not "the same bracket as 100". Every signal goes through ramp(), whose nodes
  * are the thresholds from seoLimits.ts — a threshold bends the curve instead
- * of cutting it, and stays inside the range the checklist calls clean.
- *
- * 100 means Etsy's own maximum (140 characters, 13 tags, 20 photos); our "ok"
- * threshold sits at ~0.85, leaving headroom above a merely fine listing.
+ * of cutting it. 100 means Etsy's own maximum (140 characters, 13 tags, 20
+ * photos), so "ok" lands near 0.85 and leaves headroom above merely fine.
  *
  * No PRNG, no clock, no network: the same listing always scores the same. */
 
@@ -23,12 +21,28 @@ import {
 } from "./seoLimits";
 import { chars, photoWord, plural, tagWord } from "./seoWording";
 
+const PERCENT = 100;
+
+/** Relative weights inside each sub-score. Only the ratios matter — combine()
+ *  divides by the total of whatever was actually measured. */
+const WEIGHTS = {
+  /** Tag slots filled vs. how many of them are distinct phrases. */
+  tagSlots: 0.5,
+  tagQuality: 0.5,
+  /** #56 (tag difficulty / search volume) will fill this one in. */
+  tagDifficulty: 0.5,
+  descriptionLength: 0.4,
+  descriptionHead: 0.2,
+  descriptionStructure: 0.2,
+  descriptionStuffing: 0.2,
+} as const;
+
 /** A node on a scoring curve: [raw measurement, fraction of the weight]. */
 type CurveNode = readonly [number, number];
 
-/** Piecewise-linear scale: straight lines between the nodes, flat beyond the
- *  ends. Nodes ascend by x; equal x values (a clamped threshold can collapse
- *  two into one) resolve to the later node. */
+/** Piecewise-linear scale: straight lines between nodes, flat beyond the ends.
+ *  Nodes ascend by x; equal x values (a clamped threshold can collapse two
+ *  into one) resolve to the later node. */
 function ramp(value: number, nodes: readonly CurveNode[]): number {
   if (value <= nodes[0][0]) return nodes[0][1];
   for (let i = 1; i < nodes.length; i += 1) {
@@ -49,9 +63,7 @@ function clamp01(value: number): number {
 interface Component {
   weight: number;
   /** `null` = not measured: the component drops out of the weighting instead
-   *  of scoring zero. One mechanism for all three cases — a failed keyword
-   *  scan, structure on a description too short to judge, and the
-   *  tag-difficulty component #56 will fill in. */
+   *  of scoring zero. */
   fraction: number | null;
 }
 
@@ -66,7 +78,7 @@ function combine(components: readonly Component[]): number {
   // Guard, not a fallback: unreachable while every sub-score keeps one
   // unconditional component, and a 0 here would be an invented verdict.
   if (total === 0) return 0;
-  return Math.round((weighted / total) * 100);
+  return Math.round((weighted / total) * PERCENT);
 }
 
 /** "на 12-му символі" — offsets are 0-based, positions are not. */
@@ -95,10 +107,10 @@ const TAG_POSITION_CURVE: readonly CurveNode[] = [
   [ETSY_LIMITS.titleChars, 0.15],
 ];
 
-/** Length carries the sub-score, placement scales it — search space you didn't
- *  use can't be earned back by where you put the keyword. Splitting the weight
- *  additively gave a seven-character title half marks for containing one tag,
- *  above a long well-built title that repeated none. */
+/** Length carries the sub-score and placement scales it: search space you
+ *  didn't use can't be earned back by where you put the keyword. Splitting the
+ *  weight additively gave a seven-character title half marks for containing
+ *  one tag, above a long well-built title that repeated none. */
 function titleScore(s: SeoSignals): ScoreSub {
   const length = ramp(s.titleLength, TITLE_LENGTH_CURVE) * ramp(s.titleOverLimitBy, TITLE_OVERFLOW_CURVE);
   const placement = s.tagTitleOffset === null ? 0 : ramp(s.tagTitleOffset, TAG_POSITION_CURVE);
@@ -137,10 +149,9 @@ function tagScore(s: SeoSignals): ScoreSub {
 
   return {
     score: combine([
-      { weight: 0.5, fraction: ramp(s.tagCount, TAG_SLOTS_CURVE) },
-      { weight: 0.5, fraction: healthy / s.tagCount },
-      // #56 lands here: tag difficulty / search volume.
-      { weight: 0.5, fraction: null },
+      { weight: WEIGHTS.tagSlots, fraction: ramp(s.tagCount, TAG_SLOTS_CURVE) },
+      { weight: WEIGHTS.tagQuality, fraction: healthy / s.tagCount },
+      { weight: WEIGHTS.tagDifficulty, fraction: null },
     ]),
     // Names all three reasons weakTags counts, or the note would contradict
     // the checklist's "без дублікатів і перекриттів" on a single-word tag.
@@ -172,7 +183,7 @@ const DESCRIPTION_LENGTH_CURVE: readonly CurveNode[] = [
   [0, 0],
   [SEO_THRESHOLDS.descriptionWarn, 0.5],
   [SEO_THRESHOLDS.descriptionOk, 0.9],
-  [SEO_THRESHOLDS.descriptionOk * 2, 1],
+  [SEO_THRESHOLDS.descriptionOk * SCORE_TUNING.descriptionFullCreditAt, 1],
 ];
 
 const DESCRIPTION_HEAD_CURVE: readonly CurveNode[] = [
@@ -181,8 +192,6 @@ const DESCRIPTION_HEAD_CURVE: readonly CurveNode[] = [
   [SCORE_TUNING.headTagsTarget, 1],
 ];
 
-/** Characters per paragraph — a wall of text reads badly on a phone however
- *  well written it is. */
 const PARAGRAPH_SIZE_CURVE: readonly CurveNode[] = [
   [0, 1],
   [SCORE_TUNING.comfortableParagraphChars, 1],
@@ -196,7 +205,7 @@ const STUFFING_CURVE: readonly CurveNode[] = [
   [0, 1],
   [SEO_THRESHOLDS.stuffingWarn - 1, 1],
   [SEO_THRESHOLDS.stuffingBad, 0.2],
-  [SEO_THRESHOLDS.stuffingBad * 2, 0],
+  [SEO_THRESHOLDS.stuffingBad * SCORE_TUNING.stuffingZeroAt, 0],
 ];
 
 function descriptionScore(s: SeoSignals): ScoreSub {
@@ -206,12 +215,12 @@ function descriptionScore(s: SeoSignals): ScoreSub {
     return { score: 0, note: "Опису немає — перевіряти нічого." };
   }
 
-  // Below the "too short" threshold there is nothing to structure, so a
-  // single paragraph is not a fault worth deducting for.
+  // Below "too short" there is nothing to structure, so a single paragraph is
+  // not a fault worth deducting for.
   const gradeStructure = s.descriptionLength >= SEO_THRESHOLDS.descriptionWarn;
-  // The missing break is a flat penalty on top of the size curve, not instead
-  // of it: a 400-character block is not the wall of text a 3000-character one
-  // is, and one blank line must not swing the sub-score by a sixth.
+  // A flat penalty on top of the size curve, not instead of it: a
+  // 400-character block is not the wall of text a 3000-character one is, and
+  // one blank line must not swing the sub-score by a sixth.
   const paragraphs = Math.max(1, s.paragraphCount);
   const structure = ramp(s.descriptionLength / paragraphs, PARAGRAPH_SIZE_CURVE)
     * (paragraphs === 1 ? SCORE_TUNING.singleParagraphFraction : 1);
@@ -232,10 +241,10 @@ function descriptionScore(s: SeoSignals): ScoreSub {
 
   return {
     score: combine([
-      { weight: 0.4, fraction: ramp(s.descriptionLength, DESCRIPTION_LENGTH_CURVE) },
-      { weight: 0.2, fraction: ramp(s.tagsInFirst160.length, DESCRIPTION_HEAD_CURVE) },
-      { weight: 0.2, fraction: gradeStructure ? structure : null },
-      { weight: 0.2, fraction: s.keywordScanFailed ? null : ramp(s.maxKeywordRepeats, STUFFING_CURVE) },
+      { weight: WEIGHTS.descriptionLength, fraction: ramp(s.descriptionLength, DESCRIPTION_LENGTH_CURVE) },
+      { weight: WEIGHTS.descriptionHead, fraction: ramp(s.tagsInFirst160.length, DESCRIPTION_HEAD_CURVE) },
+      { weight: WEIGHTS.descriptionStructure, fraction: gradeStructure ? structure : null },
+      { weight: WEIGHTS.descriptionStuffing, fraction: s.keywordScanFailed ? null : ramp(s.maxKeywordRepeats, STUFFING_CURVE) },
     ]),
     note: `${parts.join(", ")}.`,
   };
@@ -251,11 +260,8 @@ export function buildListingScore(signals: SeoSignals): ScoreBreakdown {
   const photos = photoScore(signals);
   const description = descriptionScore(signals);
 
-  return {
-    overall: Math.round((title.score + tags.score + photos.score + description.score) / 4),
-    title,
-    tags,
-    photos,
-    description,
-  };
+  const subs = [title, tags, photos, description];
+  const overall = Math.round(subs.reduce((sum, sub) => sum + sub.score, 0) / subs.length);
+
+  return { overall, title, tags, photos, description };
 }

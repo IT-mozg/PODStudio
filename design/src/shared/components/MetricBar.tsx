@@ -7,10 +7,6 @@ interface MetricBarProps {
   label: string;
 }
 
-/** Filled progress-pill for a table cell (search volume, competition,
- *  difficulty, …). The bar only renders what it's told — ratio and
- *  tone are computed by the caller, so the "what counts as good" logic
- *  can change later without touching this component. */
 export function MetricBar({ ratio, tone, label }: MetricBarProps) {
   const width = `${Math.max(0, Math.min(1, ratio)) * 100}%`;
   return (

@@ -1,6 +1,6 @@
-/* Ukrainian plurals for the SEO audit. Shared by seoChecks.ts (#85) and
- * listingScore.ts (#84): both quote the same measurements, and a second copy
- * is how "13 тегів" in one block ends up "13 теги" in the other. */
+/* Ukrainian plurals for the SEO audit. Shared by seoChecks.ts and
+ * listingScore.ts — a second copy is how "13 тегів" in one block ends up
+ * "13 теги" in the other. */
 
 /** 1 символ / 2 символи / 5 символів. */
 export function plural(n: number, one: string, few: string, many: string): string {

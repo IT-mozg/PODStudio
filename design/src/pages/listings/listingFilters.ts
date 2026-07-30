@@ -1,6 +1,5 @@
-/* Single source of truth for the listing filter chips — both the
-   Лістинги page and any embedded listings table (e.g. inside a shop's
-   detail page) show the exact same four options. */
+/* The listing filter chips, shared by the Лістинги page and any embedded
+   listings table. */
 
 import { AlertCircleIcon, DesignsIcon, StarIcon, TrendUpIcon } from "../../shared/icons";
 import type { FilterOption } from "../../shared/components/FilterChips";
@@ -14,17 +13,13 @@ export const LISTING_FILTERS: FilterOption<ListingFilter>[] = [
   { id: "outliers", label: "Викиди", icon: AlertCircleIcon },
 ];
 
-/** Sorting for the chips above. Deliberately client-side: neither
- *  repository has a server-side equivalent (Flask exposes no sort param on
- *  /api/listings), so this lives here rather than inside an implementation
- *  — that also keeps a filter change from costing a network round trip.
+/** Client-side because Flask exposes no sort param on /api/listings, and a
+ *  chip click must not cost a round trip.
  *
- *  These are approximations over whatever real fields exist, not the
- *  product-defined semantics for each chip. "top" sorts by the #58 sales
- *  estimate (views weighted by price, not a measured count); views only
- *  break ties. A listing whose currency has no ECB rate - VND and MAD are
- *  the two Etsy sells in that ECB doesn't quote - estimates as 0 and sorts
- *  last no matter its views. Known and accepted: ~1 listing in 600. */
+ *  Approximations over the real fields, not the product-defined semantics.
+ *  "top" sorts by the #58 sales estimate (views weighted by price), views
+ *  only breaking ties — so a currency the ECB doesn't quote (VND, MAD)
+ *  estimates as 0 and sorts last. Accepted: ~1 listing in 600. */
 export function sortListings(listings: Listing[], filter: ListingFilter): Listing[] {
   const sorted = [...listings];
   switch (filter) {
@@ -35,8 +30,7 @@ export function sortListings(listings: Listing[], filter: ListingFilter): Listin
           parseCount(b.views) - parseCount(a.views),
       );
     case "new":
-      // Unknown age sorts last rather than to the front, where a null
-      // coerced to 0 would put it among the newest.
+      // Unknown age sorts last — a null coerced to 0 would read as newest.
       return sorted.sort(
         (a, b) => (a.ageMonths ?? Infinity) - (b.ageMonths ?? Infinity),
       );

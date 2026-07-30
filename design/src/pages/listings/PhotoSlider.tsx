@@ -3,38 +3,28 @@ import { ChevronDownIcon, ImageIcon } from "../../shared/icons";
 import styles from "./PhotoSlider.module.css";
 
 interface PhotoSliderProps {
-  /** Real Etsy photo URLs (il_570xN), in Etsy's own rank order. */
+  /** Etsy photo URLs (il_570xN), in Etsy's own rank order. */
   photos: string[];
   title: string;
 }
 
-/** Thumbnail rail + a large active photo with prev/next arrows.
- *
- *  These used to be gradient tiles with a halftone overlay, standing in for
- *  product photography nobody had. They are the listing's actual Etsy photos
- *  now — all of them, not just the thumbnail the search grid uses. */
+/** Thumbnail rail + a large active photo with prev/next arrows. All of the
+ *  listing's Etsy photos, not just the search grid's thumbnail. */
 export function PhotoSlider({ photos, title }: PhotoSliderProps) {
   const [active, setActive] = useState(0);
-  // One aspect ratio for the whole slider, taken from the listing's primary
-  // photo — the same thing Etsy's own gallery does.
+  // One aspect ratio for the whole slider, from the primary photo, so the
+  // stage never resizes while paging — differently shaped photos are centred
+  // inside it. Two earlier attempts were worse: a fixed height with
+  // object-fit cover cropped wide designs, and sizing per photo made the
+  // frame and its arrows jump.
   //
-  // The stage stays exactly one size while paging; a photo shaped differently
-  // is centred inside it (object-fit: contain) rather than resizing it. Two
-  // earlier attempts were both worse: a fixed 300px height with object-fit
-  // cover cropped wide designs off at the top, and sizing the stage to each
-  // photo made the frame — and the arrows pinned to it — jump around and left
-  // dead space beside the narrow ones.
-  //
-  // Measured with `new Image()` rather than an onLoad handler so the stage is
-  // already the right shape when the first photo appears, instead of resizing
-  // after it paints. Costs no extra network: the thumbnail rail requests the
-  // very same URL, so it comes from cache.
+  // `new Image()` rather than onLoad, so the stage is already the right shape
+  // when the first photo paints. No extra network — the rail requests the
+  // same URL.
   const [ratio, setRatio] = useState<number | null>(null);
 
-  // Navigating straight from one listing to another (a "similar" card, the
-  // back button) remounts nothing — without this, photo #6 of the previous
-  // listing would index past the end of a listing that only has three, and
-  // the previous listing's stage shape would linger.
+  // Navigating listing→listing remounts nothing, so without this photo #6
+  // would index past a listing that has three, keeping the old stage shape.
   useEffect(() => {
     setActive(0);
     setRatio(null);

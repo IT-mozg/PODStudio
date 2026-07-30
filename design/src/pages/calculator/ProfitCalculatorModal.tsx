@@ -4,7 +4,7 @@ import { Toggle } from "../../shared/components/Toggle";
 import { AnimatedNumber } from "../../shared/components/AnimatedNumber";
 import { Collapse } from "../../shared/components/Collapse";
 import { ChevronDownIcon, LightningIcon } from "../../shared/icons";
-import { calculateProfit, defaultProfitInputs, type ProfitInputs } from "./profitCalculator";
+import { calculateProfit, defaultProfitInputs, ETSY_FEES, type ProfitInputs } from "./profitCalculator";
 import styles from "./ProfitCalculatorModal.module.css";
 
 interface ProfitCalculatorModalProps {
@@ -24,6 +24,16 @@ function percent(value: number): string {
 function roasMultiplier(value: number): string {
   return Number.isFinite(value) ? `${value.toFixed(2)}x` : "—";
 }
+
+const PERCENT = 100;
+
+/** The fee rates as shown to the user. Derived from ETSY_FEES so the copy and
+ *  the arithmetic can't disagree. */
+const FEE_LABELS = {
+  listing: `$${ETSY_FEES.listing.toFixed(2)}`,
+  transaction: `${ETSY_FEES.transactionRate * PERCENT}%`,
+  processing: `${ETSY_FEES.processingRate * PERCENT}% + $${ETSY_FEES.processingFlat.toFixed(2)}`,
+} as const;
 
 /** Shorthand — every money figure in this modal tweens on change. */
 function Money({ value }: { value: number }) {
@@ -64,9 +74,8 @@ const BAR_COLORS = {
   profit: "#4ade80",
 };
 
-/** Прибуток обчислюється наживо з кожним натисканням клавіші — жодної
- *  кнопки «розрахувати» (React-стан + чиста функція calculateProfit
- *  з profitCalculator.ts, без залежності від верстки). */
+/** Прибуток рахується наживо з кожним натисканням клавіші — жодної кнопки
+ *  «розрахувати». */
 export function ProfitCalculatorModal({ isOpen, onClose }: ProfitCalculatorModalProps) {
   const [inputs, setInputs] = useState<ProfitInputs>(defaultProfitInputs);
   const [detailsOpen, setDetailsOpen] = useState(true);
@@ -202,19 +211,19 @@ export function ProfitCalculatorModal({ isOpen, onClose }: ProfitCalculatorModal
                 </div>
                 <div className={styles.detailsRow}>
                   <span className={styles.detailsRowLabel}>
-                    Плата за лістинг <span className={styles.detailsRowMeta}>$0.20</span>
+                    Плата за лістинг <span className={styles.detailsRowMeta}>{FEE_LABELS.listing}</span>
                   </span>
                   <span className={styles.detailsRowValue}><Money value={result.listingFee} /></span>
                 </div>
                 <div className={styles.detailsRow}>
                   <span className={styles.detailsRowLabel}>
-                    Транзакційна комісія <span className={styles.detailsRowMeta}>6.5%</span>
+                    Транзакційна комісія <span className={styles.detailsRowMeta}>{FEE_LABELS.transaction}</span>
                   </span>
                   <span className={styles.detailsRowValue}><Money value={result.transactionFee} /></span>
                 </div>
                 <div className={styles.detailsRow}>
                   <span className={styles.detailsRowLabel}>
-                    Обробка платежу <span className={styles.detailsRowMeta}>3% + $0.25</span>
+                    Обробка платежу <span className={styles.detailsRowMeta}>{FEE_LABELS.processing}</span>
                   </span>
                   <span className={styles.detailsRowValue}><Money value={result.processingFee} /></span>
                 </div>
@@ -257,7 +266,9 @@ export function ProfitCalculatorModal({ isOpen, onClose }: ProfitCalculatorModal
           </Collapse>
 
           <p className={styles.footNote}>
-            Комісії розраховано за стандартними ставками Etsy US (лістинг $0.20, транзакція 6.5%, обробка 3%+$0.25). Орієнтовно, не є податковою консультацією.
+            Комісії розраховано за стандартними ставками Etsy US (лістинг {FEE_LABELS.listing},
+            транзакція {FEE_LABELS.transaction}, обробка {FEE_LABELS.processing}). Орієнтовно, не є
+            податковою консультацією.
           </p>
         </div>
       </div>

@@ -1,19 +1,19 @@
 import type { ReactNode } from "react";
 import styles from "./TwoColumnLayout.module.css";
 
+/** grid-template-columns for the default ~63/37 content-to-sidebar split. */
+const DEFAULT_RATIO = "1.7fr 1fr";
+
 interface TwoColumnLayoutProps {
-  /** Main content — the wider column. */
   children: ReactNode;
-  /** Sidebar content — the narrower column. */
   aside: ReactNode;
-  /** grid-template-columns value; defaults to a ~63/37 split. */
+  /** Any grid-template-columns value. */
   ratio?: string;
 }
 
-/** The "content + sidebar" grid used on both Магазин and Лістинг
- *  detail pages — one layout to tweak (spacing, collapse breakpoint)
- *  instead of two module.css files quietly drifting apart. */
-export function TwoColumnLayout({ children, aside, ratio = "1.7fr 1fr" }: TwoColumnLayoutProps) {
+/** Shared by both detail pages, so spacing and the collapse breakpoint live
+ *  in one module.css instead of two that drift. */
+export function TwoColumnLayout({ children, aside, ratio = DEFAULT_RATIO }: TwoColumnLayoutProps) {
   return (
     <div className={styles.twoCol} style={{ gridTemplateColumns: ratio }}>
       <div className={styles.col}>{children}</div>

@@ -14,12 +14,13 @@ function parseNum(formatted: string): number {
   return Number(formatted.replace(/[^\d]/g, "")) || 0;
 }
 
-/** KD tone/fill: below 50 reads as an opportunity (green), 50-75 a
- *  stretch (amber), above 75 a wall (red). The exact cutoffs are a
- *  placeholder — real scoring logic comes later. */
+/** Placeholder cutoffs — real scoring logic comes later. */
+const KD_OPPORTUNITY_BELOW = 50;
+const KD_WALL_AT = 75;
+
 function kdTone(kd: number): "positive" | "warning" | "negative" {
-  if (kd < 50) return "positive";
-  if (kd < 75) return "warning";
+  if (kd < KD_OPPORTUNITY_BELOW) return "positive";
+  if (kd < KD_WALL_AT) return "warning";
   return "negative";
 }
 

@@ -5,30 +5,25 @@ import { Sparkline } from "../../shared/components/Sparkline";
 import type { ListingTag } from "./types";
 import styles from "./TagsAuditTable.module.css";
 
-/** Same 3-way split as kdTone on Ключові слова: low KD is the easy
- *  win (green), high KD is the wall (red). */
+/** Same 3-way split as kdTone on Ключові слова. */
 function kdTone(kd: number): "positive" | "warning" | "negative" {
   if (kd < 50) return "positive";
   if (kd < 75) return "warning";
   return "negative";
 }
 
-/** Largest real value in a column, for scaling the bars. Ignores the nulls
- *  that every metric currently is (see below) and never returns 0. */
+/** Largest real value in a column, for scaling the bars. Skips nulls and
+ *  never returns 0. */
 function maxOf(tags: ListingTag[], pick: (t: ListingTag) => number | null): number {
   return Math.max(1, ...tags.map(pick).filter((v): v is number => v !== null));
 }
 
-/** Same table as KeywordsTable on Ключові слова — MetricBar for
- *  volume/competition/KD, Sparkline for the trend, star to save a tag
- *  — just scoped to one listing's tags instead of a search result.
- *  Saving is local to this page for now (no cross-listing tag
- *  repository yet), same as any other page-local UI state.
+/** KeywordsTable, scoped to one listing's tags. Saving is page-local — there
+ *  is no cross-listing tag repository yet.
  *
- *  The tags themselves are real (Etsy gives up to 13 per listing); every
- *  metric beside them is `null` until the search-volume engine (#54/#56)
- *  exists, and renders "—". They used to be PRNG output that looked exactly
- *  like measured demand data. */
+ *  The tags are real; every metric beside them is `null` until #54/#56 and
+ *  renders "—". They used to be PRNG output that looked like measured
+ *  demand. */
 export const TagsAuditTable = memo(function TagsAuditTable({ tags }: { tags: ListingTag[] }) {
   const maxVolume = useMemo(() => maxOf(tags, (t) => t.volume), [tags]);
   const maxCompetition = useMemo(() => maxOf(tags, (t) => t.competition), [tags]);

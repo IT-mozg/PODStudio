@@ -16,20 +16,16 @@ interface SimilarListingsSectionProps {
   repository?: ListingsRepository;
 }
 
-/** Owns the fetch for the detail page's "similar listings" block (#86) —
- *  the same container/presentational split ShopReviewsGrid uses, so
- *  ListingDetailView stays a pure props-in component and doesn't grow a
- *  second data source of its own.
+/** Owns the fetch for the "similar listings" block, so ListingDetailView
+ *  stays props-in and grows no second data source.
  *
- *  Two things this section must be honest about, because Etsy backs neither:
- *  there is no similar/recommended endpoint at all, so the cards are a
- *  keyword search on this listing's own title and the block says which
- *  query it ran; and Etsy publishes no per-listing sales, so the ordering is
- *  models/conversion_rate.py's estimate and is labelled as one.
+ *  Two things Etsy doesn't back, which the block states outright: there is no
+ *  similar/recommended endpoint, so the cards are a keyword search on this
+ *  title and the query is shown; and there are no per-listing sales, so the
+ *  ordering is models/conversion_rate.py's estimate and is labelled as one.
  *
- *  Fetches only once the block is scrolled near the viewport: it costs two
- *  Etsy requests against a 5 req/s, 5000/day key, and most listings get
- *  opened without anyone reading this far down. */
+ *  Fetches only near the viewport — two Etsy requests against a 5 req/s key,
+ *  and most listings are opened without anyone scrolling this far. */
 export function SimilarListingsSection({
   listingId,
   onSelect,
@@ -42,9 +38,7 @@ export function SimilarListingsSection({
 
   useEffect(() => {
     if (!seen || !listingId) return;
-    // Same stale-response guard as ListingDetailPage: navigating between
-    // listings mid-flight would otherwise let whichever request resolves
-    // last paint its cards under the wrong listing.
+    // Stale-response guard: otherwise cards paint under the wrong listing.
     let cancelled = false;
     setResult(null);
     setError(null);
@@ -68,12 +62,10 @@ export function SimilarListingsSection({
       {error ? (
         <ErrorNotice message={error} onRetry={() => setReloadToken((n) => n + 1)} />
       ) : !seen ? (
-        // Nothing is happening yet, so nothing is announced: the slot just
-        // holds its height. A spinner here promised work that had not
-        // started, and when the observer never fires at all — a background
-        // tab reports every element as non-intersecting, whatever its
-        // coordinates — it span forever with no request, no error and no
-        // retry behind it.
+        // Nothing has started, so nothing is announced — the slot just holds
+        // its height. A spinner here promised work that hadn't begun, and in
+        // a background tab (where every element reads as non-intersecting) it
+        // span forever with no request and no retry behind it.
         null
       ) : !result ? (
         <LoadingState />

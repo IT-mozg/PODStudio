@@ -40,9 +40,8 @@ export const navByMode: Record<SidebarMode, NavItem[]> = {
 
 const allNavItems = [...researchNav, ...manageNav];
 
-/** Which nav item "owns" a given URL — exact match first, then the
- *  longest path prefix (so /shops/ct123 still highlights "Магазини"
- *  and reports the research mode as active). */
+/** Which nav item owns a URL: exact match first, then longest prefix, so
+ *  /shops/ct123 still highlights "Магазини". */
 export function findNavItemForPath(pathname: string): NavItem | undefined {
   const exact = allNavItems.find((item) => item.path === pathname);
   if (exact) return exact;

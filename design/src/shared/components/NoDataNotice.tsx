@@ -12,10 +12,9 @@ interface NoDataNoticeProps {
   preview?: ReactNode;
 }
 
-/** Body of a section that has no data to show yet — pairs with the
- *  TodoBadge in that section's heading. Says plainly that the feature isn't
- *  wired up, instead of rendering an empty table that reads like "this
- *  listing has no tags". */
+/** Body of a section with no data yet — pairs with the TodoBadge in its
+ *  heading. Says the feature isn't wired up, rather than rendering an empty
+ *  table that reads like "this listing has no tags". */
 export function NoDataNotice({ children, preview }: NoDataNoticeProps) {
   return (
     <div className={styles.notice}>

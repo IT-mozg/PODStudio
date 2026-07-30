@@ -8,19 +8,15 @@ interface AppShellProps {
   children: ReactNode;
 }
 
-/** Composes sidebar + topbar + content area. Both Sidebar and Topbar
- *  read navigation state (what page is active) from the router
- *  themselves — the one thing this level still owns is whether the
- *  sidebar drawer is open, since that's UI state shared between two
- *  siblings (Topbar's hamburger opens it, Sidebar renders it), not
- *  routing state either of them can derive on its own. */
+/** Sidebar and Topbar each read navigation state from the router, so all
+ *  this level owns is whether the drawer is open — the one piece of state
+ *  genuinely shared between the two. */
 export function AppShell({ children }: AppShellProps) {
   const location = useLocation();
   const [isSidebarOpen, setSidebarOpen] = useState(false);
 
-  // Closing on every navigation means a nav click on mobile always
-  // dismisses the drawer, without Sidebar needing to know it's on
-  // mobile or call back into anything beyond "navigate".
+  // So a nav click dismisses the drawer without Sidebar knowing it's on
+  // mobile or calling back into anything beyond "navigate".
   useEffect(() => {
     setSidebarOpen(false);
   }, [location.pathname]);

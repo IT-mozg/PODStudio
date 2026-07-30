@@ -15,14 +15,12 @@ import styles from "../../shared/components/SearchToolbar.module.css";
 
 type ListingsTab = "search" | "tracked";
 
-/** Etsy's search API has no "show everything" query - an empty string
- *  isn't a valid request - so the page needs a real keyword to search on
- *  first load, before the user types anything. */
+/** Etsy's search API rejects an empty query, so first load needs a real
+ *  keyword. */
 const DEFAULT_QUERY = "t-shirt";
 
 interface ListingsPageProps {
-  /** Defaults to the real Etsy-backed repository. Pass mockListingsRepository
-   *  to fall back to the fixed 5-row demo data. */
+  /** Pass mockListingsRepository for the fixed 5-row demo data. */
   repository?: ListingsRepository;
 }
 
@@ -30,20 +28,15 @@ export function ListingsPage({ repository = httpListingsRepository }: ListingsPa
   const navigate = useNavigate();
   const [tab, setTab] = useState<ListingsTab>("search");
   const [query, setQuery] = useState("");
-  // The query actually sent to the repository - only changes on explicit
-  // submit, never while the user is still typing. Against the mock this
-  // was a free local filter; against real Etsy every debounce tick would
-  // be a live network call against a 5 req/sec personal-access limit.
+  // Only changes on explicit submit: against real Etsy every debounce tick
+  // would be a live call against a 5 req/s key.
   const [activeQuery, setActiveQuery] = useState(DEFAULT_QUERY);
   const [filter, setFilter] = useState<ListingFilter>("top");
   const [listings, setListings] = useState<Listing[]>([]);
-  // Tracked bookmarks come from their own repository call rather than
-  // filtering `listings`: a bookmark outlives the query it was made under,
-  // so anything tracked under an earlier search would otherwise be
-  // invisible here even though the backend still has it.
+  // Their own call, not a filter over `listings`: a bookmark outlives the
+  // query it was made under.
   const [tracked, setTracked] = useState<Listing[]>([]);
-  // Message from the last failed repository call, rendered as a banner - see
-  // ShopsPage for why silently logging it isn't enough.
+  // Rendered as a banner — see ShopsPage for why logging isn't enough.
   const [error, setError] = useState<string | null>(null);
   // Bumped by the retry button so the search effect re-runs on the same query.
   const [reloadToken, setReloadToken] = useState(0);
@@ -61,9 +54,8 @@ export function ListingsPage({ repository = httpListingsRepository }: ListingsPa
   );
 
   useEffect(() => {
-    // Guard against a stale response overwriting a newer one: switching
-    // queries mid-flight means whichever request *resolves* last would
-    // otherwise win. Same failure the old UI guards with its loadToken.
+    // Stale-response guard: switching queries mid-flight would otherwise let
+    // whichever request resolves last win.
     let cancelled = false;
     setError(null);
     repository
@@ -86,8 +78,7 @@ export function ListingsPage({ repository = httpListingsRepository }: ListingsPa
     refreshTracked();
   }, [refreshTracked]);
 
-  // Filter chips sort client-side (no repository has a server-side sort),
-  // so changing one must not trigger a re-fetch.
+  // Chips sort client-side, so changing one must not re-fetch.
   const visibleListings = useMemo(() => sortListings(listings, filter), [listings, filter]);
   const visibleTracked = useMemo(() => sortListings(tracked, filter), [tracked, filter]);
 
@@ -107,15 +98,13 @@ export function ListingsPage({ repository = httpListingsRepository }: ListingsPa
       try {
         await repository.toggleTracked(listingId);
       } catch (e) {
-        // Don't flip the star on a failed write - it would show a bookmark
-        // the backend never saved.
+        // A failed write must not show a bookmark the backend never saved.
         console.error(e);
         setError(describeError(e));
         return;
       }
-      // Flip the row in place instead of re-running the search: the search
-      // is a live Etsy round trip, and re-fetching it here would also
-      // reshuffle rows under the user's cursor mid-click.
+      // In place, not a re-search: that is a live round trip and would
+      // reshuffle rows under the cursor mid-click.
       setListings((prev) =>
         prev.map((l) => (l.id === listingId ? { ...l, tracked: !l.tracked } : l)),
       );
@@ -124,9 +113,8 @@ export function ListingsPage({ repository = httpListingsRepository }: ListingsPa
     [repository, refreshTracked],
   );
 
-  // Both handlers are safe now: these rows carry real Etsy ids, and both
-  // detail pages read the same live backend they came from (#78 for
-  // listings, #8 for shops).
+  // Safe: these rows carry real Etsy ids and both detail pages read the same
+  // live backend.
   return (
     <div>
       <PageHeader title="Лістинги" subtitle="Аналізуйте будь-який лістинг конкурента або відстежуйте власні" />
