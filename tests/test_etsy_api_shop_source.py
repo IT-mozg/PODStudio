@@ -24,7 +24,8 @@ import pytest
 from models.etsy_api_shop_source import (HISTORY_MONTHS, REVIEW_WALK_MAX,
                                         REVIEWS_PAGE_LIMIT, SEARCH_CACHE_SIZE,
                                         SHOP_CACHE_SIZE, EtsyApiShopSource,
-                                        _recent_months)
+                                        _HistoryEntry, _recent_months)
+from models.shop_source import Shop
 
 
 class FakeClient:
@@ -216,23 +217,79 @@ def test_a_cold_estimate_reuses_the_shop_record_the_page_just_fetched():
     assert shop_requests == [], "re-fetched a record it already had"
 
 
-def test_a_warm_estimate_does_refetch_the_shop_record():
-    """The mirror image: once counts exist, review_count is the staleness
-    check, and a cached record would pin it to whatever it was first time."""
+def age_entry(source, shop_id: str, days: int, review_delta: int = 0) -> None:
+    """Backdate a cached entry so the same-day shortcut lets go of it.
+
+    review_delta lowers the count the entry was taken at, which is how the
+    source learns that reviews have been written since."""
+    e = source._history_cache.get(shop_id)
+    source._history_cache[shop_id] = _HistoryEntry(
+        dict(e.counts), e.first_review, e.review_count - review_delta,
+        e.total_sales, e.fetched_at - days * 86400)
+
+
+def test_a_second_look_on_the_same_day_costs_no_request_at_all():
+    """These are monthly numbers. Re-deriving them several times an afternoon
+    buys nothing and spends a key capped at 5,000 requests a day, so an entry
+    measured earlier today answers on its own - shop record included."""
+    source, client = build_history_source([s + 60 for s in _month_starts()])
+    first = source.sales_history("5")
+    before = len(client.requests)
+    again = source.sales_history("5")
+    assert client.requests[before:] == [], "went to Etsy for numbers it had"
+    assert [(m.month, m.sales) for m in again.months] == [(m.month, m.sales) for m in first.months]
+
+
+def test_yesterdays_entry_does_refetch_the_shop_record():
+    """Once the day has turned, review_count is the staleness check - and
+    checking a cached number against itself proves nothing."""
     source, client = build_history_source([s + 60 for s in _month_starts()])
     source.sales_history("5")
+    age_entry(source, "5", days=1)
     before = len(client.requests)
     source.sales_history("5")
     shop_requests = [u for u in client.requests[before:] if "/reviews?" not in u]
     assert len(shop_requests) == 1, "trusted a cached review_count"
 
 
-def test_a_revisit_costs_nothing_while_the_review_count_is_unchanged():
-    """The shop record is re-read on every call anyway, so its review_count is
-    a free staleness check: equal means no review has been written, which
-    means no bucket can have moved."""
+def test_a_cached_record_with_no_reviews_does_not_stick_forever():
+    """search() caches a Shop for every result, so a shop that had no reviews
+    then keeps that record for the life of the process. Trusting it on the
+    cold path made "this shop has no reviews" permanent: the estimate returned
+    None, cached nothing, and took the same path again next time."""
+    source, client = build_history_source([s + 60 for s in _month_starts()])
+    stale = Shop(shop_id="5", name="Shop5", total_sales=0, review_count=0)
+    source._by_id["5"] = stale
+    history = source.sales_history("5")
+    assert history is not None, "still stuck on the stale record"
+    assert any(m.known for m in history.months)
+
+
+def test_a_cached_record_that_understates_the_shop_does_not_truncate_the_walk():
+    """The walk/count choice is made on review_count. A record from before the
+    shop crossed REVIEW_WALK_MAX sends a huge shop down the walk, where the
+    page cap leaves only its newest reviews - on a big shop that is a few
+    days, so every month looks like it predates the first review and the chart
+    comes back empty."""
+    starts = _month_starts()
+    # One review predating the window, so every month on screen is past the
+    # shop's blind spot and a correct run marks all twelve known. A believed
+    # capped walk sees only the newest reviews and marks almost none.
+    many = [starts[0] - 86400] + [s + 60 for s in starts] * (REVIEW_WALK_MAX + 100)
+    source, _ = build_history_source(many)
+    source._by_id["5"] = Shop(shop_id="5", name="Shop5", total_sales=9,
+                              review_count=REVIEW_WALK_MAX - 100)
+    history = source.sales_history("5")
+    assert all(m.known for m in history.months), "the capped walk was believed"
+
+
+def test_yesterdays_entry_rereads_no_month_while_review_count_is_unchanged():
+    """The shop record fetched above doubles as the staleness check: an equal
+    review_count means no review has been written, so no bucket can have
+    moved - not even the open one."""
     source, client = build_history_source([s + 60 for s in _month_starts()])
     source.sales_history("5")
+    age_entry(source, "5", days=1)
     before = len(client.review_requests)
     source.sales_history("5")
     assert len(client.review_requests) == before, "re-read months that cannot have changed"
@@ -245,6 +302,7 @@ def test_a_revisit_rereads_only_the_open_month():
     starts = _month_starts()
     source, client = build_history_source([s + 60 for s in starts])
     first = source.sales_history("5")
+    age_entry(source, "5", days=1)
     before = len(client.review_requests)
 
     client.reviews = sorted(client.reviews + [starts[-1] + 120], reverse=True)
