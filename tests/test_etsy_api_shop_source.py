@@ -203,6 +203,17 @@ def test_a_huge_shop_never_walks_its_reviews():
     assert all(q["limit"] == "1" for q in asked), "a row page slipped in"
 
 
+def test_a_revisit_costs_nothing_while_the_review_count_is_unchanged():
+    """The shop record is re-read on every call anyway, so its review_count is
+    a free staleness check: equal means no review has been written, which
+    means no bucket can have moved."""
+    source, client = build_history_source([s + 60 for s in _month_starts()])
+    source.sales_history("5")
+    before = len(client.review_requests)
+    source.sales_history("5")
+    assert len(client.review_requests) == before, "re-read months that cannot have changed"
+
+
 def test_a_revisit_rereads_only_the_open_month():
     """The cached counts are review counts, not sales, precisely so a revisit
     can be cheap *and* current. Caching the finished numbers instead froze

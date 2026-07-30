@@ -98,12 +98,20 @@ class _HistoryEntry:
     so caching the finished numbers froze all twelve bars until the process
     restarted. Counts, by contrast, are stable for any month that has ended.
 
-    `fetched_at` is what makes a partial refresh safe: a month whose end is
-    later than it was still open when it was measured, so its count can have
-    grown and must be re-read. Every other month is final."""
+    Two fields decide how much of a refresh costs anything:
+
+      * `review_count` is the shop's total when these counts were taken. The
+        shop record is re-read on every call anyway, so comparing the two is
+        free - and if they match, not one review has been written since, so
+        no month can have changed and no request is needed at all.
+      * `fetched_at` narrows it down when they don't match: a month whose end
+        is later was still open when it was measured, so its count can have
+        grown. Every other month is final - a review written in August
+        carries an August timestamp and cannot land in July's bucket."""
 
     counts: dict[str, int]      # "YYYY-MM" -> reviews in that month
     first_review: int | None    # oldest review, or a bound inside its month
+    review_count: int           # the shop's total when counts were taken
     fetched_at: int             # unix seconds
 
 
@@ -357,10 +365,11 @@ class EtsyApiShopSource(ShopSource):
                          entry: "_HistoryEntry | None") -> "_HistoryEntry":
         """Bring a cached entry up to date, or build one from scratch.
 
-        A cold entry costs the full walk/count; a warm one costs one request
-        per month that was still open when it was last measured, which is one
-        inside the same month and two just after a rollover. An entry whose
-        first_review never resolved is rebuilt rather than patched - there is
+        A cold entry costs the full walk/count. A warm one costs nothing at
+        all while the shop's review_count is unchanged, and otherwise one
+        request per month that was still open when it was last measured -
+        one inside the same month, two just after a rollover. An entry whose
+        first_review never resolved is rebuilt rather than patched: there is
         nothing to extend."""
         now = int(time.time())
         if entry is None or entry.first_review is None:
@@ -368,14 +377,22 @@ class EtsyApiShopSource(ShopSource):
                 counts, first_review = self._sales_by_walking(shop, months)
             else:
                 counts, first_review = self._sales_by_counting(shop, months)
-            return _HistoryEntry(counts, first_review, now)
+            return _HistoryEntry(counts, first_review, shop.review_count, now)
         # Months that dropped out of the window are dropped with it; the ones
-        # that scrolled in have no count yet and are fetched below.
+        # that scrolled in start at zero and are filled below if they can have
+        # anything in them.
         counts = {key: entry.counts.get(key, 0) for _, _, key in months}
+        if entry.review_count == shop.review_count:
+            # Not one review has been written since these counts were taken,
+            # so every bucket - including the open one, and including a month
+            # that has just scrolled into the window - still holds what it
+            # held. The whole refresh is the shop request already spent.
+            return _HistoryEntry(counts, entry.first_review,
+                                 entry.review_count, now)
         for start, end, key in months:
             if key not in entry.counts or end > entry.fetched_at:
                 counts[key] = self._month_review_count(shop.shop_id, start, end)
-        return _HistoryEntry(counts, entry.first_review, now)
+        return _HistoryEntry(counts, entry.first_review, shop.review_count, now)
 
     def _reviews(self, shop_id: str, **params) -> dict:
         query = urllib.parse.urlencode(params)
