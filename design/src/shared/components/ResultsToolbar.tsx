@@ -5,7 +5,6 @@ interface ResultsToolbarProps {
   value: string;
 }
 
-/** The "Проаналізовано магазинів: 4 790 675" / "У відстежуваних: 2" line above a results table. */
 export function ResultsToolbar({ label, value }: ResultsToolbarProps) {
   return (
     <div className={styles.toolbar}>

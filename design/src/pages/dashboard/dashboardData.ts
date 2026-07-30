@@ -39,9 +39,8 @@ export interface TrendItemData {
   color: [string, string];
 }
 
-/** `id` is a real listingsRepository id (l1-l4) — trending cards link
- *  straight to the real /listings/:id detail page, no separate
- *  dashboard-only dataset to keep in sync with it. */
+/** Real listingsRepository ids, so the cards link to /listings/:id instead
+ *  of needing a dashboard-only dataset kept in sync. */
 export const trends: TrendItemData[] = [
   { id: "l1", rank: 1, name: "Funny cat vintage tee", meta: "т-шоп · 1 240 продажів/міс", growth: "+34%", color: ["#ff9a5a", "#e0653f"] },
   { id: "l2", rank: 2, name: "Retro surf van sunset", meta: "дизайн · 860 продажів/міс", growth: "+21%", color: ["#7c6cff", "#5b4bdb"] },
@@ -65,8 +64,7 @@ export const keywords: KeywordData[] = [
   { id: "k7", text: "plant mom", growth: "+8%" },
 ];
 
-/** `id` is a real shopsRepository id (ct/vg/kk/os) — clicking a row
- *  links straight to the real /shops/:id detail page. */
+/** Real shopsRepository ids, so a row links to /shops/:id. */
 export const myShops: ShopStatusEntry[] = [
   { id: "ct", initials: "CT", name: "CatTeesShop", meta: "128 лістингів · 34 продажі/тиж", status: "ok" },
   { id: "vg", initials: "VG", name: "VintageGlowPrints", meta: "312 лістингів · 19 продажів/тиж", status: "ok" },

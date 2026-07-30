@@ -8,20 +8,16 @@ export interface Shop {
   niche: string;
   sales: string;
   revenue: string;
-  /** null when the shop has no reviews at all. Etsy sends review_average as
-   *  0.0 in that case, and rendering "★ 0.00" would read as a one-star shop
-   *  rather than a new one — the same "0 where there is no data" trap
-   *  formatCount already avoids for the other fields. */
+  /** null when the shop has no reviews. Etsy sends 0.0 there, and "★ 0.00"
+   *  would read as a badly rated shop rather than a new one. */
   rating: number | null;
   reviews: string;
   growth: string;
-  /** Etsy's icon_url_fullxfull, "" when the shop has no icon. Consumers fall
-   *  back to `initials`. */
+  /** "" when the shop has no icon — consumers fall back to `initials`. */
   iconUrl: string;
-  /** num_favorers — real, and a 0 here is a genuine zero, not missing data. */
+  /** num_favorers — real, so 0 is a genuine zero, not missing data. */
   favorers: string;
-  /** Public shop page. The backend always fills it (falling back to
-   *  /shop/{name}), but consumers still guard: an empty href would link to
+  /** The backend always fills it, but guard anyway — an empty href links to
    *  the current page. */
   etsyUrl: string;
   tracked: boolean;

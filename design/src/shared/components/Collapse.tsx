@@ -6,10 +6,9 @@ interface CollapseProps {
   children: ReactNode;
 }
 
-/** Animated expand/collapse for content whose height isn't known ahead
- *  of time — no JS height measurement, just the CSS grid-template-rows
- *  0fr → 1fr trick. The child stays mounted (grid row collapses to 0),
- *  so any AnimatedNumber inside keeps ticking correctly when reopened. */
+/** Expand/collapse without measuring height: the CSS grid-template-rows
+ *  0fr → 1fr trick. The child stays mounted, so an AnimatedNumber inside
+ *  keeps ticking when reopened. */
 export function Collapse({ isOpen, children }: CollapseProps) {
   return (
     <div className={isOpen ? `${styles.collapse} ${styles.open}` : styles.collapse}>

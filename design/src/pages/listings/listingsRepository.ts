@@ -1,36 +1,31 @@
-/* Same Dependency-Inversion shape as shopsRepository.ts: ListingsPage
-   depends only on this interface. Swap in a real Etsy-API-backed
-   implementation later without touching any component. */
+/* ListingsPage depends only on this interface — see httpListingsRepository
+   for the live implementation and shopsRepository.ts for the same shape. */
 
 import { parseCount } from "../../shared/money";
 import type { Listing, ListingDetail } from "./types";
 
 export interface ListingsRepository {
-  /** Sorting by the filter chips is the caller's job (see
-   *  listingFilters.ts's sortListings) — no implementation has a
-   *  server-side sort, and doing it here would make a chip click cost a
-   *  network round trip. */
+  /** Sorting is the caller's job (listingFilters.ts): no implementation has
+   *  a server-side sort, and a chip click must not cost a round trip. */
   search(query: string): Promise<Listing[]>;
   toggleTracked(listingId: string): Promise<void>;
   getById(listingId: string): Promise<Listing | null>;
-  /** Everything the detail page needs — a superset of getById's Listing.
-   *  Separate method rather than a fatter Listing because the backend
-   *  serves them from separate endpoints on purpose: the search grid must
+  /** A superset of getById's Listing. Separate because the search grid must
    *  not carry 78 descriptions it never renders. */
   getDetailById(listingId: string): Promise<ListingDetail | null>;
-  /** Listings similar to this one, for the detail page's carousel (#86).
-   *  Deliberately not expressed as search(): search() repoints the backend's
-   *  shared listing source and wipes its page cache, so calling it from the
-   *  detail page would reset the grid the user came from. `query` is the
-   *  criterion actually used, and the UI has to show it — Etsy has no
-   *  similar/recommended endpoint, so this is a second keyword search and
-   *  must not be presented as anything more. */
+  /** Not expressed as search(): that repoints the backend's shared listing
+   *  source and wipes its page cache, resetting the grid the user came from.
+   *  `query` is the criterion used, and the UI has to show it — Etsy has no
+   *  similar/recommended endpoint, so this is a keyword search and must not
+   *  be presented as more. */
   getSimilar(listingId: string): Promise<{ query: string; items: Listing[] }>;
-  /** Every tracked listing, independent of the current search — a
-   *  bookmark outlives the query it was made under, so this can't be a
+  /** A bookmark outlives the query it was made under, so this can't be a
    *  filter over the last search's results. */
   getTracked(): Promise<Listing[]>;
 }
+
+/** Leading title words the backend builds its similar-listings query from. */
+const SIMILAR_QUERY_WORDS = 3;
 
 const MOCK_LISTINGS: Listing[] = [
   { id: "l1", title: "Funny cat vintage tee", shopId: "ct", shopName: "CatTeesShop", views: "987,976", sales: "12,942", revenue: "$198.1k", ageMonths: 38, tags: ["funny cat", "t-shirt"], tracked: true, thumbUrl: "", thumbGradient: ["#ff9a5a", "#e0653f"] },
@@ -46,9 +41,8 @@ class MockListingsRepository implements ListingsRepository {
   async search(query: string): Promise<Listing[]> {
     const needle = query.trim().toLowerCase();
     const matches = needle ? this.listings.filter((l) => l.title.toLowerCase().includes(needle)) : this.listings;
-    // Return fresh copies so React always sees a new reference (see the
-    // note in shopsRepository.ts — returning the same array silently
-    // drops updates like a star toggle when query/filter don't change).
+    // Fresh copies, or React reuses the reference and silently drops a star
+    // toggle when query and filter didn't change.
     return matches.map((l) => ({ ...l }));
   }
 
@@ -65,13 +59,12 @@ class MockListingsRepository implements ListingsRepository {
     return this.resolve(listingId);
   }
 
-  /** Mirrors the backend's rule (container.similar_query): the query is the
-   *  opening of the title, and every other fixture is a candidate. Sorted
-   *  the same way the route sorts — by the sales estimate, descending. */
+  /** Mirrors container.similar_query: the title's opening words, every other
+   *  fixture a candidate, sorted by sales estimate like the route. */
   async getSimilar(listingId: string): Promise<{ query: string; items: Listing[] }> {
     const listing = await this.resolve(listingId);
     if (!listing) return { query: "", items: [] };
-    const query = listing.title.split(" ").slice(0, 3).join(" ");
+    const query = listing.title.split(" ").slice(0, SIMILAR_QUERY_WORDS).join(" ");
     const items = this.listings
       .filter((l) => l.id !== listingId)
       .map((l) => ({ ...l }))
@@ -79,11 +72,9 @@ class MockListingsRepository implements ListingsRepository {
     return { query, items };
   }
 
-  /** Demo detail data, written out by hand rather than generated. The
-   *  previous version ran a seeded PRNG over the listing to invent a
-   *  description, photos, price and attributes; that is exactly what #78
-   *  removed, so the mock must not reintroduce it — a demo fixture is
-   *  honest, a plausible random number is not. */
+  /** Written by hand, not generated. The previous version ran a seeded PRNG
+   *  to invent a description, price and attributes — exactly what #78
+   *  removed. A demo fixture is honest, a plausible random number is not. */
   async getDetailById(listingId: string): Promise<ListingDetail | null> {
     const listing = await this.resolve(listingId);
     if (!listing) return null;
@@ -93,14 +84,13 @@ class MockListingsRepository implements ListingsRepository {
         "Демонстраційний опис лістинга. Проти реального бекенду сюди " +
         "приходить справжній текст із Etsy.",
       price: "$24.99",
-      // Derived from this fixture's own views/age, not a constant — a fixed
-      // number contradicted the "N міс. · M переглядів" line above it.
+      // From this fixture's own views/age: a constant contradicted the
+      // "N міс. · M переглядів" line above it.
       viewsPerMonth: (listing.ageMonths && listing.ageMonths >= 1
         ? Math.round(parseCount(listing.views) / listing.ageMonths)
         : parseCount(listing.views)
       ).toLocaleString("uk-UA"),
-      // No real imagery in the mock data — the detail view renders its
-      // placeholder tile when this is empty.
+      // Empty: the detail view renders its placeholder tile.
       photos: [],
       attributes: [
         { label: "Категорія", value: "Clothing → Tops & Tees → T-shirts" },
@@ -115,16 +105,13 @@ class MockListingsRepository implements ListingsRepository {
       ],
       etsyUrl: `https://www.etsy.com/listing/${listing.id}`,
       favorites: "412",
-      // What models/conversion_rate.py actually returns for the $24.99 above
-      // (the [20, 25) bucket), so the mock stays consistent with the model
-      // rather than inventing a nicer-looking number.
+      // What models/conversion_rate.py returns for the $24.99 above (the
+      // [20, 25) bucket) — not a nicer-looking invented number.
       convRate: "≈ 2,07%",
     };
   }
 
-  /** There used to be a second branch here, resolving shop-scoped ids like
-   *  "ct-l0" by regenerating a shop's listings from shopDetail.ts's PRNG.
-   *  #8 deleted that generator, and with it the only source of such ids. */
+
   private async resolve(listingId: string): Promise<Listing | null> {
     const listing = this.listings.find((l) => l.id === listingId);
     return listing ? { ...listing } : null;

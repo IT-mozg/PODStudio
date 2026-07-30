@@ -11,10 +11,8 @@ import { SectionHead } from "../../shared/components/SectionHead";
 import { stats, queueItems, trends, keywords, myShops } from "./dashboardData";
 import styles from "./DashboardPage.module.css";
 
-/** Дашборд page — composes small, single-purpose widgets over typed
- *  mock data (dashboardData.ts). No widget here knows about any other
- *  page; the only pieces shared with Магазини (ShopStatusList,
- *  GrowthBadge, PanelCard) live in shared/. */
+/** Composes single-purpose widgets over typed mock data. No widget knows
+ *  about another page — anything shared with Магазини lives in shared/. */
 export function DashboardPage() {
   const navigate = useNavigate();
 

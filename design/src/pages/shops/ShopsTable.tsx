@@ -6,30 +6,25 @@ import { Pill } from "../../shared/components/Pill";
 import type { Shop } from "./types";
 import styles from "./ShopsTable.module.css";
 
-/** What the mapper puts in a field the backend has no data for. Such a value
- *  renders as a bare dash rather than inside a Pill/GrowthBadge: a pill
- *  around "—" reads as a UI element whose label failed to load, and a growth
- *  badge around one puts a green up-arrow next to it — i.e. "this shop is
- *  growing" — when in fact Etsy exposes nothing (niche is #82, growth #81).
+/** What the mapper puts in a field with no data. Rendered as a bare dash,
+ *  never inside a Pill or GrowthBadge: a pill around "—" reads as a label
+ *  that failed to load, and a growth badge puts a green up-arrow beside it
+ *  while Etsy exposes nothing (#82, #81).
  *
- *  Also stands in for a null rating, which is a different kind of absence:
- *  there the data source exists, the shop simply has no reviews yet. */
+ *  Also covers a null rating — a different absence: the source exists, the
+ *  shop simply has no reviews yet. */
 const UNKNOWN = "—";
 
 interface ShopsTableProps {
   shops: Shop[];
   onToggleTracked: (shopId: string) => void;
-  /** Omit to make rows non-navigable — for callers whose ids the detail page
-   *  can't resolve yet (see ShopsPage against the real Etsy repository).
-   *  Rows then render without a pointer cursor rather than clicking through
-   *  to a "not found" page. Same pattern as ListingsTable. */
+  /** Omit to make rows non-navigable, for callers whose ids the detail page
+   *  can't resolve — no pointer cursor instead of a "not found" page. */
   onSelectShop?: (shop: Shop) => void;
 }
 
-/** Pure presentation — rows come from `shops`, the star click is
- *  reported upward via `onToggleTracked` (no direct repository
- *  access here, so this component doesn't care where data comes from).
- *  Memoized — pair with useCallback'd handlers in the caller. */
+/** Pure presentation: the star click is reported upward, so this component
+ *  never touches a repository. Memoized — pair with useCallback'd handlers. */
 export const ShopsTable = memo(function ShopsTable({ shops, onToggleTracked, onSelectShop }: ShopsTableProps) {
   return (
     <>

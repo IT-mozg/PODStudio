@@ -14,23 +14,20 @@ import type { Shop } from "./types";
 
 export interface ShopSearchResult {
   shops: Shop[];
-  /** How many shops matched in total, which can be far more than `shops`
-   *  carries: an Etsy name search reports tens of thousands of matches and
-   *  returns the first 100. Shown in the results toolbar. */
+  /** Total matches, which far exceeds `shops` — Etsy reports tens of
+   *  thousands and returns the first 100. */
   total: number;
 }
 
 export interface ShopsRepository {
-  /** Sorting by the filter chips is the caller's job (see shopFilters.ts's
-   *  sortShops) — Etsy has no server-side sort for shops at all, so the
-   *  filter is deliberately not a parameter here: passing it would make a
-   *  chip click look like it needs a network round trip. */
+  /** Sorting is the caller's job (shopFilters.ts). Etsy has no server-side
+   *  sort, so the filter is not a parameter — passing it would make a chip
+   *  click look like it needs a round trip. */
   search(query: string): Promise<ShopSearchResult>;
   toggleTracked(shopId: string): Promise<void>;
   getById(shopId: string): Promise<Shop | null>;
-  /** Every tracked shop, independent of the current search — a bookmark
-   *  outlives the query it was made under, so this can't be a filter over
-   *  the last search's results. */
+  /** A bookmark outlives the query it was made under, so this can't be a
+   *  filter over the last search's results. */
   getTracked(): Promise<Shop[]>;
 }
 
@@ -44,16 +41,13 @@ const MOCK_SHOPS: Shop[] = [
   { id: "mv", initials: "MV", name: "MugvoyageCo", listings: 76, ageMonths: 42, niche: "coffee / mugs", sales: "38 450", revenue: "$720k", rating: 4.79, reviews: "76.2k", growth: "+9%", iconUrl: "", favorers: "5 233", etsyUrl: "https://www.etsy.com/shop/MugvoyageCo", tracked: false },
 ];
 
-/** In-memory mock — mutates its own copy so the star toggle persists
- *  for the session, same as a real repository would against a server. */
+/** Mutates its own copy, so a star toggle persists for the session. */
 class MockShopsRepository implements ShopsRepository {
   private shops = MOCK_SHOPS.map((s) => ({ ...s }));
 
   async search(query: string): Promise<ShopSearchResult> {
-    // Always return a fresh array/objects: React bails out of re-rendering
-    // when setState receives the exact same reference back, so a mock that
-    // just returned `this.shops` would silently drop updates like a star
-    // toggle when the query/filter didn't change.
+    // Fresh copies: React bails out on an identical reference, silently
+    // dropping a star toggle when query and filter didn't change.
     const needle = query.trim().toLowerCase();
     const matches = needle ? this.shops.filter((s) => s.name.toLowerCase().includes(needle)) : this.shops;
     return { shops: matches.map((s) => ({ ...s })), total: matches.length };

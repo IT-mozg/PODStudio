@@ -28,20 +28,15 @@ function NavList({ items, pathname, onNavigate }: { items: NavItem[]; pathname: 
 }
 
 interface SidebarProps {
-  /** Only meaningful below the drawer breakpoint — ignored by the CSS
-   *  on wider screens, where the sidebar is always visible. */
+  /** Only meaningful below the drawer breakpoint. */
   isOpen: boolean;
   onClose: () => void;
 }
 
-/** Sidebar reads navigation state straight from the URL (via the
- *  router) instead of being handed activePage/mode as props — one
- *  less place for "what page am I on" to get out of sync with what's
- *  actually rendered. Same idea as a SwiftUI view reading the
- *  NavigationPath from its environment instead of a passed-in binding.
- *  `isOpen`/`onClose` are the one exception: below ~960px this renders
- *  as an off-canvas drawer, and open/closed is shared UI state with
- *  Topbar's hamburger button, not something derivable from the URL. */
+/** Reads navigation state from the URL rather than taking activePage/mode as
+ *  props — one less place for "what page am I on" to drift. `isOpen` is the
+ *  exception: below the drawer breakpoint that's shared state with Topbar's
+ *  hamburger, and nothing in the URL says whether a drawer is open. */
 export function Sidebar({ isOpen, onClose }: SidebarProps) {
   const location = useLocation();
   const navigate = useNavigate();

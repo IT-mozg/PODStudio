@@ -1,10 +1,9 @@
-/* Verdicts on top of seoSignals.ts (#85). No PRNG and no defaults: a check
- * that cannot be computed is emitted as "unknown" with the ticket that will
- * make it computable, never as "ok".
+/* Verdicts on top of seoSignals.ts. No PRNG and no defaults: a check that
+ * cannot be computed is emitted as "unknown" with the ticket that will fix
+ * that, never as "ok".
  *
- * Each item's `why` is one plain sentence on what to aim for — deliberately
- * not the thresholds, which are our internal rule and nothing a seller can
- * act on. */
+ * Each `why` is one plain sentence on what to aim for, not the thresholds —
+ * those are our internal rule and nothing a seller can act on. */
 
 import type { DescriptionSegment, SeoCheckItem } from "./types";
 import type { SeoSignals } from "./seoSignals";
@@ -71,8 +70,7 @@ function titleHeadCheck(s: SeoSignals): SeoCheckItem {
 
 function tagCountCheck(s: SeoSignals): SeoCheckItem {
   const why = `Etsy дає рівно ${MAX_TAGS} тегів безкоштовно, і кожен незаповнений — це запит, за яким лістинг просто не покажуть.`;
-  // Never "N із MAX" when N is above MAX — Etsy has raised its own caps
-  // before, and "15 із 13" reads as a bug.
+  // Never "N із MAX" when N exceeds MAX — "15 із 13" reads as a bug.
   if (s.tagCount >= MAX_TAGS) {
     return {
       status: "ok",
@@ -149,8 +147,7 @@ function photoCheck(s: SeoSignals): SeoCheckItem {
 function stuffingCheck(s: SeoSignals): SeoCheckItem {
   const why =
     "Ключове слово в описі має звучати природно: часті повтори читаються як спам і відлякують покупця. Підсвічене нижче — це його реальні входження.";
-  // After a failed scan an empty result is "not measured" — reporting ok
-  // would be a pass nobody checked.
+  // After a failed scan, ok would be a pass nobody checked.
   if (s.keywordScanFailed) {
     return {
       status: "unknown",
@@ -242,7 +239,7 @@ function descriptionStructureCheck(s: SeoSignals): SeoCheckItem {
 }
 
 /** Blocked by #56. Shown rather than hidden, so it's clear the check exists
- *  and why it has no answer — never given a number. */
+ *  and why it has no answer. Never given a number. */
 function tagDemandCheck(): SeoCheckItem {
   return {
     status: "unknown",
@@ -264,8 +261,8 @@ export function buildSeoChecks(signals: SeoSignals): SeoCheckItem[] {
   ];
 
   if (!signals.hasDescription) {
-    // Same test FlaggedDescription uses, so a whitespace-only description
-    // can't be graded here while the block beside it calls it missing.
+    // FlaggedDescription's test, so a whitespace-only description can't be
+    // graded here while the block beside it calls it missing.
     checks.push({
       status: "bad",
       title: "Опису немає",
@@ -286,12 +283,11 @@ export function buildSeoChecks(signals: SeoSignals): SeoCheckItem[] {
 }
 
 /** Cuts the description along the keyword hits, so a highlighted piece is
- *  always literally the text at those offsets. Reads the description off the
- *  signals rather than as its own argument — a second parameter let a caller
- *  pair the offsets with a different string.
+ *  literally the text at those offsets. Reads the description off the signals
+ *  rather than as an argument — a second parameter let a caller pair the
+ *  offsets with a different string.
  *
- *  No matches → one unflagged segment; empty description → empty array, and
- *  FlaggedDescription shows its own empty state. */
+ *  No matches → one unflagged segment; empty description → empty array. */
 export function buildDescriptionSegments(signals: SeoSignals): DescriptionSegment[] {
   const description = signals.description;
   if (!description) return [];

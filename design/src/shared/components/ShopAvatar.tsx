@@ -3,10 +3,8 @@ import styles from "./ShopAvatar.module.css";
 
 interface ShopAvatarProps {
   initials: string;
-  /** Etsy's icon_url_fullxfull. Optional, and deliberately so: it is the
-   *  full-resolution icon, which is fine for the single avatar on a shop's
-   *  detail page but not for a table of up to 100 search results. Callers
-   *  that render in bulk omit it and get the initials. */
+  /** Etsy's icon_url_fullxfull — full resolution, so callers rendering in
+   *  bulk omit it and get the initials instead. */
   iconUrl?: string;
   small?: boolean;
 }
@@ -14,9 +12,8 @@ interface ShopAvatarProps {
 export function ShopAvatar({ initials, iconUrl, small }: ShopAvatarProps) {
   const [failed, setFailed] = useState(false);
 
-  // /shops/:shopId is a single route, so navigating from one shop to another
-  // reuses this component instance. Without the reset, one shop's broken
-  // icon would keep the next shop's working one from ever rendering.
+  // One route for all shops means this instance is reused across them —
+  // without the reset, one broken icon hides the next shop's working one.
   useEffect(() => setFailed(false), [iconUrl]);
 
   const className = small ? `${styles.avatar} ${styles.small}` : styles.avatar;

@@ -54,9 +54,8 @@ interface KeywordsPageProps {
 export function KeywordsPage({ repository = mockKeywordsRepository }: KeywordsPageProps) {
   const [searchParams] = useSearchParams();
   const [tab, setTab] = useState<KeywordsTab>("search");
-  // Arriving from a "Ключові слова, що ростуть" chip on the dashboard
-  // (/keywords?q=...) starts the search prefilled instead of showing
-  // the default term — read once at mount, same as any other route.
+  // /keywords?q=... from a dashboard chip starts the search prefilled.
+  // Read once at mount.
   const [query, setQuery] = useState(() => searchParams.get("q") ?? "funny cat shirt");
   const [filter, setFilter] = useState<KeywordFilter>("top");
   const [result, setResult] = useState<KeywordSearchResult | null>(null);

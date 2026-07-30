@@ -17,8 +17,7 @@ import styles from "../../shared/components/SearchToolbar.module.css";
 type ShopsTab = "search" | "tracked";
 
 interface ShopsPageProps {
-  /** Defaults to the real Etsy-backed repository. Pass mockShopsRepository
-   *  to fall back to the fixed 5-row demo data. */
+  /** Pass mockShopsRepository for the fixed 5-row demo data. */
   repository?: ShopsRepository;
 }
 
@@ -26,29 +25,21 @@ export function ShopsPage({ repository = httpShopsRepository }: ShopsPageProps) 
   const navigate = useNavigate();
   const [tab, setTab] = useState<ShopsTab>("search");
   const [query, setQuery] = useState("");
-  // The query actually sent to the repository - only changes on explicit
-  // submit, never while the user is still typing. Against the mock a debounce
-  // was a free local filter; against real Etsy every debounce tick would be a
-  // live network call against a 5 req/sec personal-access limit.
+  // Only changes on explicit submit: against real Etsy every debounce tick
+  // would be a live call against a 5 req/s key.
   const [activeQuery, setActiveQuery] = useState("");
-  // No chip active by default: the repository returns shops in name-relevance
-  // order and that is the right resting state (see sortShops). Clicking the
-  // active chip again clears it, so relevance order is always reachable.
+  // No chip by default — name-relevance order is the resting state, and
+  // clicking the active chip clears it so that order stays reachable.
   const [filter, setFilter] = useState<ShopFilter | null>(null);
   const [shops, setShops] = useState<Shop[]>([]);
   const [total, setTotal] = useState(0);
-  // Tracked bookmarks come from their own repository call rather than
-  // filtering `shops`: a bookmark outlives the query it was made under, so
-  // anything tracked under an earlier search would otherwise be invisible
-  // here even though the backend still has it.
+  // Their own call, not a filter over `shops`: a bookmark outlives the query
+  // it was made under.
   const [tracked, setTracked] = useState<Shop[]>([]);
-  // Whatever the last failed repository call said. Rendered as a banner
-  // instead of being logged and forgotten: without it, a missing Etsy key, a
-  // rate limit or a Flask process running old code all look identical to the
-  // user - an empty table reading "Знайдено магазинів: 0".
+  // A banner, not a console log: otherwise a missing Etsy key, a rate limit
+  // and a stale Flask process all read as "Знайдено магазинів: 0".
   const [error, setError] = useState<string | null>(null);
-  // Bumped by the retry button to re-run the search effect with the same
-  // query (which state alone wouldn't do - nothing else changed).
+  // Bumped by the retry button, so the effect re-runs on the same query.
   const [reloadToken, setReloadToken] = useState(0);
 
   const refreshTracked = useCallback(
@@ -64,18 +55,15 @@ export function ShopsPage({ repository = httpShopsRepository }: ShopsPageProps) 
   );
 
   useEffect(() => {
-    // Etsy can only find shops by name (there is no "list all shops" mode),
-    // so with no query there is nothing to ask for - render the hint below
-    // instead of firing a request that can only fail.
+    // Etsy finds shops by name only, so an empty query has nothing to ask
+    // for — render the hint instead of a request that can only fail.
     if (!activeQuery) {
       setShops([]);
       setTotal(0);
       setError(null);
       return;
     }
-    // Guard against a stale response overwriting a newer one: switching
-    // queries mid-flight means whichever request *resolves* last would
-    // otherwise win.
+    // Stale-response guard: otherwise whichever request resolves last wins.
     let cancelled = false;
     setError(null);
     repository
@@ -87,9 +75,8 @@ export function ShopsPage({ repository = httpShopsRepository }: ShopsPageProps) 
       })
       .catch((e) => {
         if (cancelled) return;
-        // Console for the stack trace, banner for the user - and the rows are
-        // cleared, because leaving the previous query's results on screen
-        // under a new query reads as "these are your results".
+        // Rows are cleared too: the previous query's results under a new
+        // query read as "these are your results".
         console.error(e);
         setShops([]);
         setTotal(0);
@@ -98,17 +85,14 @@ export function ShopsPage({ repository = httpShopsRepository }: ShopsPageProps) 
     return () => {
       cancelled = true;
     };
-    // Deliberately not depending on `filter`: chips only re-sort what is
-    // already loaded (sortShops below), so a chip click must not re-issue a
-    // live Etsy request.
+    // Not depending on `filter`: chips re-sort what is already loaded.
   }, [repository, activeQuery, reloadToken]);
 
   useEffect(() => {
     refreshTracked();
   }, [refreshTracked]);
 
-  // Filter chips sort client-side (Etsy has no shop sort at all), so changing
-  // one must not trigger a re-fetch.
+  // Chips sort client-side, so changing one must not re-fetch.
   const visibleShops = useMemo(() => sortShops(shops, filter), [shops, filter]);
   const visibleTracked = useMemo(() => sortShops(tracked, filter), [tracked, filter]);
 
@@ -119,25 +103,21 @@ export function ShopsPage({ repository = httpShopsRepository }: ShopsPageProps) 
       try {
         await repository.toggleTracked(shopId);
       } catch (e) {
-        // Don't flip the star on a failed write - it would show a bookmark
-        // the backend never saved, and survive until the next reload.
+        // A failed write must not show a bookmark the backend never saved.
         console.error(e);
         setError(describeError(e));
         return;
       }
-      // Flip the row in place instead of re-running the search: the search is
-      // a live Etsy round trip, and re-fetching it here would also reshuffle
-      // rows under the user's cursor mid-click.
+      // In place, not a re-search: that is a live round trip and would
+      // reshuffle rows under the cursor mid-click.
       setShops((prev) => prev.map((s) => (s.id === shopId ? { ...s, tracked: !s.tracked } : s)));
       await refreshTracked();
     },
     [repository, refreshTracked],
   );
 
-  // Rows carry real numeric Etsy shop ids and ShopDetailPage now resolves
-  // them against the same live backend (#8), so a click lands on the shop it
-  // names. useCallback because ShopsTable is memoized - an inline arrow would
-  // re-render every row on each keystroke in the search box.
+  // useCallback because ShopsTable is memoized — an inline arrow would
+  // re-render every row on each keystroke.
   const handleSelectShop = useCallback((shop: Shop) => navigate(`/shops/${shop.id}`), [navigate]);
 
   return (

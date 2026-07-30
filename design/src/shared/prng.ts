@@ -1,20 +1,18 @@
-/** Deterministic pseudo-random generator seeded from a string. Used
- *  wherever a mock needs to look different per-entity (per keyword,
- *  per shop) but stay stable across re-renders and reloads instead of
- *  reshuffling every time — extracted here since keywordsRepository
- *  and listingMapper both need the same seeding + RNG.
+/** Deterministic RNG seeded from a string, so a mock looks different
+ *  per-entity but stays stable across re-renders instead of reshuffling.
  *
- *  Note the narrowed remit: this used to seed whole detail pages
- *  (listingDetail.ts, shopDetail.ts, both deleted in #78/#8) with invented
- *  metrics. What's left is presentational only — a keyword's mock row and a
- *  listing thumbnail's gradient. Don't grow it back into numbers a user
- *  could mistake for measurements. */
+ *  Presentational only — a keyword's mock row and a thumbnail gradient. It
+ *  used to seed whole detail pages with invented metrics (listingDetail.ts,
+ *  shopDetail.ts, deleted in #78/#8). Don't grow it back into numbers a user
+ *  could read as measurements. */
 export function seedFromString(text: string): number {
   let hash = 0;
   for (let i = 0; i < text.length; i++) hash = (hash * 31 + text.charCodeAt(i)) >>> 0;
   return hash;
 }
 
+/** mulberry32, unmodified — the bit constants are the published algorithm,
+ *  not tunables. */
 export function mulberry32(seed: number) {
   let a = seed;
   return () => {

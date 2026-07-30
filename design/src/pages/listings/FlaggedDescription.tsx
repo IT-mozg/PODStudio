@@ -3,20 +3,17 @@ import type { DescriptionSegment } from "./types";
 import styles from "./FlaggedDescription.module.css";
 
 interface FlaggedDescriptionProps {
-  /** The listing's real description, straight from Etsy. */
+  /** Straight from Etsy. */
   text: string;
-  /** `text` cut along the keyword occurrences — the segments concatenate back
+  /** `text` cut along the keyword occurrences. The segments concatenate back
    *  to exactly `text`, so a highlight can't point at what isn't there. */
   segments: DescriptionSegment[];
 }
 
-/** Highlights where the listing's own tags and title keywords actually occur.
- *  Color says which of the two a match came from; how much repetition is too
- *  much is the checklist's call.
- *
- *  Both the text and the flags used to be invented — a fixed paragraph with
- *  hardcoded offsets, so every listing read as keyword-stuffed. Real now
- *  (#78 for the text, #85 for the flags). */
+/** Highlights where the listing's own tags and title keywords occur. Colour
+ *  says which of the two matched; whether it's too much is the checklist's
+ *  call. Both text and flags used to be invented, so every listing read as
+ *  keyword-stuffed (#78, #85). */
 export function FlaggedDescription({ text, segments }: FlaggedDescriptionProps) {
   if (!text.trim()) {
     return <NoDataNotice>Etsy не повертає опису для цього лістинга.</NoDataNotice>;

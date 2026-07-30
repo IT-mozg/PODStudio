@@ -17,17 +17,15 @@ interface ListingsSearchPanelProps {
   resultsValue: string;
   listings: Listing[];
   onToggleTracked: (listingId: string) => void;
-  /** Both optional — omitted by callers whose ids the detail pages can't
-   *  resolve yet; see ListingsTable for what that changes. */
+  /** Omitted by callers whose ids the detail pages can't resolve — see
+   *  ListingsTable. */
   onSelectListing?: (listing: Listing) => void;
   onSelectShop?: (shopId: string) => void;
 }
 
-/** Search + filter chips + results count + table — the exact block
- *  Лістинги's own search tab and a shop's "Лістинги" tab both need.
- *  Each caller still owns how `listings` gets produced (a repository
- *  round-trip vs. filtering an already-loaded array) since that part
- *  genuinely differs; this only dedupes the UI wiring around it. */
+/** Search + chips + count + table, shared by Лістинги's search tab and a
+ *  shop's "Лістинги" tab. Each caller still owns how `listings` is produced;
+ *  this dedupes only the UI wiring. */
 export function ListingsSearchPanel({
   query,
   onQueryChange,

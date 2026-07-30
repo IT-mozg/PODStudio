@@ -1,9 +1,5 @@
-/* Pure calculation logic, no React — kept separate from the modal so
-   the math can be reasoned about (and unit-tested) independent of any
-   UI. Etsy's published fee structure (US): $0.20 flat listing fee,
-   6.5% transaction fee on the order total (item + shipping), 3% + $0.25
-   payment processing, 15% offsite-ads fee when a sale is attributed to
-   an offsite ad. */
+/* Pure calculation, no React, so the math can be reasoned about and tested
+   independent of any UI. Rates are Etsy's published US fee structure. */
 
 export interface ProfitInputs {
   sellingPrice: number;
@@ -40,20 +36,29 @@ export interface ProfitResult {
   breakeven: ProfitBreakeven | null;
 }
 
-const LISTING_FEE = 0.2;
-const TRANSACTION_FEE_RATE = 0.065;
-const PROCESSING_RATE = 0.03;
-const PROCESSING_FLAT = 0.25;
-const OFFSITE_ADS_RATE = 0.15;
+/** Etsy US, as published. Exported so the modal's fee breakdown quotes these
+ *  rather than repeating them as literals that drift when Etsy changes one. */
+export const ETSY_FEES = {
+  /** Flat, per listing. */
+  listing: 0.2,
+  /** Of the order total, item + shipping. */
+  transactionRate: 0.065,
+  processingRate: 0.03,
+  processingFlat: 0.25,
+  /** Only when a sale is attributed to an offsite ad. */
+  offsiteAdsRate: 0.15,
+} as const;
+
+const PERCENT = 100;
 
 export function calculateProfit(inputs: ProfitInputs): ProfitResult {
-  const discountedSellingPrice = inputs.sellingPrice * (1 - inputs.saleDiscountPct / 100);
+  const discountedSellingPrice = inputs.sellingPrice * (1 - inputs.saleDiscountPct / PERCENT);
   const revenue = discountedSellingPrice + inputs.shippingPrice;
 
-  const listingFee = LISTING_FEE;
-  const transactionFee = revenue * TRANSACTION_FEE_RATE;
-  const processingFee = revenue * PROCESSING_RATE + PROCESSING_FLAT;
-  const offsiteAdsFee = inputs.offsiteAdsEnabled ? revenue * OFFSITE_ADS_RATE : 0;
+  const listingFee = ETSY_FEES.listing;
+  const transactionFee = revenue * ETSY_FEES.transactionRate;
+  const processingFee = revenue * ETSY_FEES.processingRate + ETSY_FEES.processingFlat;
+  const offsiteAdsFee = inputs.offsiteAdsEnabled ? revenue * ETSY_FEES.offsiteAdsRate : 0;
   const etsyFees = listingFee + transactionFee + processingFee + offsiteAdsFee;
 
   const totalCost = inputs.productionCost + inputs.shippingCost + etsyFees;
@@ -62,11 +67,10 @@ export function calculateProfit(inputs: ProfitInputs): ProfitResult {
   const totalProfitForAllSales = profit * Math.max(0, inputs.numberOfSales);
 
   let breakeven: ProfitBreakeven | null = null;
-  // Computed regardless of paidAdsEnabled — that toggle only controls
-  // whether the panel is shown (Collapse), not whether this is known,
-  // so the panel has real numbers to animate to the moment it opens.
+  // Computed regardless of paidAdsEnabled: that toggle only shows the panel,
+  // so it has real numbers to animate to the moment it opens.
   if (inputs.conversionRatePct > 0) {
-    const clicksPerSale = 100 / inputs.conversionRatePct;
+    const clicksPerSale = PERCENT / inputs.conversionRatePct;
     const adSpend = Math.max(profit, 0);
     breakeven = {
       adSpend,

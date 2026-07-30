@@ -31,16 +31,13 @@ interface ListingDetailViewProps {
   onToggleTracked: (listingId: string) => void;
   onSelectListing: (listingId: string) => void;
   onSelectShop: (shopId: string) => void;
-  /** Passed straight through to SimilarListingsSection, which is the one
-   *  block here that fetches on its own (lazily, on scroll). Kept as a prop
-   *  rather than letting that component reach for the http repository itself
-   *  so this view stays injectable end to end — same DI seam as the pages. */
+  /** For SimilarListingsSection, the one block here that fetches on its own.
+   *  A prop, not a direct import, so this view stays injectable end to end. */
   repository?: ListingsRepository;
 }
 
 export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectListing, onSelectShop, repository }: ListingDetailViewProps) {
-  // Tag names are real; every metric beside them needs the search-volume
-  // engine (#54/#56) and stays null so the table renders "—".
+  // Tag names are real; the metrics need #54/#56 and stay null → "—".
   const tags: ListingTag[] = useMemo(
     () => listing.tags.map((tag) => ({ tag, volume: null, competition: null, kd: null, sparkline: null })),
     [listing.tags],
@@ -58,8 +55,7 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
   );
   const seoChecks = useMemo(() => buildSeoChecks(seoSignals), [seoSignals]);
   const descriptionSegments = useMemo(() => buildDescriptionSegments(seoSignals), [seoSignals]);
-  // Off the same signals as the checklist, so the ring and the list below it
-  // can't grade one listing differently.
+  // Same signals as the checklist, so ring and list can't disagree.
   const score = useMemo(() => buildListingScore(seoSignals), [seoSignals]);
 
   const stats: StatDatum[] = [
@@ -67,8 +63,7 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
       id: "views",
       icon: TrendUpIcon,
       value: listing.viewsPerMonth,
-      // With no creation date there is nothing to divide by, so the tile
-      // says what the number actually is instead of claiming a rate.
+      // No creation date, nothing to divide by — so name the total, not a rate.
       label: listing.ageMonths === null ? "Переглядів за весь час" : "Переглядів / міс.",
       ...(listing.ageMonths === null
         ? {}
@@ -77,15 +72,13 @@ export function ListingDetailView({ listing, onBack, onToggleTracked, onSelectLi
     {
       id: "conv",
       icon: SearchIcon,
-      // Carries its own "≈" (see listingMapper), which is the whole marking
-      // this tile gets — deliberately no delta caption and no tooltip, on the
-      // project owner's call. Etsy publishes no conversion rate at all; this
-      // is the price-bucket model in models/conversion_rate.py.
+      // The "≈" from listingMapper is the whole marking this tile gets, on
+      // the owner's call. Etsy publishes no conversion rate — this is the
+      // price-bucket model in models/conversion_rate.py.
       value: listing.convRate ?? NO_DATA,
       label: "Конверсія",
     },
-    // Formatted by listingMapper, in the listing's own currency. "(оц.)"
-    // because both come from #57's estimate, not from Etsy.
+    // "(оц.)" because both come from #57's estimate, not from Etsy.
     {
       id: "sales",
       icon: ShopBagIcon,

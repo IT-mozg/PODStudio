@@ -7,9 +7,8 @@ interface SparklineProps {
   height?: number;
 }
 
-/** Tiny inline trend line for a table row — green when the series ends
- *  higher than it started, red when it ends lower. No axes/labels;
- *  the big picture lives in TrendChart, this is just a glance. */
+/** Tiny inline trend line for a table row: green when the series ends higher
+ *  than it started, red when lower. No axes — TrendChart is the big view. */
 export function Sparkline({ values, width = 90, height = 28 }: SparklineProps) {
   if (values.length < 2) return null;
 

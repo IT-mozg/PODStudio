@@ -20,13 +20,12 @@ const SUBSCORES: { key: keyof Omit<ScoreBreakdown, "overall">; label: string }[]
   { key: "description", label: "Опис" },
 ];
 
-/** The single "how am I doing overall" answer for the page — an overall ring
- *  plus the four sub-scores it's built from, so a low overall number always
- *  points straight at which section to fix.
+/** The overall ring plus the four sub-scores behind it, so a low number
+ *  points at which section to fix.
  *
- *  Purely presentational: every number arrives computed by listingScore.ts
- *  (#84) off the listing's real fields. It used to come out of a seeded PRNG —
- *  hence each sub-score now carries a `note` naming what was measured. */
+ *  Presentational: every number arrives computed by listingScore.ts off real
+ *  fields. It used to be PRNG output — hence the `note` on each sub-score
+ *  naming what was actually measured. */
 export function ListingScoreCard({ score }: { score: ScoreBreakdown }) {
   return (
     <div className={styles.card}>

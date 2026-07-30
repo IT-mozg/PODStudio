@@ -13,12 +13,12 @@ const STATUS_LABEL: Record<SeoCheckStatus, string> = {
   unknown: "Немає даних:",
 };
 
-/** Every row comes from a real field of the listing (seoChecks.ts) — #85. The
- *  version before generated them with a PRNG, so "keyword stuffing" was
- *  reported on every listing regardless of its description.
+/** Every row comes from a real field (seoChecks.ts). The previous version
+ *  generated them with a PRNG, so "keyword stuffing" was reported on every
+ *  listing regardless of its description.
  *
- *  A check with no data source yet arrives as `unknown` and is greyed out
- *  rather than dropped, so it's clear it exists and why it has no answer. */
+ *  A check with no data source arrives as `unknown` and is greyed out rather
+ *  than dropped, so it's clear it exists and why it has no answer. */
 export function SeoChecklist({ checks }: { checks: SeoCheckItem[] }) {
   return (
     <div className={styles.list}>

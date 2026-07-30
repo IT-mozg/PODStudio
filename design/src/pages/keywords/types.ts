@@ -6,7 +6,7 @@ export interface Keyword {
   searchVolume: string;
   competition: string;
   kd: number;
-  /** 14-point mini trend, newest last — drives the row's Sparkline. */
+  /** 14-point mini trend, newest last. */
   sparkline: number[];
   tracked: boolean;
 }

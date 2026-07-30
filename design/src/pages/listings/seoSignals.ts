@@ -19,55 +19,52 @@ const STOP_WORDS = new Set([
   "every", "per", "via", "etc", "gift", "gifts",
 ]);
 
+/** Shorter title words carry no search intent on their own. */
+const MIN_TITLE_KEYWORD_CHARS = 4;
+
 export interface KeywordHit {
   keyword: string;
   source: "tag" | "title";
-  /** [start, end) in the description, ascending, never overlapping another
-   *  hit — slicing by these gives back exactly the matched text. */
+  /** [start, end) in the description, ascending and never overlapping. */
   spans: [number, number][];
 }
 
 export interface SeoSignals {
-  /** The description the spans were measured against. Travels with them so a
-   *  caller can't pair offsets with a different string. */
+  /** Travels with the spans so a caller can't pair offsets with a different
+   *  string. */
   description: string;
   titleLength: number;
-  /** Characters Etsy's title cap dropped, 0 when it fit. Everything else
-   *  measures the truncated title — the one Etsy shows. */
+  /** Characters Etsy's cap dropped, 0 when it fit. Everything else measures
+   *  the truncated title — the one Etsy shows. */
   titleOverLimitBy: number;
   /** Where the earliest tag starts in the title, `null` when none occurs.
-   *  The score grades the position (char 12 beats char 55); the checklist
-   *  only asks whether it landed in the head, and reads it off the same
-   *  number so the two cannot disagree. */
+   *  Score and checklist both read this one number, so they can't disagree. */
   tagTitleOffset: number | null;
   tagInTitleHead: string | null;
   tagCount: number;
   duplicateTags: string[];
   singleWordTags: string[];
-  /** Tag slots spending themselves on nothing: a repeat of a slot already
-   *  counted, a lone word the whole market bids on, or the swallowed half of
-   *  an overlapping pair. Slots, not names — a tag used twice wastes one slot
+  /** Tag slots spent on nothing: a repeat, a lone word, or the swallowed half
+   *  of an overlapping pair. Slots, not names — a tag used twice wastes one
    *  and keeps the other, which a set of names cannot express. */
   weakTags: string[];
-  /** Pairs where one tag's words are a subset of another's, e.g.
-   *  ["floral tee", "floral tee women"] — they compete for one query. */
+  /** One tag's words a subset of another's — ["floral tee", "floral tee
+   *  women"] compete for the same query. */
   overlappingTags: [string, string][];
   photoCount: number;
   descriptionLength: number;
-  /** False for whitespace-only too — the same test FlaggedDescription uses,
-   *  so the checklist can't grade text the page calls missing. */
+  /** False for whitespace-only too, matching FlaggedDescription's test. */
   hasDescription: boolean;
-  /** Then an empty `keywordHits` means "not measured", never "nothing
-   *  found", and a check reading it must report `unknown`, not a pass. */
+  /** Then an empty `keywordHits` means "not measured", never "nothing found",
+   *  and a check reading it must report `unknown` rather than a pass. */
   keywordScanFailed: boolean;
   hasParagraphBreaks: boolean;
-  /** Paragraphs the description splits into, ignoring empty ones. 0 for an
-   *  empty description, 1 for a wall of text. `hasParagraphBreaks` is this
-   *  number, not a second test of the same thing. */
+  /** Non-empty paragraphs: 0 for no description, 1 for a wall of text.
+   *  `hasParagraphBreaks` derives from this, it isn't a second test. */
   paragraphCount: number;
   tagsInFirst160: string[];
   keywordHits: KeywordHit[];
-  /** Occurrences of the most-repeated keyword. 0 when none matched. */
+  /** Occurrences of the most-repeated keyword, 0 when none matched. */
   maxKeywordRepeats: number;
 }
 
@@ -80,11 +77,10 @@ function escapeRegExp(value: string): string {
 const IS_LETTER = /[\p{L}\p{N}]/u;
 const EDGE_TRIM = /^[^\p{L}\p{N}]+|[^\p{L}\p{N}]+$/gu;
 
-/** Every position of `needle` in `haystack`, offsets into `haystack` itself
- *  because the caller slices it with them. `null` = the scan could not run,
+/** Every position of `needle` in `haystack`. `null` = the scan could not run,
  *  which is not "no occurrences" and must not be reported as one.
  *
- *  Boundaries are checked against neighbouring characters rather than written
+ *  Boundaries are tested against neighbouring characters instead of written
  *  into the pattern: a lookbehind throws in Safari before 16.4, and every
  *  keyword failing there would quietly pass the description as clean. */
 function findSpans(haystack: string, needle: string): [number, number][] | null {
@@ -93,8 +89,7 @@ function findSpans(haystack: string, needle: string): [number, number][] | null 
   try {
     re = new RegExp(escapeRegExp(needle), "giu");
   } catch {
-    // A tag can be any string Etsy accepted; if it somehow defeats the
-    // pattern, say so rather than pass an empty result off as a result.
+    // Say so rather than pass an empty result off as a result.
     return null;
   }
 
@@ -171,7 +166,7 @@ function resolveOverlaps(hits: KeywordHit[]): KeywordHit[] {
 }
 
 /** Only the fields the audit reads, so callers memoize on these four rather
- *  than on a whole listing that changes identity on every unrelated update. */
+ *  than on a listing that changes identity on every unrelated update. */
 export type SeoInput = Pick<ListingDetail, "title" | "tags" | "description" | "photos">;
 
 export function buildSeoSignals(listing: SeoInput): SeoSignals {
@@ -198,7 +193,7 @@ export function buildSeoSignals(listing: SeoInput): SeoSignals {
 
   // The whole title, not a sliced-off head: the slice put a string end
   // mid-title, where a truncated tag has no right-hand neighbour to fail the
-  // boundary test and matches something it isn't.
+  // boundary test and matched something it wasn't.
   let tagTitleOffset: number | null = null;
   let earliestTag: string | null = null;
   for (const tag of tags) {
@@ -219,19 +214,17 @@ export function buildSeoSignals(listing: SeoInput): SeoSignals {
     .map((tag): KeywordHit => ({ keyword: tag, source: "tag", spans: spansOf(description, tag) }))
     .filter((hit) => hit.spans.length > 0);
 
-  // Only where a tag doesn't already cover the word, or it would be
-  // reported from two sources.
+  // Skip words a tag already covers, or they'd be reported from two sources.
   const tagWords = new Set(tags.flatMap((tag) => words(normalizeTag(tag))));
   const titleWords = [...new Set(words(title.toLowerCase()).map((word) => word.replace(EDGE_TRIM, "")))];
   const titleHits: KeywordHit[] = titleWords
-    .filter((word) => word.length >= 4 && !STOP_WORDS.has(word) && !tagWords.has(word))
+    .filter((word) => word.length >= MIN_TITLE_KEYWORD_CHARS && !STOP_WORDS.has(word) && !tagWords.has(word))
     .map((word): KeywordHit => ({ keyword: word, source: "title", spans: spansOf(description, word) }))
     .filter((hit) => hit.spans.length > 0);
 
   const keywordHits = resolveOverlaps([...tagHits, ...titleHits]);
 
-  // One pass over the slots in order: the first use of a name is the one that
-  // works, every later one is the wasted slot.
+  // In slot order: the first use of a name works, every later one is wasted.
   const overlappingTags = findOverlaps(tags);
   const swallowed = new Set(overlappingTags.map(([small]) => normalizeTag(small)));
   const seenTags = new Set<string>();

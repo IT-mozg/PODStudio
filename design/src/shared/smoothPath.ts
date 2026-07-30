@@ -1,7 +1,5 @@
-/** Catmull-Rom -> cubic-Bezier smoothing so a line chart reads like a
- *  real trend curve instead of jagged point-to-point segments.
- *  Computed from data at render time — used by both TrendChart (big
- *  chart) and Sparkline (tiny inline chart), so it lives here once. */
+/** Catmull-Rom → cubic-Bezier smoothing, shared by TrendChart and
+ *  Sparkline. */
 export function smoothPath(points: [number, number][]): string {
   if (points.length < 2) return "";
   let d = `M ${points[0][0]} ${points[0][1]}`;

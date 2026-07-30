@@ -7,20 +7,16 @@ interface SimilarListingsCarouselProps {
   onSelect: (id: string) => void;
 }
 
-/** Presentational only — every non-loaded state (not yet in view, loading,
- *  failed, nothing found) belongs to SimilarListingsSection, which owns the
- *  fetch. Rendering nothing here on an empty list keeps this component from
- *  having an opinion about why the list is empty.
+/** Presentational only: every non-loaded state belongs to
+ *  SimilarListingsSection, which owns the fetch. Rendering nothing on an
+ *  empty list keeps this component from having an opinion about why.
  *
- *  The cards carry real Etsy listing ids (#86): the version #78 removed
- *  minted ids like "l1-sim0", which dead-ended on "Лістинг не знайдено" on
- *  every click. */
+ *  The cards carry real Etsy ids — the version #78 removed minted "l1-sim0",
+ *  which dead-ended on "Лістинг не знайдено" on every click. */
 export function SimilarListingsCarousel({ items, onSelect }: SimilarListingsCarouselProps) {
-  // Ids whose <img> failed to load. The gradient is not just the "no URL at
-  // all" case: container.ui_thumb rewrites Etsy's URL to the il_570xN
-  // rendition, which not every listing has, and the source's caches carry no
-  // TTL, so a URL cached hours ago can have rotated. Without this the card
-  // showed the browser's broken-image glyph instead of the placeholder.
+  // Not just the "no URL" case: container.ui_thumb rewrites to the il_570xN
+  // rendition, which not every listing has, and the caches have no TTL, so a
+  // URL can have rotated. Without this the card showed a broken-image glyph.
   const [failed, setFailed] = useState<Set<string>>(() => new Set());
   const markFailed = useCallback((id: string) => {
     setFailed((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
