@@ -50,7 +50,9 @@ estimate - see sales_history() and etsy_shop_sales_history_research.md.
 
 import html
 import threading
+import time
 import urllib.parse
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Callable
 
@@ -85,6 +87,24 @@ REVIEWS_PAGE_LIMIT = 100  # Etsy's hard maximum (note 6 above)
 REVIEW_WALK_MAX = REVIEWS_PAGE_LIMIT * (1 + HISTORY_MONTHS)  # 1300
 HISTORY_CACHE_SIZE = 200  # a SalesHistory is 12 small records, so this costs
                           # far less memory than the Shop cache next to it
+
+
+@dataclass
+class _HistoryEntry:
+    """What sales_history() caches: the *review counts*, not the sales.
+
+    Deliberately the raw ingredient rather than the finished answer. Sales are
+    counts x ratio, and ratio moves every time the shop sells or is reviewed,
+    so caching the finished numbers froze all twelve bars until the process
+    restarted. Counts, by contrast, are stable for any month that has ended.
+
+    `fetched_at` is what makes a partial refresh safe: a month whose end is
+    later than it was still open when it was measured, so its count can have
+    grown and must be re-read. Every other month is final."""
+
+    counts: dict[str, int]      # "YYYY-MM" -> reviews in that month
+    first_review: int | None    # oldest review, or a bound inside its month
+    fetched_at: int             # unix seconds
 
 
 def _month_key(timestamp: int) -> str:
@@ -138,7 +158,13 @@ class EtsyApiShopSource(ShopSource):
     the caches are size-bounded (see SEARCH_CACHE_SIZE/SHOP_CACHE_SIZE), so
     a long session evicts the least recently used rather than growing
     forever. (Once Epic E's database lands, this cache is what becomes a
-    `shops` table - see #26.)"""
+    `shops` table - see #26.)
+
+    sales_history() is the one exception to "never invalidated by age", and
+    has to be: its numbers are pinned to a rolling twelve-month window and to
+    a ratio built from two counters that move whenever the shop sells. It
+    therefore refreshes the shop record on every call and re-reads any month
+    that was still open when it was last measured - see _HistoryEntry."""
 
     def __init__(self, api_key_provider: Callable[[], str],
                  shared_secret_provider: Callable[[], str]):
@@ -148,23 +174,32 @@ class EtsyApiShopSource(ShopSource):
         # The UI re-issues the same query on re-render/tab switch, and this
         # keeps that from costing a live request every time.
         self._search_cache: LruCache = LruCache(SEARCH_CACHE_SIZE)
-        # shop_id -> SalesHistory.
+        # shop_id -> _HistoryEntry (review counts, not finished sales).
         self._history_cache: LruCache = LruCache(HISTORY_CACHE_SIZE)
         # Held across the network call, not just around the dict mutation -
         # same reasoning as EtsyApiListingSource._lock: two concurrent
         # lookups of the same shop should cost one request, not two.
         self._lock = threading.RLock()
-        # sales_history() is the one operation here that costs up to 13
-        # requests (~3.5 s), and holding _lock for that long would stall every
-        # search and every tracked-list hydration behind it. Its own lock
-        # keeps the dedup property (two callers asking for the same shop do
-        # the work once) without blocking the fast paths. The two locks are
-        # never held at the same time - sales_history() finishes its
-        # get_by_id() call, and with it _lock, before taking this one - so
-        # there is no lock ordering to get wrong and no deadlock to have.
-        # It does serialise history lookups for *different* shops behind each
-        # other; acceptable for a single-user tool, and the alternative
-        # (a lock per shop id) would be its own unbounded map to evict.
+        # sales_history() is the one operation here that costs up to 14
+        # requests (~4 s), and holding _lock for that long would stall every
+        # search and every tracked-list hydration behind it. Hence a second
+        # lock, and the two are never held at the same time: sales_history()
+        # finishes its _refresh_shop() call, and with it _lock, before taking
+        # this one. No ordering to get wrong, no deadlock to have.
+        #
+        # Two costs this deliberately accepts, both bounded and neither a
+        # correctness problem:
+        #   - history lookups for *different* shops serialise behind each
+        #     other. The alternative, a lock per shop id, is its own unbounded
+        #     map to evict.
+        #   - the "concurrent lookups of one shop cost one request" property
+        #     above does NOT extend here. _refresh_shop() bypasses the cache
+        #     by design, so N simultaneous callers asking for the same shop's
+        #     history spend N shop requests plus N re-reads of the open month,
+        #     serialised rather than parallel. Measured at 8 requests for 4
+        #     callers. Left alone because the only caller is a detail page
+        #     that issues exactly one, and coalescing would mean a staleness
+        #     window - the very thing this method exists to avoid.
         self._history_lock = threading.RLock()
 
     # ---------------- ShopSource ----------------
@@ -262,52 +297,108 @@ class EtsyApiShopSource(ShopSource):
         the same figure ListingView shows). It is an estimate; the payload
         says so and the UI must too.
 
-        Two modes, picked by review_count, because neither is cheap over the
-        whole range - see REVIEW_WALK_MAX. Both produce identical numbers;
-        only the request count differs. Cost is
-        min(ceil(review_count / 100), 13) requests, so a 27-review shop costs
-        one and a 130k-review shop costs thirteen.
+        Two modes for the first, cold computation, picked by review_count
+        because neither is cheap over the whole range - see REVIEW_WALK_MAX.
+        Both produce identical numbers; only the request count differs, and
+        it is min(ceil(review_count / 100), 13).
+
+        Every later call refreshes rather than recomputes, which is what
+        _HistoryEntry exists for: a review written in August carries an August
+        timestamp and can never land in July's bucket, so a month that has
+        ended never changes again. Only months still open when they were last
+        measured are re-read - one request on a revisit inside the same month,
+        two just after a rollover.
 
         None means "no estimate", never "zero sales": either there is no such
         shop, or it has no reviews, which leaves ratio undefined."""
-        shop = self.get_by_id(shop_id)
+        shop = self._refresh_shop(shop_id)
         if not shop or shop.review_count <= 0:
             return None
         with self._history_lock:
-            cached = self._history_cache.get(shop.shop_id)
-            if cached is not None:
-                return cached
             months = _recent_months(HISTORY_MONTHS)
-            if shop.review_count <= REVIEW_WALK_MAX:
-                counts, known_from = self._sales_by_walking(shop, months)
-            else:
-                counts, known_from = self._sales_by_counting(shop, months)
+            entry = self._refresh_history(
+                shop, months, self._history_cache.get(shop.shop_id))
+            self._history_cache[shop.shop_id] = entry
+            # Recomputed on every call rather than stored: both of its inputs
+            # move whenever the shop sells or is reviewed, so a cached ratio
+            # would quietly freeze every bar, not just the current month's.
             ratio = shop.total_sales / shop.review_count
-            history = SalesHistory(
+            known_from = (None if entry.first_review is None
+                          else _first_trustworthy_month(months, entry.first_review))
+            return SalesHistory(
                 shop_id=shop.shop_id,
                 ratio=ratio,
                 months=[MonthlySales(
                     month=key,
-                    sales=round(counts.get(key, 0) * ratio),
+                    sales=round(entry.counts.get(key, 0) * ratio),
                     known=known_from is not None and i >= known_from,
                 ) for i, (_, _, key) in enumerate(months)],
             )
-            self._history_cache[shop.shop_id] = history
-            return history
 
     # ---------------- internal ----------------
+
+    def _refresh_shop(self, shop_id: str) -> Shop | None:
+        """get_by_id(), but guaranteed to hit Etsy rather than the cache.
+
+        The estimate divides by review_count and multiplies by
+        transaction_sold_count, and _by_id never expires by design, so reusing
+        a cached record would pin the ratio to whatever it was the first time
+        this shop was looked at - a shop that sold all week would keep
+        reporting the same twelve numbers. One request, and it refreshes the
+        counters the rest of the page shows too."""
+        shop_id = str(shop_id or "").strip()
+        if not shop_id:
+            return None
+        with self._lock:
+            self._by_id.pop(shop_id, None)
+            return self.get_by_id(shop_id)
+
+    def _refresh_history(self, shop: Shop, months: list,
+                         entry: "_HistoryEntry | None") -> "_HistoryEntry":
+        """Bring a cached entry up to date, or build one from scratch.
+
+        A cold entry costs the full walk/count; a warm one costs one request
+        per month that was still open when it was last measured, which is one
+        inside the same month and two just after a rollover. An entry whose
+        first_review never resolved is rebuilt rather than patched - there is
+        nothing to extend."""
+        now = int(time.time())
+        if entry is None or entry.first_review is None:
+            if shop.review_count <= REVIEW_WALK_MAX:
+                counts, first_review = self._sales_by_walking(shop, months)
+            else:
+                counts, first_review = self._sales_by_counting(shop, months)
+            return _HistoryEntry(counts, first_review, now)
+        # Months that dropped out of the window are dropped with it; the ones
+        # that scrolled in have no count yet and are fetched below.
+        counts = {key: entry.counts.get(key, 0) for _, _, key in months}
+        for start, end, key in months:
+            if key not in entry.counts or end > entry.fetched_at:
+                counts[key] = self._month_review_count(shop.shop_id, start, end)
+        return _HistoryEntry(counts, entry.first_review, now)
 
     def _reviews(self, shop_id: str, **params) -> dict:
         query = urllib.parse.urlencode(params)
         return self._client.get(
             f"{API_BASE}/shops/{urllib.parse.quote(shop_id)}/reviews?{query}")
 
+    def _month_review_count(self, shop_id: str, start: int, end: int) -> int:
+        """How many reviews fall in [start, end) - one request, no rows.
+
+        max_created is inclusive and `end` is the next month's start, hence
+        end - 1: the last second of the month belongs here, midnight belongs
+        to the next bucket."""
+        return self._reviews(shop_id, limit=1, min_created=start,
+                             max_created=end - 1).get("count") or 0
+
     def _sales_by_walking(self, shop: Shop, months: list) -> tuple[dict, int | None]:
         """Mode A: read the reviews themselves and bucket them locally.
 
         Cheaper than mode B for any shop under REVIEW_WALK_MAX reviews, and it
         answers the "when was the first review" question for free - the walk
-        ends on the oldest one."""
+        ends on the oldest one.
+
+        Returns (counts, oldest review timestamp or None)."""
         counts: dict[str, int] = {key: 0 for _, _, key in months}
         oldest: int | None = None
         offset = 0
@@ -328,9 +419,7 @@ class EtsyApiShopSource(ShopSource):
             if len(rows) < REVIEWS_PAGE_LIMIT:
                 break
             offset += len(rows)
-        if oldest is None:
-            return counts, None
-        return counts, _first_trustworthy_month(months, oldest)
+        return counts, oldest
 
     def _sales_by_counting(self, shop: Shop, months: list) -> tuple[dict, int | None]:
         """Mode B: never download a review, just ask how many match a date
@@ -342,20 +431,28 @@ class EtsyApiShopSource(ShopSource):
         the shop's blind spot and trustworthy. If none does, the first month
         with reviews is the month the shop's very first review landed, and
         that month plus everything before it is unknowable - which the
-        12 counts already tell us, at no extra cost."""
-        counts = {key: (self._reviews(shop.shop_id, limit=1, min_created=start,
-                                      max_created=end - 1).get("count") or 0)
+        12 counts already tell us, at no extra cost.
+
+        Returns (counts, first review timestamp) like mode A does, except that
+        counting never sees an exact timestamp - only which month it falls in.
+        The value returned is therefore a *bound* that lands in the right
+        month, which is all _first_trustworthy_month() compares against, and
+        unlike a month index it stays correct as the window slides forward."""
+        counts = {key: self._month_review_count(shop.shop_id, start, end)
                   for start, end, key in months}
         window_start = months[0][0]
         before = self._reviews(shop.shop_id, limit=1,
                                max_created=window_start - 1).get("count") or 0
         if before > 0:
-            return counts, 0
-        for i, (_, _, key) in enumerate(months):
+            # Somewhere before the window - the exact moment doesn't matter,
+            # only that every month on screen is safely after it.
+            return counts, window_start - 1
+        for start, _, key in months:
             if counts[key] > 0:
-                # i is the month of the first review, so it is itself only
-                # partially covered - trust starts after it.
-                return counts, i + 1 if i + 1 < len(months) else None
+                # The first review is inside this month, so the month is only
+                # partly covered; +1 puts the bound past its start, which is
+                # what makes _first_trustworthy_month skip it.
+                return counts, start + 1
         return counts, None
 
     @staticmethod

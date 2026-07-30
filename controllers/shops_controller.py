@@ -66,8 +66,9 @@ def api_shop(shop_id):
 def api_shop_sales_history(shop_id):
     """Estimated sales per month for the last year (issues #45/#49).
 
-    A separate route from /shops/<id> because it is a separate cost: up to 13
-    Etsy requests against a 5 req/s key, where the shop record itself is one.
+    A separate route from /shops/<id> because it is a separate cost: up to 14
+    Etsy requests against a 5 req/s key on a shop seen for the first time,
+    and two on every later visit.
     The detail page fetches it on its own so the rest of the page renders
     immediately.
 

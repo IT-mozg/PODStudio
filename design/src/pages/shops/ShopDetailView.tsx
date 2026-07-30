@@ -12,6 +12,7 @@ import { BackButton } from "../../shared/components/BackButton";
 import { FollowButton } from "../../shared/components/FollowButton";
 import { TwoColumnLayout } from "../../shared/components/TwoColumnLayout";
 import { NoDataNotice } from "../../shared/components/NoDataNotice";
+import { ErrorNotice } from "../../shared/components/ErrorNotice";
 import { TodoBadge } from "../../shared/components/TodoBadge";
 import { ListingsTable } from "../listings/ListingsTable";
 import searchStyles from "../../shared/components/SearchToolbar.module.css";
@@ -39,6 +40,11 @@ interface ShopDetailViewProps {
    *  itself and arrives seconds later. null means the shop has no reviews
    *  to estimate from. */
   salesHistory?: SalesHistory | null;
+  /** Set only when the estimate itself failed. Kept apart from `null` on
+   *  purpose: collapsing the two made a 502 render as the claim that the
+   *  shop has no reviews, contradicting the count in its own header. */
+  salesError?: string | null;
+  onRetrySales?: () => void;
   onBack: () => void;
   onToggleTracked: (shopId: string) => void;
 }
@@ -47,7 +53,7 @@ type DetailTab = "overview" | "listings" | "reviews";
 
 const NO_DATA = "—";
 
-export function ShopDetailView({ shop, salesHistory, onBack, onToggleTracked }: ShopDetailViewProps) {
+export function ShopDetailView({ shop, salesHistory, salesError, onRetrySales, onBack, onToggleTracked }: ShopDetailViewProps) {
   const [tab, setTab] = useState<DetailTab>("overview");
   // Only the months the estimate can actually see get a bar. Sales before a
   // shop's first review are invisible to it, and drawing those months at zero
@@ -284,7 +290,12 @@ export function ShopDetailView({ shop, salesHistory, onBack, onToggleTracked }: 
             {/* "оц." because Etsy publishes no monthly sales at all: the
                 curve is reconstructed from the shop's review histogram. */}
             <SectionHead icon={TrendUpIcon} title="Продажі за 12 місяців, оц." />
-            {salesBars.length > 0 ? (
+            {/* Branching on the state, not on salesBars.length: an empty
+                chart has four different causes, and three of them used to
+                render as the same — wrong — sentence about reviews. */}
+            {salesError ? (
+              <ErrorNotice message={salesError} onRetry={onRetrySales} />
+            ) : salesBars.length > 0 ? (
               <PanelCard>
                 <div className={styles.chartCard}>
                   <BarTrendChart data={salesBars} formatValue={(v) => v.toLocaleString("uk-UA")} />
@@ -292,9 +303,21 @@ export function ShopDetailView({ shop, salesHistory, onBack, onToggleTracked }: 
               </PanelCard>
             ) : (
               <NoDataNotice>
-                {salesHistory === undefined
-                  ? "Рахуємо продажі за місяцями…"
-                  : `У ${shop.name} ще немає відгуків, з яких можна відновити помісячні продажі — Etsy публікує лише сумарний лічильник за весь час.`}
+                {salesHistory === undefined ? (
+                  "Рахуємо продажі за місяцями…"
+                ) : salesHistory === null ? (
+                  <>
+                    У {shop.name} ще немає відгуків, з яких можна відновити
+                    помісячні продажі — Etsy публікує лише сумарний лічильник
+                    за весь час.
+                  </>
+                ) : (
+                  <>
+                    Перший відгук у {shop.name} зʼявився надто нещодавно:
+                    оцінка бачить лише місяці, що повністю минули після нього,
+                    а таких поки немає.
+                  </>
+                )}
               </NoDataNotice>
             )}
 

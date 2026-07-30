@@ -25,11 +25,19 @@ export function ShopDetailPage({ repository = httpShopsRepository }: ShopDetailP
   // Bumped by the retry button so the effect re-runs on the same id.
   const [reloadToken, setReloadToken] = useState(0);
   // Its own state and its own effect, deliberately: the estimate costs up to
-  // 13 Etsy requests (~3.5 s on a big shop), and folding it into the fetch
+  // 14 Etsy requests (~4 s on a big shop), and folding it into the fetch
   // above would hold the whole page on a loading spinner for that long. It
   // also fails on its own terms — a shop with no reviews has no estimate,
   // which is an empty chart, not a broken page.
   const [salesHistory, setSalesHistory] = useState<SalesHistory | null | undefined>(undefined);
+  // Its own error, for the same reason the shop lookup has one: without it a
+  // 502 or a dead Flask process is indistinguishable from "this shop has no
+  // reviews", and the chart states that as a fact — under a header showing
+  // the shop's review count.
+  const [salesError, setSalesError] = useState<string | null>(null);
+  // Separate from reloadToken so retrying the chart doesn't blank the whole
+  // page back to a spinner.
+  const [salesToken, setSalesToken] = useState(0);
 
   useEffect(() => {
     if (!shopId) return;
@@ -56,6 +64,7 @@ export function ShopDetailPage({ repository = httpShopsRepository }: ShopDetailP
     if (!shopId) return;
     let cancelled = false;
     setSalesHistory(undefined);
+    setSalesError(null);
     repository
       .getSalesHistory(shopId)
       .then((history) => {
@@ -63,14 +72,14 @@ export function ShopDetailPage({ repository = httpShopsRepository }: ShopDetailP
       })
       .catch((e) => {
         // Not setError: a failed estimate must not replace a page that
-        // otherwise loaded fine. The chart falls back to its empty state.
+        // otherwise loaded fine — it reports itself inside the chart block.
         console.error(e);
-        if (!cancelled) setSalesHistory(null);
+        if (!cancelled) setSalesError(describeError(e));
       });
     return () => {
       cancelled = true;
     };
-  }, [repository, shopId, reloadToken]);
+  }, [repository, shopId, reloadToken, salesToken]);
 
   async function handleToggleTracked(id: string) {
     try {
@@ -103,6 +112,8 @@ export function ShopDetailPage({ repository = httpShopsRepository }: ShopDetailP
     <ShopDetailView
       shop={shop}
       salesHistory={salesHistory}
+      salesError={salesError}
+      onRetrySales={() => setSalesToken((n) => n + 1)}
       onBack={() => navigate(-1)}
       onToggleTracked={handleToggleTracked}
     />

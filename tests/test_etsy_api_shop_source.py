@@ -9,15 +9,22 @@ it. Two things are under test:
     without changing what a hit returns;
   * get_by_ids() no longer drops the lock between checking the cache and
     fetching, which used to let two threads request the same shop at once -
-    against a key capped at 5 requests/second.
+    against a key capped at 5 requests/second;
+  * sales_history() stays inside its request budget. That budget is the whole
+    design (a 130k-review shop must cost 13 requests, not 1,306) and it is
+    invisible in a single-threaded read of the code - the only symptom of
+    losing it is a quota that quietly drains.
 """
 
 import threading
+import urllib.parse
 
 import pytest
 
-from models.etsy_api_shop_source import (SEARCH_CACHE_SIZE, SHOP_CACHE_SIZE,
-                                        EtsyApiShopSource)
+from models.etsy_api_shop_source import (HISTORY_MONTHS, REVIEW_WALK_MAX,
+                                        REVIEWS_PAGE_LIMIT, SEARCH_CACHE_SIZE,
+                                        SHOP_CACHE_SIZE, EtsyApiShopSource,
+                                        _recent_months)
 
 
 class FakeClient:
@@ -125,6 +132,108 @@ def test_concurrent_lookups_of_the_same_shop_cost_one_request():
 
     assert len(client.requests) == 1, f"{len(client.requests)} duplicate requests"
     assert all(r["99"].name == "Shop99" for r in results)
+
+
+class FakeReviewsClient:
+    """Serves /shops/<id> and /shops/<id>/reviews from a list of timestamps.
+
+    Separate from FakeClient because the reviews endpoint is what the request
+    budget is spent on, and the tests below need to tell a paged walk
+    (limit=100) apart from a date-range count (limit=1)."""
+
+    def __init__(self, review_times: list[int], sold: int = 1000):
+        self.reviews = sorted(review_times, reverse=True)  # newest first, as Etsy sends them
+        self.sold = sold
+        self.requests: list[str] = []
+
+    @property
+    def review_requests(self) -> list[dict]:
+        return [dict(urllib.parse.parse_qsl(u.split("?", 1)[1]))
+                for u in self.requests if "/reviews?" in u]
+
+    def get(self, url: str) -> dict:
+        self.requests.append(url)
+        if "/reviews?" not in url:
+            shop_id = url.rsplit("/", 1)[-1]
+            return {"shop_id": int(shop_id), "shop_name": f"Shop{shop_id}",
+                    "transaction_sold_count": self.sold,
+                    "review_count": len(self.reviews)}
+        q = dict(urllib.parse.parse_qsl(url.split("?", 1)[1]))
+        rows = self.reviews
+        if "min_created" in q:
+            rows = [t for t in rows if t >= int(q["min_created"])]
+        if "max_created" in q:
+            rows = [t for t in rows if t <= int(q["max_created"])]
+        offset = int(q.get("offset", 0))
+        limit = int(q.get("limit", REVIEWS_PAGE_LIMIT))
+        page = rows[offset:offset + limit]
+        return {"count": len(rows),
+                "results": [{"created_timestamp": t, "transaction_id": t} for t in page]}
+
+
+def build_history_source(review_times: list[int], sold: int = 1000):
+    source = EtsyApiShopSource(api_key_provider=lambda: "key",
+                               shared_secret_provider=lambda: "secret")
+    client = FakeReviewsClient(review_times, sold)
+    source._client = client
+    return source, client
+
+
+def _month_starts() -> list[int]:
+    return [start for start, _, _ in _recent_months(HISTORY_MONTHS)]
+
+
+def test_a_small_shop_reads_its_reviews_in_one_page():
+    """Below REVIEW_WALK_MAX the counting mode would cost 13 requests for the
+    same answer, so the walk has to win."""
+    source, client = build_history_source([s + 60 for s in _month_starts()])
+    source.sales_history("5")
+    assert len(client.review_requests) == 1
+    assert client.review_requests[0]["limit"] == str(REVIEWS_PAGE_LIMIT)
+
+
+def test_a_huge_shop_never_walks_its_reviews():
+    """The point of the counting mode: 130k reviews must not become 1,306
+    paged requests. Nothing may ask for a page of rows at all."""
+    many = [s + 60 for s in _month_starts()] * (REVIEW_WALK_MAX + 100)
+    source, client = build_history_source(many)
+    source.sales_history("5")
+    asked = client.review_requests
+    assert len(asked) == 1 + HISTORY_MONTHS, f"{len(asked)} requests"
+    assert all(q["limit"] == "1" for q in asked), "a row page slipped in"
+
+
+def test_a_revisit_rereads_only_the_open_month():
+    """The cached counts are review counts, not sales, precisely so a revisit
+    can be cheap *and* current. Caching the finished numbers instead froze
+    every bar until the process restarted."""
+    starts = _month_starts()
+    source, client = build_history_source([s + 60 for s in starts])
+    first = source.sales_history("5")
+    before = len(client.review_requests)
+
+    client.reviews = sorted(client.reviews + [starts[-1] + 120], reverse=True)
+    second = source.sales_history("5")
+
+    refetched = client.review_requests[before:]
+    assert len(refetched) == 1, "refetched more than the open month"
+    assert refetched[0]["min_created"] == str(starts[-1]), "re-read a month that had ended"
+    # Sales, unlike counts, are expected to move everywhere: ratio is
+    # sold/review_count, so one new review reprices all twelve bars. That is
+    # the reason counts are what gets cached.
+    assert second.months[-1].known and first.months[-1].known
+    assert [m.month for m in second.months] == [m.month for m in first.months]
+
+
+def test_months_before_the_first_review_are_unknown_not_zero():
+    """The estimate cannot see sales made before a shop's first review. On a
+    real shop, rendering those months as 0 erased two months of confirmed
+    selling - so they have to come back as unknown."""
+    starts = _month_starts()
+    source, _ = build_history_source([starts[-2] + 60, starts[-1] + 60])
+    history = source.sales_history("5")
+    assert [m.known for m in history.months[:-2]] == [False] * (HISTORY_MONTHS - 2)
+    assert history.months[-1].known, "the month after the first review is visible"
 
 
 if __name__ == "__main__":
