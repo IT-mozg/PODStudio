@@ -312,10 +312,14 @@ export function ShopDetailView({ shop, salesHistory, salesError, onRetrySales, o
                     за весь час.
                   </>
                 ) : (
+                  // States the rule and the outcome, not the cause: the usual
+                  // reason is a first review too recent for any month to have
+                  // closed after it, but the same empty result also covers an
+                  // estimate that could not place that boundary at all.
                   <>
-                    Перший відгук у {shop.name} зʼявився надто нещодавно:
-                    оцінка бачить лише місяці, що повністю минули після нього,
-                    а таких поки немає.
+                    Для {shop.name} поки немає жодного місяця, який оцінка
+                    могла б відновити: вона враховує тільки місяці, що
+                    повністю минули після першого відгуку.
                   </>
                 )}
               </NoDataNotice>
