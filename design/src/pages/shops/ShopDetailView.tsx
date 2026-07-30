@@ -12,16 +12,16 @@ import { BackButton } from "../../shared/components/BackButton";
 import { FollowButton } from "../../shared/components/FollowButton";
 import { TwoColumnLayout } from "../../shared/components/TwoColumnLayout";
 import { NoDataNotice } from "../../shared/components/NoDataNotice";
+import { ErrorNotice } from "../../shared/components/ErrorNotice";
 import { TodoBadge } from "../../shared/components/TodoBadge";
 import { ListingsTable } from "../listings/ListingsTable";
 import searchStyles from "../../shared/components/SearchToolbar.module.css";
-import type { Shop } from "./types";
+import type { SalesHistory, Shop } from "./types";
 import { ShopReviewsGrid } from "./ShopReviewsGrid";
 import {
   ISSUE_SHOP_CATEGORY,
   ISSUE_SHOP_CONVERSION,
   ISSUE_SHOP_LISTINGS,
-  ISSUE_SHOP_MONTHLY_SALES,
   ISSUE_SHOP_NICHE,
   ISSUE_SHOP_REVENUE,
   ISSUE_SHOP_REVIEWS,
@@ -30,13 +30,21 @@ import {
   PREVIEW_PRICE_BREAKDOWN,
   PREVIEW_PRICE_STATS,
   PREVIEW_RATING_BREAKDOWN,
-  PREVIEW_SALES_TREND,
   PREVIEW_SHOP_LISTINGS,
 } from "./previewData";
 import styles from "./ShopDetailView.module.css";
 
 interface ShopDetailViewProps {
   shop: Shop;
+  /** undefined while it loads — it is fetched separately from the shop
+   *  itself and arrives seconds later. null means the shop has no reviews
+   *  to estimate from. */
+  salesHistory?: SalesHistory | null;
+  /** Set only when the estimate itself failed. Kept apart from `null` on
+   *  purpose: collapsing the two made a 502 render as the claim that the
+   *  shop has no reviews, contradicting the count in its own header. */
+  salesError?: string | null;
+  onRetrySales?: () => void;
   onBack: () => void;
   onToggleTracked: (shopId: string) => void;
 }
@@ -45,8 +53,22 @@ type DetailTab = "overview" | "listings" | "reviews";
 
 const NO_DATA = "—";
 
-export function ShopDetailView({ shop, onBack, onToggleTracked }: ShopDetailViewProps) {
+export function ShopDetailView({ shop, salesHistory, salesError, onRetrySales, onBack, onToggleTracked }: ShopDetailViewProps) {
   const [tab, setTab] = useState<DetailTab>("overview");
+  // Only the months the estimate can actually see get a bar. Sales before a
+  // shop's first review are invisible to it, and drawing those months at zero
+  // would state something measurably false — on a real shop it turned two
+  // months of confirmed selling into empty columns.
+  const salesBars = (salesHistory?.months ?? [])
+    .filter((m) => m.known)
+    .map((m) => ({ label: m.label, value: m.sales }));
+  // The last month in the series is the current one and still running, so a
+  // "sales per month" figure taken from it would understate by however much
+  // of the month is left. The one before it is the newest complete month.
+  const months = salesHistory?.months ?? [];
+  const lastFullMonth = months.length >= 2 && months[months.length - 2].known
+    ? months[months.length - 2]
+    : undefined;
 
   // null means no reviews at all, not a rating of zero — see Shop.rating.
   const rated = shop.rating !== null;
@@ -103,9 +125,8 @@ export function ShopDetailView({ shop, onBack, onToggleTracked }: ShopDetailView
     {
       id: "msales",
       icon: TrendUpIcon,
-      value: NO_DATA,
-      label: "Продажів / міс.",
-      badge: <TodoBadge issue={ISSUE_SHOP_MONTHLY_SALES} reason="Etsy дає лише лічильник продажів за весь час, без розбивки за місяцями" />,
+      value: lastFullMonth ? lastFullMonth.sales.toLocaleString("uk-UA") : NO_DATA,
+      label: "Продажів / міс., оц.",
     },
     {
       id: "conv",
@@ -266,26 +287,43 @@ export function ShopDetailView({ shop, onBack, onToggleTracked }: ShopDetailView
               </>
             }
           >
-            <SectionHead
-              icon={TrendUpIcon}
-              title="Продажі за 12 місяців"
-              badge={<TodoBadge issue={ISSUE_SHOP_MONTHLY_SALES} reason="Etsy дає один лічильник за весь час — помісячна історія потребує щоденних знімків" />}
-            />
-            <NoDataNotice
-              preview={
-                <PanelCard>
-                  <div className={styles.chartCard}>
-                    <BarTrendChart data={PREVIEW_SALES_TREND} formatValue={(v) => v.toLocaleString("uk-UA")} />
-                  </div>
-                </PanelCard>
-              }
-            >
-              Etsy віддає лише сумарний лічильник продажів за весь час, без
-              розбивки за місяцями. Помісячну історію треба або накопичувати
-              щоденними знімками, або оцінювати з гістограми відгуків
-              (#{ISSUE_SHOP_MONTHLY_SALES}).
-              Графік виглядатиме так:
-            </NoDataNotice>
+            {/* "оц." because Etsy publishes no monthly sales at all: the
+                curve is reconstructed from the shop's review histogram. */}
+            <SectionHead icon={TrendUpIcon} title="Продажі за 12 місяців, оц." />
+            {/* Branching on the state, not on salesBars.length: an empty
+                chart has four different causes, and three of them used to
+                render as the same — wrong — sentence about reviews. */}
+            {salesError ? (
+              <ErrorNotice message={salesError} onRetry={onRetrySales} />
+            ) : salesBars.length > 0 ? (
+              <PanelCard>
+                <div className={styles.chartCard}>
+                  <BarTrendChart data={salesBars} formatValue={(v) => v.toLocaleString("uk-UA")} />
+                </div>
+              </PanelCard>
+            ) : (
+              <NoDataNotice>
+                {salesHistory === undefined ? (
+                  "Рахуємо продажі за місяцями…"
+                ) : salesHistory === null ? (
+                  <>
+                    У {shop.name} ще немає відгуків, з яких можна відновити
+                    помісячні продажі — Etsy публікує лише сумарний лічильник
+                    за весь час.
+                  </>
+                ) : (
+                  // States the rule and the outcome, not the cause: the usual
+                  // reason is a first review too recent for any month to have
+                  // closed after it, but the same empty result also covers an
+                  // estimate that could not place that boundary at all.
+                  <>
+                    Для {shop.name} поки немає жодного місяця, який оцінка
+                    могла б відновити: вона враховує тільки місяці, що
+                    повністю минули після першого відгуку.
+                  </>
+                )}
+              </NoDataNotice>
+            )}
 
             <SectionHead
               icon={GridSquaresIcon}

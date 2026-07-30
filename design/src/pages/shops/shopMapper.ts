@@ -3,7 +3,7 @@
    pure function, used by httpShopsRepository against the live backend. */
 
 import { formatCount, formatRevenue } from "../../shared/money";
-import type { Shop } from "./types";
+import type { SalesHistory, Shop } from "./types";
 
 /** Verbatim from container.shops_payload() — snake_case, not camelCase. */
 export interface ApiShop {
@@ -24,6 +24,34 @@ export interface ApiShop {
   growth: number | null;
   niche: string | null;
   tracked: boolean;
+}
+
+/** Verbatim from container.sales_history_payload(). */
+export interface ApiSalesHistory {
+  shop_id: string;
+  /** Which estimate produced this — "reviews" today, snapshots under #46. */
+  method: string;
+  ratio: number;
+  months: { month: string; sales: number; known: boolean }[];
+}
+
+/* Intl.DateTimeFormat("uk-UA", { month: "short" }) yields "серп." — the dot
+   and the extra letter make a 12-column axis noisy, so the labels are spelled
+   out. Index 0 is January, matching the "MM" half of the payload's "YYYY-MM". */
+const MONTH_LABELS_UK = ["Січ", "Лют", "Бер", "Кві", "Тра", "Чер",
+                         "Лип", "Сер", "Вер", "Жов", "Лис", "Гру"];
+
+export function mapApiSalesHistory(raw: ApiSalesHistory): SalesHistory {
+  return {
+    ratio: raw.ratio,
+    months: raw.months.map((m) => ({
+      // Falls back to the raw "YYYY-MM" rather than rendering "undefined" if
+      // the backend ever sends a month outside 01-12.
+      label: MONTH_LABELS_UK[Number(m.month.slice(5, 7)) - 1] ?? m.month,
+      sales: m.sales,
+      known: m.known,
+    })),
+  };
 }
 
 /** Etsy shop names are camel-cased far more often than spaced, so the

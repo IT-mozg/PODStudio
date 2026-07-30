@@ -25,27 +25,8 @@
 
 import type { BarDatum } from "../../shared/components/BarBreakdown";
 import type { RatingBreakdownDatum } from "../../shared/components/RatingBars";
-import type { TrendPoint } from "../../shared/components/TrendChart";
 import type { Listing } from "../listings/types";
 import type { ShopReview } from "./types";
-
-/** #49 — the 12-month sales chart. Shaped with a visible Q4 hump so the
- *  chart's point (seasonality of a POD shop) is legible at a glance.
- *  Labels must stay unique: BarTrendChart keys its bars on `label`. */
-export const PREVIEW_SALES_TREND: TrendPoint[] = [
-  { label: "Сер", value: 410 },
-  { label: "Вер", value: 465 },
-  { label: "Жов", value: 640 },
-  { label: "Лис", value: 1180 },
-  { label: "Гру", value: 1520 },
-  { label: "Січ", value: 720 },
-  { label: "Лют", value: 560 },
-  { label: "Бер", value: 505 },
-  { label: "Кві", value: 540 },
-  { label: "Тра", value: 610 },
-  { label: "Чер", value: 585 },
-  { label: "Лип", value: 630 },
-];
 
 /** #91 — the min/avg/max row above the price histogram. Strings, because
  *  that block renders them verbatim. */

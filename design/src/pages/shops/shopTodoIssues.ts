@@ -16,10 +16,6 @@ export const ISSUE_SHOP_LISTINGS = 91;
  *  be derived from the listings of #91 and their sales estimate (#57/#58). */
 export const ISSUE_SHOP_REVENUE = 80;
 
-/** #49 — the 12-month sales chart. Etsy gives one all-time counter, so the
- *  history needs either daily snapshots or the review-histogram estimate. */
-export const ISSUE_SHOP_MONTHLY_SALES = 49;
-
 /** #82 — shop niche, derived from the tags of its listings. There is no
  *  niche/category field on a shop record. Depends on #91. */
 export const ISSUE_SHOP_NICHE = 82;

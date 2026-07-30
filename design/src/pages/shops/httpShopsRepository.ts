@@ -8,9 +8,9 @@
    their issues. See ShopDetailView.tsx and shopTodoIssues.ts. */
 
 import { ApiError, apiFetch } from "../../shared/api";
-import { mapApiShop, type ApiShop } from "./shopMapper";
+import { mapApiSalesHistory, mapApiShop, type ApiSalesHistory, type ApiShop } from "./shopMapper";
 import type { ShopSearchResult, ShopsRepository } from "./shopsRepository";
-import type { Shop } from "./types";
+import type { SalesHistory, Shop } from "./types";
 
 interface ShopsResponse {
   shops: ApiShop[];
@@ -58,6 +58,22 @@ class HttpShopsRepository implements ShopsRepository {
   async getTracked(): Promise<Shop[]> {
     const { shops } = await apiFetch<ShopsResponse>("/api/shops/tracked");
     return shops.map(mapApiShop);
+  }
+
+  async getSalesHistory(shopId: string): Promise<SalesHistory | null> {
+    // Same id guard and same 404 reasoning as getById above: the route is
+    // <int:shop_id>, and only the API's own 404 means "no estimate" — an
+    // inferred one is a stale Flask process and has to keep propagating.
+    if (!/^\d+$/.test(shopId)) return null;
+    try {
+      const raw = await apiFetch<ApiSalesHistory>(
+        `/api/shops/${encodeURIComponent(shopId)}/sales-history`,
+      );
+      return mapApiSalesHistory(raw);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404 && e.apiReported) return null;
+      throw e;
+    }
   }
 }
 

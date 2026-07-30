@@ -23,7 +23,7 @@ from models.etsy_taxonomy import EtsyTaxonomy
 from models.fx_rates import FxRates
 from models.generation_queue import GenerationQueue, ReferenceResolver
 from models.history_store import HistoryStore
-from models.shop_source import Shop
+from models.shop_source import SalesHistory, Shop
 from models.tracked_store import TrackedStore
 
 BASE = Path(__file__).parent.resolve()
@@ -410,3 +410,28 @@ def shops_payload(shops: list[Shop]) -> list:
         "niche": None,
         "tracked": shop.shop_id in tracked,
     } for shop in shops]
+
+
+def sales_history_payload(history: SalesHistory) -> dict:
+    """A shop's estimated monthly sales -> the JSON shape shopMapper.ts reads.
+
+    Its own payload rather than fields on shops_payload above: a search
+    returns up to 100 shops and this costs up to 15 Etsy requests per shop
+    the first time it is asked for on a given day,
+    so it is served only by the detail page's own route.
+
+    `month` stays machine-readable ("2026-03") - the Ukrainian label is the
+    frontend's job, like every other piece of formatting here. `known: false`
+    means "no data for this month", and the UI must not render it as 0."""
+    return {
+        "shop_id": history.shop_id,
+        # Named so a second method (daily snapshots, #46) can be told apart
+        # from this one by whoever reads the response.
+        "method": "reviews",
+        "ratio": round(history.ratio, 2),
+        "months": [{
+            "month": month.month,
+            "sales": month.sales,
+            "known": month.known,
+        } for month in history.months],
+    }

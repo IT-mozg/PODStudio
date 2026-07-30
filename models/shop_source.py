@@ -13,7 +13,39 @@ The only implementation today is EtsyApiShopSource
 """
 
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+
+@dataclass
+class MonthlySales:
+    """One month of a shop's estimated sales.
+
+    `known` is the whole point of this dataclass. A month with no reviews is
+    ambiguous: it is either a genuinely quiet month, or a month before the
+    shop's first review ever landed, when sales are simply invisible to this
+    method. Rendering the second case as 0 is the single largest error this
+    estimate makes - measured on a real shop, two months of confirmed selling
+    came out as zero (etsy_shop_sales_history_research.md, "Ground truth
+    check"). `known=False` means "no data", and must never render as 0."""
+
+    month: str   # "2026-03" - calendar month in UTC
+    sales: int
+    known: bool
+
+
+@dataclass
+class SalesHistory:
+    """A shop's estimated monthly sales, newest month last.
+
+    An *estimate*, not measured data: Etsy publishes one lifetime counter and
+    nothing per month, so the shape comes from the review histogram and the
+    magnitude from `ratio`. Consumers must label it as an estimate."""
+
+    shop_id: str
+    months: list[MonthlySales] = field(default_factory=list)
+    ratio: float = 0.0  # transaction_sold_count / review_count - sales per
+                        # review, self-calibrating per shop (measured range
+                        # across four real shops: 6.60 to 12.19)
 
 
 @dataclass
@@ -54,6 +86,15 @@ class ShopSource(ABC):
     @abstractmethod
     def get_by_id(self, shop_id: str) -> Shop | None:
         """A single shop, or None if the source has no such shop."""
+
+    def sales_history(self, shop_id: str) -> SalesHistory | None:
+        """Estimated monthly sales for a shop, or None if this source can't
+        estimate them (no such shop, or no reviews to derive them from).
+
+        Not abstract: a source that has no way to reconstruct history should
+        leave the block empty rather than force every implementation to carry
+        a stub. Returning None is a valid answer, never an error."""
+        return None
 
     def get_by_ids(self, shop_ids: list[str]) -> dict[str, Shop]:
         """Several shops at once: {shop_id: Shop}, missing ids simply absent.
