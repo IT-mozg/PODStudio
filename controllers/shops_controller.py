@@ -62,6 +62,26 @@ def api_shop(shop_id):
     return jsonify({"shops": container.shops_payload([shop])})
 
 
+@shops_bp.get("/shops/<int:shop_id>/sales-history")
+def api_shop_sales_history(shop_id):
+    """Estimated sales per month for the last year (issues #45/#49).
+
+    A separate route from /shops/<id> because it is a separate cost: up to 13
+    Etsy requests against a 5 req/s key, where the shop record itself is one.
+    The detail page fetches it on its own so the rest of the page renders
+    immediately.
+
+    404 means Etsy has no such shop *or* the shop has no reviews to derive an
+    estimate from - both are "no chart", and neither is an error."""
+    try:
+        history = container.shop_source.sales_history(str(shop_id))
+    except EtsyApiError as e:
+        return jsonify({"error": str(e)}), 502
+    if not history:
+        return jsonify({"error": "Немає даних для оцінки продажів"}), 404
+    return jsonify(container.sales_history_payload(history))
+
+
 @shops_bp.post("/shops/<int:shop_id>/track")
 def api_toggle_shop_track(shop_id):
     """Toggles our own "tracked" bookmark on a shop - unrelated to Etsy's

@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { ShopsRepository } from "./shopsRepository";
 import { httpShopsRepository } from "./httpShopsRepository";
-import type { Shop } from "./types";
+import type { SalesHistory, Shop } from "./types";
 import { ShopDetailView } from "./ShopDetailView";
 import { LoadingState } from "../../shared/components/LoadingState";
 import { ErrorNotice } from "../../shared/components/ErrorNotice";
@@ -24,6 +24,12 @@ export function ShopDetailPage({ repository = httpShopsRepository }: ShopDetailP
   const [error, setError] = useState<string | null>(null);
   // Bumped by the retry button so the effect re-runs on the same id.
   const [reloadToken, setReloadToken] = useState(0);
+  // Its own state and its own effect, deliberately: the estimate costs up to
+  // 13 Etsy requests (~3.5 s on a big shop), and folding it into the fetch
+  // above would hold the whole page on a loading spinner for that long. It
+  // also fails on its own terms — a shop with no reviews has no estimate,
+  // which is an empty chart, not a broken page.
+  const [salesHistory, setSalesHistory] = useState<SalesHistory | null | undefined>(undefined);
 
   useEffect(() => {
     if (!shopId) return;
@@ -40,6 +46,26 @@ export function ShopDetailPage({ repository = httpShopsRepository }: ShopDetailP
         if (cancelled) return;
         console.error(e);
         setError(describeError(e));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [repository, shopId, reloadToken]);
+
+  useEffect(() => {
+    if (!shopId) return;
+    let cancelled = false;
+    setSalesHistory(undefined);
+    repository
+      .getSalesHistory(shopId)
+      .then((history) => {
+        if (!cancelled) setSalesHistory(history);
+      })
+      .catch((e) => {
+        // Not setError: a failed estimate must not replace a page that
+        // otherwise loaded fine. The chart falls back to its empty state.
+        console.error(e);
+        if (!cancelled) setSalesHistory(null);
       });
     return () => {
       cancelled = true;
@@ -73,5 +99,12 @@ export function ShopDetailPage({ repository = httpShopsRepository }: ShopDetailP
     );
   }
 
-  return <ShopDetailView shop={shop} onBack={() => navigate(-1)} onToggleTracked={handleToggleTracked} />;
+  return (
+    <ShopDetailView
+      shop={shop}
+      salesHistory={salesHistory}
+      onBack={() => navigate(-1)}
+      onToggleTracked={handleToggleTracked}
+    />
+  );
 }

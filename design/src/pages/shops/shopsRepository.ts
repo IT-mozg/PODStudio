@@ -10,7 +10,7 @@
    sync with the interface is worse than no mock — the compiler keeps it
    honest as long as it's here. Same arrangement as mockListingsRepository. */
 
-import type { Shop } from "./types";
+import type { SalesHistory, Shop } from "./types";
 
 export interface ShopSearchResult {
   shops: Shop[];
@@ -29,6 +29,11 @@ export interface ShopsRepository {
   /** A bookmark outlives the query it was made under, so this can't be a
    *  filter over the last search's results. */
   getTracked(): Promise<Shop[]>;
+  /** Estimated monthly sales, or null when the shop has no reviews to
+   *  estimate from. Separate from getById because it is separately
+   *  expensive — up to 13 Etsy requests — so the detail page can render
+   *  without waiting for it. */
+  getSalesHistory(shopId: string): Promise<SalesHistory | null>;
 }
 
 /* iconUrl is "" on every row on purpose: the mock should exercise the
@@ -65,6 +70,13 @@ class MockShopsRepository implements ShopsRepository {
   async getById(shopId: string): Promise<Shop | null> {
     const shop = this.shops.find((s) => s.id === shopId);
     return shop ? { ...shop } : null;
+  }
+
+  /* Null, not invented months: the mock's job is to exercise the seam, and a
+     fabricated sales curve here is exactly the kind of number that later gets
+     mistaken for a measurement. */
+  async getSalesHistory(): Promise<SalesHistory | null> {
+    return null;
   }
 }
 

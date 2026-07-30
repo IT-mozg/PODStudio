@@ -34,4 +34,27 @@ export interface ShopReview {
   listingRef: string;
 }
 
+/** One month of a shop's estimated sales (#45).
+ *
+ *  `known: false` is not "zero sales" — it is "this method cannot see this
+ *  month". Sales made before a shop's first review are invisible to the
+ *  review-histogram estimate, so those months must render as unknown. On a
+ *  real shop that distinction was worth two months of confirmed selling that
+ *  would otherwise have shown as a flat zero. */
+export interface MonthlySalesPoint {
+  /** Already localised to a short Ukrainian month name by shopMapper. */
+  label: string;
+  sales: number;
+  known: boolean;
+}
+
+/** A shop's sales history — an *estimate* derived from its review histogram,
+ *  never measured data. Anything rendering it has to say so. */
+export interface SalesHistory {
+  months: MonthlySalesPoint[];
+  /** Sales per review for this shop, the estimate's own resolution: nothing
+   *  finer than this is representable. */
+  ratio: number;
+}
+
 export type ShopFilter = "top" | "growing" | "podTrend" | "similar";
