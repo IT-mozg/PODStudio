@@ -280,7 +280,26 @@ def test_a_cached_record_that_understates_the_shop_does_not_truncate_the_walk():
     source._by_id["5"] = Shop(shop_id="5", name="Shop5", total_sales=9,
                               review_count=REVIEW_WALK_MAX - 100)
     history = source.sales_history("5")
-    assert all(m.known for m in history.months), "the capped walk was believed"
+    assert all(m.known for m in history.months), "the abandoned walk was believed"
+    # One page is enough to read the real total out of `count`, so the walk
+    # must not grind through its whole page budget before switching modes.
+    pages = [q for q in source._client.review_requests
+             if q["limit"] == str(REVIEWS_PAGE_LIMIT)]
+    assert len(pages) == 1, f"{len(pages)} wasted pages before giving up"
+
+
+def test_an_entry_with_no_divisor_reports_unknown_rather_than_zero():
+    """ratio is sales/reviews. With no reviews there is no estimate at all,
+    and zeroed bars left marked `known` would read as measured - the one
+    mistake MonthlySales exists to prevent."""
+    from models.etsy_api_shop_source import _to_sales_history
+    months = _recent_months(HISTORY_MONTHS)
+    entry = _HistoryEntry({key: 0 for _, _, key in months},
+                          first_review=months[0][0], review_count=0,
+                          total_sales=500, fetched_at=0)
+    history = _to_sales_history("5", entry, months)
+    assert not any(m.known for m in history.months), "manufactured a measured zero"
+    assert history.ratio == 0.0
 
 
 def test_yesterdays_entry_rereads_no_month_while_review_count_is_unchanged():

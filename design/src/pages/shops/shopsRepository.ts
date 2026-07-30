@@ -31,7 +31,7 @@ export interface ShopsRepository {
   getTracked(): Promise<Shop[]>;
   /** Estimated monthly sales, or null when the shop has no reviews to
    *  estimate from. Separate from getById because it is separately
-   *  expensive — up to 14 Etsy requests on the day's first look — so the
+   *  expensive — up to 15 Etsy requests on the day's first look — so the
    *  detail page can render
    *  without waiting for it. */
   getSalesHistory(shopId: string): Promise<SalesHistory | null>;

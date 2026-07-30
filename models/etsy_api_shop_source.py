@@ -157,7 +157,14 @@ def _to_sales_history(shop_id: str, entry: "_HistoryEntry",
 
     ratio lives here rather than in the entry because it is derived, not
     measured: storing it would mean two things to keep in step."""
-    ratio = entry.total_sales / entry.review_count if entry.review_count else 0.0
+    if entry.review_count <= 0:
+        # No divisor, so no estimate at all. Returning zeroes with `known`
+        # left alone would draw a flat row of bars that reads as measured -
+        # the one mistake MonthlySales exists to prevent.
+        return SalesHistory(shop_id=shop_id, months=[
+            MonthlySales(month=key, sales=0, known=False)
+            for _, _, key in months])
+    ratio = entry.total_sales / entry.review_count
     known_from = (None if entry.first_review is None
                   else _first_trustworthy_month(months, entry.first_review))
     return SalesHistory(
@@ -224,7 +231,7 @@ class EtsyApiShopSource(ShopSource):
         # same reasoning as EtsyApiListingSource._lock: two concurrent
         # lookups of the same shop should cost one request, not two.
         self._lock = threading.RLock()
-        # sales_history() is the one operation here that costs up to 14
+        # sales_history() is the one operation here that costs up to 15
         # requests (~4 s), and holding _lock for that long would stall every
         # search and every tracked-list hydration behind it. Hence a second
         # lock, held for the whole estimate while _lock is taken and released
@@ -344,7 +351,9 @@ class EtsyApiShopSource(ShopSource):
         Two modes for the first, cold computation, picked by review_count
         because neither is cheap over the whole range - see REVIEW_WALK_MAX.
         Both produce identical numbers; only the request count differs, and
-        it is min(ceil(review_count / 100), 13).
+        it is min(ceil(review_count / 100), 13) - or 15 in the one case where
+        that count came from a stale record that understated the shop, and
+        the walk has to be abandoned for a refetch and a count.
 
         Later calls cost progressively less, and on most days nothing:
 
@@ -450,12 +459,13 @@ class EtsyApiShopSource(ShopSource):
         made.
 
         That choice is made on `shop.review_count`, which on this path can
-        come from a cached record. If the record understates the shop badly
-        enough, the walk hits its page cap and returns only the newest
-        REVIEW_WALK_MAX-ish reviews - which on a large shop span days, leaving
-        every month looking like it predates the first review and the chart
-        empty. So a capped walk is treated as proof the record was stale:
-        refetch it and count instead, which is size-independent."""
+        come from a cached record. If the record understates the shop, the
+        walk would return only its newest reviews - days, on a large shop -
+        leaving every month looking like it predates the first review and the
+        chart empty. The walk detects that on its first page and gives up, so
+        the record is refetched (the entry's ratio needs its counters anyway)
+        and the size-independent counting mode takes over. Worst case 15
+        requests, against 13 when the record was right."""
         if shop.review_count <= REVIEW_WALK_MAX:
             counts, first_review, capped = self._sales_by_walking(shop, months)
             if not capped:
@@ -488,19 +498,26 @@ class EtsyApiShopSource(ShopSource):
         answers the "when was the first review" question for free - the walk
         ends on the oldest one.
 
-        Returns (counts, oldest review timestamp or None, hit the page cap).
-        The last one matters: reaching the cap means the shop has more reviews
-        than the record that sent us here claimed, so neither the counts nor
-        the "oldest" are the whole story and the caller must not trust them."""
+        Returns (counts, oldest review timestamp or None, gave up). The last
+        one means the shop turned out to have more reviews than the record
+        that sent us here claimed, so neither the counts nor the "oldest" are
+        the whole story and the caller must not trust them.
+
+        The unfiltered response carries the shop's real review total in
+        `count`, so that verdict is reached on the first page rather than
+        after fourteen wasted ones."""
         counts: dict[str, int] = {key: 0 for _, _, key in months}
         oldest: int | None = None
         offset = 0
         capped = True
-        # One page more than REVIEW_WALK_MAX needs: review_count comes from a
-        # shop record that can lag the shop's real total.
+        # One page more than REVIEW_WALK_MAX needs, as a backstop for a
+        # response with no usable `count`.
         for _ in range(REVIEW_WALK_MAX // REVIEWS_PAGE_LIMIT + 1):
-            rows = self._reviews(shop.shop_id, limit=REVIEWS_PAGE_LIMIT,
-                                 offset=offset).get("results") or []
+            data = self._reviews(shop.shop_id, limit=REVIEWS_PAGE_LIMIT,
+                                 offset=offset)
+            if (data.get("count") or 0) > REVIEW_WALK_MAX:
+                return counts, None, True
+            rows = data.get("results") or []
             for row in rows:
                 created = row.get("created_timestamp")
                 if not created:

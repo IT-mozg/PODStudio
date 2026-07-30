@@ -416,7 +416,7 @@ def sales_history_payload(history: SalesHistory) -> dict:
     """A shop's estimated monthly sales -> the JSON shape shopMapper.ts reads.
 
     Its own payload rather than fields on shops_payload above: a search
-    returns up to 100 shops and this costs up to 14 Etsy requests per shop
+    returns up to 100 shops and this costs up to 15 Etsy requests per shop
     the first time it is asked for on a given day,
     so it is served only by the detail page's own route.
 
