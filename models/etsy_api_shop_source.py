@@ -188,12 +188,13 @@ class EtsyApiShopSource(ShopSource):
         # same reasoning as EtsyApiListingSource._lock: two concurrent
         # lookups of the same shop should cost one request, not two.
         self._lock = threading.RLock()
-        # sales_history() is the one operation here that costs up to 14
+        # sales_history() is the one operation here that costs up to 13
         # requests (~4 s), and holding _lock for that long would stall every
         # search and every tracked-list hydration behind it. Hence a second
-        # lock, and the two are never held at the same time: sales_history()
-        # finishes its _refresh_shop() call, and with it _lock, before taking
-        # this one. No ordering to get wrong, no deadlock to have.
+        # lock, held for the whole estimate while _lock is taken and released
+        # inside it for the shop record. Ordering is always history -> main
+        # and never the reverse: no other method touches _history_lock, so
+        # the pair cannot cycle.
         #
         # Two costs this deliberately accepts, both bounded and neither a
         # correctness problem:
@@ -201,13 +202,12 @@ class EtsyApiShopSource(ShopSource):
         #     other. The alternative, a lock per shop id, is its own unbounded
         #     map to evict.
         #   - the "concurrent lookups of one shop cost one request" property
-        #     above does NOT extend here. _refresh_shop() bypasses the cache
-        #     by design, so N simultaneous callers asking for the same shop's
-        #     history spend N shop requests plus N re-reads of the open month,
-        #     serialised rather than parallel. Measured at 8 requests for 4
-        #     callers. Left alone because the only caller is a detail page
-        #     that issues exactly one, and coalescing would mean a staleness
-        #     window - the very thing this method exists to avoid.
+        #     above does not extend to a *warm* estimate, where _refresh_shop()
+        #     bypasses the cache on purpose: N simultaneous callers spend N
+        #     shop requests, serialised rather than parallel. Left alone
+        #     because the only caller is a detail page that issues exactly
+        #     one, and coalescing would mean a staleness window - the very
+        #     thing this method exists to avoid.
         self._history_lock = threading.RLock()
 
     # ---------------- ShopSource ----------------
@@ -319,14 +319,25 @@ class EtsyApiShopSource(ShopSource):
 
         None means "no estimate", never "zero sales": either there is no such
         shop, or it has no reviews, which leaves ratio undefined."""
-        shop = self._refresh_shop(shop_id)
-        if not shop or shop.review_count <= 0:
+        shop_id = str(shop_id or "").strip()
+        if not shop_id:
             return None
         with self._history_lock:
+            cached = self._history_cache.get(shop_id)
+            # Only a warm entry needs a guaranteed-fresh review_count, since
+            # that is the whole staleness check. With nothing cached there is
+            # nothing to compare against - the counts are about to be measured
+            # from scratch - so any record will do, including the one the
+            # detail page's own /shops/<id> call just put in the cache.
+            # Forcing a refetch there billed the same shop record twice for
+            # one page open.
+            shop = (self.get_by_id(shop_id) if cached is None
+                    else self._refresh_shop(shop_id))
+            if not shop or shop.review_count <= 0:
+                return None
             months = _recent_months(HISTORY_MONTHS)
-            entry = self._refresh_history(
-                shop, months, self._history_cache.get(shop.shop_id))
-            self._history_cache[shop.shop_id] = entry
+            entry = self._refresh_history(shop, months, cached)
+            self._history_cache[shop_id] = entry
             # Recomputed on every call rather than stored: both of its inputs
             # move whenever the shop sells or is reviewed, so a cached ratio
             # would quietly freeze every bar, not just the current month's.

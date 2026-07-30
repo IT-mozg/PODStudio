@@ -203,6 +203,30 @@ def test_a_huge_shop_never_walks_its_reviews():
     assert all(q["limit"] == "1" for q in asked), "a row page slipped in"
 
 
+def test_a_cold_estimate_reuses_the_shop_record_the_page_just_fetched():
+    """Opening a shop calls /shops/<id> and then /shops/<id>/sales-history.
+    Evicting the record in between billed the same shop twice for one page
+    open; with nothing cached there is no review_count to compare against, so
+    the fresh-by-definition record is fine."""
+    source, client = build_history_source([s + 60 for s in _month_starts()])
+    source.get_by_id("5")            # what the detail page does first
+    before = len(client.requests)
+    source.sales_history("5")
+    shop_requests = [u for u in client.requests[before:] if "/reviews?" not in u]
+    assert shop_requests == [], "re-fetched a record it already had"
+
+
+def test_a_warm_estimate_does_refetch_the_shop_record():
+    """The mirror image: once counts exist, review_count is the staleness
+    check, and a cached record would pin it to whatever it was first time."""
+    source, client = build_history_source([s + 60 for s in _month_starts()])
+    source.sales_history("5")
+    before = len(client.requests)
+    source.sales_history("5")
+    shop_requests = [u for u in client.requests[before:] if "/reviews?" not in u]
+    assert len(shop_requests) == 1, "trusted a cached review_count"
+
+
 def test_a_revisit_costs_nothing_while_the_review_count_is_unchanged():
     """The shop record is re-read on every call anyway, so its review_count is
     a free staleness check: equal means no review has been written, which
