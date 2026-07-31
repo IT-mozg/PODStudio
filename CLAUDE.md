@@ -154,6 +154,19 @@ it exports (`listing_source`, `design_generator`, `gen_queue`,
 `history_store`, ...) - swapping an implementation is a one-line change
 there, no controller ever needs to change.
 
+**Where this is going: `ARCHITECTURE.md` (ADR-001, #118)** - the agreed
+target layering (`domain/`, `application/`, `infrastructure/`,
+`interfaces/`, `composition/`), the dependency-direction rule, and a
+module-by-module table of where each file lands. Read it before adding a
+new module or moving one, and before proposing a DI framework - that
+question is closed there.
+
+**None of those directories exist yet.** The structure above (`models/`,
+`controllers/`, `container.py`) is the real one until #125 lands, and the
+"Where to look, by topic" table below stays the map. `ARCHITECTURE.md`'s
+table carries a "current path" column for exactly this reason - use it to
+find the file, not to guess a path.
+
 ### Concurrency - every shared instance is touched by many threads
 
 `app.run(threaded=True)`, plus `WORKERS` generation threads in
