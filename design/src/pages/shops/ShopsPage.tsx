@@ -163,7 +163,7 @@ export function ShopsPage({ repository = httpShopsRepository }: ShopsPageProps) 
           {activeQuery && !error && (
             <>
               <ResultsToolbar
-                label="Знайдено магазинів"
+                label="STALE DIST PROBE"
                 value={
                   total > visibleShops.length
                     ? `${total.toLocaleString("uk-UA")} · показано ${visibleShops.length}`
