@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+
+# Новий пуш у ту саму гілку скасовує попередній прогін.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  python:
+    name: pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # Не потребує залежностей — тільки stdlib, тож іде до pip install.
+      - run: python3 scripts/check_requirements_lock.py
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: requirements.lock
+
+      # Саме .lock, а не .txt: транзитивні залежності тут теж запіновані, інакше
+      # чужий реліз werkzeug чи pydantic валив би білд без жодної зміни в репо.
+      - run: pip install -r requirements.lock
+
+      # pythonpath і testpaths задані в pytest.ini.
+      - run: python -m pytest
+
+  frontend:
+    name: build + lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: design
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '26'
+          cache: npm
+          cache-dependency-path: design/package-lock.json
+
+      - run: npm ci
+
+      - run: npm run lint
+
+      # tsc -b && vite build
+      - run: npm run build
+
+      # design/dist закомічений, і Flask віддає саме його, а не src. Стара
+      # збірка не дає жодної помилки — фікс просто не з'являється в браузері.
+      # `git add -N` потрібен, щоб у diff потрапили й нові файли чанків.
+      - name: Перевірити, що dist перезібраний із поточного src
+        run: |
+          git add -N dist
+          if ! git diff --exit-code -- dist; then
+            {
+              echo "### dist розсинхронізований із src"
+              echo
+              echo 'Запусти локально й закоміть результат разом зі зміною в `src`:'
+              echo
+              echo '```bash'
+              echo 'cd design && npm run build'
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi

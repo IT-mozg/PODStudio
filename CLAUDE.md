@@ -16,6 +16,7 @@ Flask serves the built `design/dist` at `/`, and the old hand-written UI at
 | Frontend: types + lint | `cd design && npx tsc -b && npm run lint` |
 | Rebuild dist (REQUIRED after any `design/src` change) | `cd design && npm run build`, then commit `dist` |
 | Port already taken | `lsof -ti tcp:8765 -sTCP:LISTEN \| xargs -r kill` |
+| What CI runs on a PR | `.github/workflows/ci.yml` - pytest, plus lint/build and a **stale-`dist` check** for `design/` |
 
 ### What does not exist here - don't go looking for it
 
@@ -31,7 +32,9 @@ Flask serves the built `design/dist` at `/`, and the old hand-written UI at
 - **No authentication, roles or sessions.** The app is single-user and bound
   to `127.0.0.1` (`app.py`). Every `/api/*` route is unauthenticated,
   including the ones that write API keys and spend money.
-- **No Docker, no CI, no migrations, no database.** All state is JSON files.
+- **No Docker, no migrations, no database.** All state is JSON files.
+  There *is* CI now (`.github/workflows/ci.yml`), but it only runs what you
+  can run locally - it adds no coverage of its own.
 - **`strict` is off** in `design/tsconfig.app.json`. The mappers *read* as
   null-safe and the `Listing`/`Shop` types spell out `| null`, but the
   compiler is not enforcing any of it. Null discipline there is convention
@@ -79,9 +82,14 @@ Two separate things live side by side - don't confuse them:
 ### Production app (Flask, root)
 
 ```bash
-pip3 install flask openai beautifulsoup4 pillow numpy scipy
+pip3 install -r requirements.txt
 python3 app.py
 ```
+Versions are pinned. If you change `requirements.txt`, **regenerate
+`requirements.lock`** with the commands in its own header - CI installs from
+the lock, and `scripts/check_requirements_lock.py` fails the build if the two
+drift apart. Never hand-edit the lock.
+
 Opens `http://127.0.0.1:8765`. Requires an OpenAI API key and Etsy API
 Keystring/Shared Secret entered via the in-app Settings modal (or
 `OPENAI_API_KEY` / `ETSY_API_KEY` / `ETSY_SHARED_SECRET` env vars - see
