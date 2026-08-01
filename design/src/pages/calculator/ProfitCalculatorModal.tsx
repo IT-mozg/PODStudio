@@ -1,10 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Modal } from "../../shared/components/Modal";
 import { Toggle } from "../../shared/components/Toggle";
 import { AnimatedNumber } from "../../shared/components/AnimatedNumber";
 import { Collapse } from "../../shared/components/Collapse";
 import { ChevronDownIcon, LightningIcon } from "../../shared/icons";
-import { calculateProfit, defaultProfitInputs, ETSY_FEES, type ProfitInputs } from "./profitCalculator";
+import { calculateProfit, ETSY_FEES, type ProfitInputs } from "./profitCalculator";
+import { readSessionInputs, writeSessionInputs } from "./calculatorSession";
 import styles from "./ProfitCalculatorModal.module.css";
 
 interface ProfitCalculatorModalProps {
@@ -46,20 +47,62 @@ interface MoneyFieldProps {
   onChange: (value: number) => void;
   prefix?: string;
   suffix?: string;
-  step?: number;
+  /** Ціле число — роздільник дробової частини не приймається взагалі. */
+  integer?: boolean;
 }
 
-function NumberField({ label, value, onChange, prefix, suffix, step = 0.01 }: MoneyFieldProps) {
+/** Лишає тільки цифри й щонайбільше один роздільник — кому або крапку, як
+ *  ввів користувач. Обидва однаково валідні: розкладка "," на цифровій
+ *  клавіатурі й "." на основній не мають давати різний результат. */
+function sanitizeNumeric(raw: string, integer: boolean): string {
+  let out = "";
+  let separatorUsed = false;
+  for (const ch of raw) {
+    if (ch >= "0" && ch <= "9") {
+      out += ch;
+    } else if (!integer && !separatorUsed && (ch === "," || ch === ".")) {
+      out += ch;
+      separatorUsed = true;
+    }
+  }
+  return out;
+}
+
+/** "04,75" → "4,75", "007" → "7". "0" і "0,5" лишаються як є — нуль там
+ *  значущий. */
+function stripLeadingZeros(text: string): string {
+  const leading = /^0+(?=\d)/.exec(text);
+  return leading ? text.slice(leading[0].length) : text;
+}
+
+function parseNumeric(text: string): number {
+  const parsed = Number(text.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+/** Тримає власний текст, а не число з пропсів: контрольований `type="number"`
+ *  віддає порожній `value` на кожен символ, який браузер вважає невалідним
+ *  (зокрема кому), через що введене стиралося повністю. */
+function NumberField({ label, value, onChange, prefix, suffix, integer = false }: MoneyFieldProps) {
+  const [text, setText] = useState(() => String(value));
+
+  function handleChange(raw: string) {
+    // Порожнє поле показує 0, і цей 0 зникає, щойно набрано першу цифру.
+    const next = stripLeadingZeros(sanitizeNumeric(raw, integer)) || "0";
+    setText(next);
+    onChange(parseNumeric(next));
+  }
+
   return (
     <label className={styles.field}>
       <span className={styles.fieldLabel}>{label}</span>
       <div className={styles.inputWrap}>
         {prefix && <span>{prefix}</span>}
         <input
-          type="number"
-          step={step}
-          value={value}
-          onChange={(e) => onChange(Number(e.target.value))}
+          type="text"
+          inputMode={integer ? "numeric" : "decimal"}
+          value={text}
+          onChange={(e) => handleChange(e.target.value)}
         />
         {suffix && <span>{suffix}</span>}
       </div>
@@ -77,8 +120,13 @@ const BAR_COLORS = {
 /** Прибуток рахується наживо з кожним натисканням клавіші — жодної кнопки
  *  «розрахувати». */
 export function ProfitCalculatorModal({ isOpen, onClose }: ProfitCalculatorModalProps) {
-  const [inputs, setInputs] = useState<ProfitInputs>(defaultProfitInputs);
+  const [inputs, setInputs] = useState<ProfitInputs>(readSessionInputs);
   const [detailsOpen, setDetailsOpen] = useState(true);
+
+  // Пережити закриття модалки (яка розмонтовує цей стан), але не reload вкладки.
+  useEffect(() => {
+    writeSessionInputs(inputs);
+  }, [inputs]);
 
   const result = useMemo(() => calculateProfit(inputs), [inputs]);
 
@@ -100,8 +148,8 @@ export function ProfitCalculatorModal({ isOpen, onClose }: ProfitCalculatorModal
             <NumberField label="Доставка (платить покупець)" value={inputs.shippingPrice} onChange={(v) => set("shippingPrice", v)} prefix="$" />
             <NumberField label="Собівартість виробництва" value={inputs.productionCost} onChange={(v) => set("productionCost", v)} prefix="$" />
             <NumberField label="Ваші витрати на доставку" value={inputs.shippingCost} onChange={(v) => set("shippingCost", v)} prefix="$" />
-            <NumberField label="Знижка на розпродажі" value={inputs.saleDiscountPct} onChange={(v) => set("saleDiscountPct", v)} suffix="%" step={1} />
-            <NumberField label="Кількість продажів" value={inputs.numberOfSales} onChange={(v) => set("numberOfSales", Math.round(v))} step={1} />
+            <NumberField label="Знижка на розпродажі" value={inputs.saleDiscountPct} onChange={(v) => set("saleDiscountPct", v)} suffix="%" />
+            <NumberField label="Кількість продажів" value={inputs.numberOfSales} onChange={(v) => set("numberOfSales", v)} integer />
           </div>
 
           <div className={styles.toggleRow}>
@@ -122,7 +170,7 @@ export function ProfitCalculatorModal({ isOpen, onClose }: ProfitCalculatorModal
 
           <Collapse isOpen={inputs.paidAdsEnabled}>
             <div className={styles.subField}>
-              <NumberField label="Конверсія" value={inputs.conversionRatePct} onChange={(v) => set("conversionRatePct", v)} suffix="%" step={0.1} />
+              <NumberField label="Конверсія" value={inputs.conversionRatePct} onChange={(v) => set("conversionRatePct", v)} suffix="%" />
             </div>
           </Collapse>
         </div>
@@ -266,7 +314,7 @@ export function ProfitCalculatorModal({ isOpen, onClose }: ProfitCalculatorModal
           </Collapse>
 
           <p className={styles.footNote}>
-            Комісії розраховано за стандартними ставками Etsy US (лістинг {FEE_LABELS.listing},
+            Комісії розраховано за стандартними ставками Etsy (лістинг {FEE_LABELS.listing},
             транзакція {FEE_LABELS.transaction}, обробка {FEE_LABELS.processing}). Орієнтовно, не є
             податковою консультацією.
           </p>

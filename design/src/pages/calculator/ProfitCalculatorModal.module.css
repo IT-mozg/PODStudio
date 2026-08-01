@@ -74,16 +74,6 @@
   color: var(--text-0);
 }
 
-.inputWrap input::-webkit-outer-spin-button,
-.inputWrap input::-webkit-inner-spin-button {
-  -webkit-appearance: none;
-  margin: 0;
-}
-
-.inputWrap input[type="number"] {
-  -moz-appearance: textfield;
-}
-
 .toggleRow {
   display: flex;
   align-items: center;

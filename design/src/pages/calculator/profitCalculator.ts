@@ -1,5 +1,6 @@
 /* Pure calculation, no React, so the math can be reasoned about and tested
-   independent of any UI. Rates are Etsy's published US fee structure. */
+   independent of any UI. Rates are Etsy's published fee structure, with
+   payment processing set for Ukraine rather than the US. */
 
 export interface ProfitInputs {
   sellingPrice: number;
@@ -43,8 +44,9 @@ export const ETSY_FEES = {
   listing: 0.2,
   /** Of the order total, item + shipping. */
   transactionRate: 0.065,
-  processingRate: 0.03,
-  processingFlat: 0.25,
+  /** Українські продавці платять за обробку більше, ніж ставка US (3% + $0.25). */
+  processingRate: 0.06,
+  processingFlat: 0.3,
   /** Only when a sale is attributed to an offsite ad. */
   offsiteAdsRate: 0.15,
 } as const;
@@ -98,13 +100,13 @@ export function calculateProfit(inputs: ProfitInputs): ProfitResult {
 }
 
 export const defaultProfitInputs: ProfitInputs = {
-  sellingPrice: 30,
-  shippingPrice: 6,
-  productionCost: 11.05,
-  shippingCost: 4.75,
-  saleDiscountPct: 40,
+  sellingPrice: 0,
+  shippingPrice: 0,
+  productionCost: 0,
+  shippingCost: 0,
+  saleDiscountPct: 0,
   numberOfSales: 1,
   offsiteAdsEnabled: false,
   paidAdsEnabled: true,
-  conversionRatePct: 3,
+  conversionRatePct: 0,
 };
